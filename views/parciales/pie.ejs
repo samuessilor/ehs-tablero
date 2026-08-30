@@ -1,0 +1,32 @@
+<footer class="pie">
+  <div class="pie-in">
+    <div>
+      <span class="et">Fuente</span>
+      <b><%= fuente %></b>
+    </div>
+    <div>
+      <span class="et">Meta vigente</span>
+      <b><%= metaVigente %></b>
+    </div>
+    <div>
+      <span class="et">Corte</span>
+      <b><%= corte.nombre %> <%= anio %></b>
+    </div>
+    <div>
+      <span class="et">Actualizado</span>
+      <b><%= actualizadoEn || '—' %></b>
+    </div>
+  </div>
+  <p class="pie-nota">
+    Todo el análisis de esta página lo produce el código a partir del dato servido por
+    <code>/api/ehs/*</code>. Ninguna conclusión ni ninguna cifra está escrita a mano.
+  </p>
+</footer>
+
+<script src="/vendor/echarts.min.js"></script>
+<script src="/js/formato.js"></script>
+<script src="/js/graficos.js"></script>
+<script src="/js/franja_correccion.js"></script>
+<script src="/js/tablero.js"></script>
+</body>
+</html>

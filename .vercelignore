@@ -1,0 +1,5 @@
+# El dato publicado SI viaja (la funcion lo lee); node_modules no.
+# Este archivo existe para que .gitignore no decida que se despliega:
+# datos\*.json esta ignorado por git a proposito y aun asi tiene que subir.
+node_modules
+.git

@@ -1,0 +1,152 @@
+<%- include('parciales/cabecera.ejs') %>
+
+<main class="body" id="cuerpo">
+
+  <!-- ================================ 01 · PANORAMA ======================== -->
+  <section class="vista" id="v-panorama" role="tabpanel" aria-labelledby="tab-panorama">
+    <div id="correcciones" class="c12"></div>
+
+    <div class="tarjetas" id="tarjetas"></div>
+
+    <section class="panel c7">
+      <header><span class="ix">01</span><h2 id="hFoco">KPI en foco</h2><span class="sub" id="subFoco"></span></header>
+      <div class="grafico alto" id="gFoco"></div>
+      <div class="cuerpo" id="notaFoco"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">02</span><h2>Cada sitio contra su propia meta</h2><span class="sub" id="subSitios"></span></header>
+      <div class="grafico alto" id="gSitios"></div>
+      <div class="cuerpo" id="notaSitios"></div>
+    </section>
+
+    <section class="panel c7">
+      <header><span class="ix">03</span><h2>Matriz de control · KPI × mes</h2><span class="sub" id="subMatriz"></span></header>
+      <div class="grafico alto" id="gMatriz"></div>
+      <div class="cuerpo" id="notaMatriz"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">04</span><h2>Trayectoria en el scorecard</h2><span class="sub" id="subTray"></span></header>
+      <div class="grafico alto" id="gTray"></div>
+      <div class="cuerpo" id="notaTray"></div>
+    </section>
+
+    <section class="panel c12">
+      <header><span class="ix">05</span><h2>Matriz ámbito × KPI · acumulado al corte</h2><span class="sub" id="subMatrizSitios"></span></header>
+      <div class="cuerpo tablabox" id="tMatrizSitios"></div>
+      <div class="cuerpo" id="notaMatrizSitios"></div>
+    </section>
+  </section>
+
+  <!-- ================================ 02 · AGUA ============================ -->
+  <section class="vista" id="v-agua" role="tabpanel" aria-labelledby="tab-agua" hidden>
+    <section class="panel c7">
+      <header><span class="ix">01</span><h2>Producción contra consumo por lente</h2><span class="sub" id="subAguaCombo"></span></header>
+      <div class="grafico alto" id="gAguaCombo"></div>
+      <div class="cuerpo" id="notaAguaCombo"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">02</span><h2>Variación contra el mes anterior</h2><span class="sub" id="subAguaVar"></span></header>
+      <div class="cuerpo" id="cajasAguaVar"></div>
+      <div class="cuerpo" id="notaAguaVar"></div>
+    </section>
+
+    <section class="panel c7">
+      <header><span class="ix">03</span><h2>Mes a mes: consumo, lentes y ratio</h2><span class="sub" id="subAguaTabla"></span></header>
+      <div class="cuerpo tablabox" id="tAgua"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">04</span><h2>Detalle diario del mes</h2><span class="sub" id="subAguaDiario"></span></header>
+      <div class="cuerpo" id="cajaAguaDiario"></div>
+    </section>
+  </section>
+
+  <!-- ================================ 03 · AMBIENTAL ======================= -->
+  <section class="vista" id="v-ambiental" role="tabpanel" aria-labelledby="tab-ambiental" hidden>
+    <section class="panel c7">
+      <header><span class="ix">01</span><h2>Residuos en el tiempo</h2><span class="sub" id="subResiduos"></span></header>
+      <div class="grafico alto" id="gResiduos"></div>
+      <div class="cuerpo" id="notaResiduos"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">02</span><h2>Residuos por sitio, contra su meta</h2><span class="sub" id="subResSitios"></span></header>
+      <div class="grafico alto" id="gResSitios"></div>
+      <div class="cuerpo" id="notaResSitios"></div>
+    </section>
+
+    <section class="panel c7">
+      <header><span class="ix">03</span><h2>De qué está hecho el residuo</h2><span class="sub" id="subComp"></span></header>
+      <div class="grafico alto" id="gComp"></div>
+      <div class="cuerpo" id="notaComp"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">04</span><h2>Participación de cada tipo</h2><span class="sub" id="subAcumComp"></span></header>
+      <div class="cuerpo" id="cajaAcumComp"></div>
+    </section>
+
+    <section class="panel c12">
+      <header><span class="ix">05</span><h2>Energía en el tiempo</h2><span class="sub" id="subEnergia"></span></header>
+      <div class="grafico" id="gEnergia"></div>
+      <div class="cuerpo" id="notaEnergia"></div>
+    </section>
+  </section>
+
+  <!-- ================================ 04 · SEGURIDAD ======================= -->
+  <section class="vista" id="v-seguridad" role="tabpanel" aria-labelledby="tab-seguridad" hidden>
+    <div id="correccionesSeg" class="c12"></div>
+    <div class="tarjetas dos" id="tarjetasSeg"></div>
+
+    <section class="panel c7">
+      <header><span class="ix">01</span><h2>Frequency rate en el tiempo</h2><span class="sub" id="subFR"></span></header>
+      <div class="grafico alto" id="gFR"></div>
+      <div class="cuerpo" id="notaFR"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">02</span><h2>Cada sitio contra su propia meta</h2><span class="sub" id="subSegTabla"></span></header>
+      <div class="cuerpo tablabox" id="tSeguridad"></div>
+      <div class="cuerpo" id="notaSegSitios"></div>
+    </section>
+
+    <section class="panel c7">
+      <header><span class="ix">03</span><h2>Accidentes con días perdidos</h2><span class="sub" id="subAcc"></span></header>
+      <div class="grafico alto" id="gAcc"></div>
+      <div class="cuerpo" id="notaAcc"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">04</span><h2>Trayectoria en el scorecard</h2><span class="sub" id="subTraySeg"></span></header>
+      <div class="grafico alto" id="gTraySeg"></div>
+      <div class="cuerpo" id="notaTraySeg"></div>
+    </section>
+  </section>
+
+  <!-- ================================ 05 · CALIDAD ========================= -->
+  <section class="vista" id="v-calidad" role="tabpanel" aria-labelledby="tab-calidad" hidden>
+    <div class="tarjetas cuatro" id="tarjetasCal"></div>
+
+    <section class="panel c7">
+      <header><span class="ix">01</span><h2>Lecturas cargadas por mes</h2><span class="sub" id="subCalMes"></span></header>
+      <div class="cuerpo tablabox" id="tCalidad"></div>
+      <div class="cuerpo" id="notaCalidad"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">02</span><h2>De dónde sale el dato</h2><span class="sub">trazabilidad</span></header>
+      <div class="cuerpo" id="cajaOrigen"></div>
+    </section>
+
+    <section class="panel c12">
+      <header><span class="ix">03</span><h2>Hallazgos del libro heredado</h2><span class="sub" id="subHallazgos"></span></header>
+      <div class="cuerpo" id="cajaHallazgos"></div>
+    </section>
+  </section>
+
+</main>
+
+<%- include('parciales/pie.ejs') %>

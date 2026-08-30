@@ -1,0 +1,23 @@
+{
+  "name": "ehs-tablero",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Tablero de indicadores EHS - Servioptica Colombia. Stack del estandar de integracion: Node + EJS + CSS + JS + ECharts. Interinato en Vercel; destino: modulo Dashboards de SAMII.",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "dev": "node servidor.js",
+    "lint": "eslint src api servidor.js public/js",
+    "format": "prettier --write \"src/**/*.js\" \"api/**/*.js\" \"public/js/**/*.js\" \"public/css/**/*.css\" servidor.js eslint.config.js",
+    "format:check": "prettier --check \"src/**/*.js\" \"api/**/*.js\" \"public/js/**/*.js\" \"public/css/**/*.css\" servidor.js eslint.config.js"
+  },
+  "dependencies": {
+    "ejs": "^3.1.10"
+  },
+  "devDependencies": {
+    "echarts": "^5.5.1",
+    "eslint": "^9.9.0",
+    "prettier": "^3.3.3"
+  }
+}

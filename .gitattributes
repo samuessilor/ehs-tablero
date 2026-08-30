@@ -1,0 +1,7 @@
+# Finales de linea deterministas: el repositorio lo van a clonar en Windows y en el
+# servidor, y sin esto cada clon produce un diff completo que no cambia nada.
+* text=auto eol=lf
+
+# Binarios: no se tocan
+*.pdf binary
+*.png binary

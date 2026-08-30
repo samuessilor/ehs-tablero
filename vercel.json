@@ -1,0 +1,25 @@
+{
+  "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/((?!css/|js/|vendor/|favicon).*)",
+      "destination": "/api/servidor"
+    }
+  ],
+  "functions": {
+    "api/servidor.js": {
+      "includeFiles": "{views,datos}/**"
+    }
+  },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow"
+        }
+      ]
+    }
+  ]
+}
