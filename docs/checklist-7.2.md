@@ -31,7 +31,7 @@ Evaluado: 30 de agosto de 2026, contra `ehs\ESTANDARINTEGRACION.md`.
   **Incumple:** 1 (9, transitorio aceptado con fecha de retiro).
 - Los dos incumplimientos que este trabajo se propuso atacar quedan cerrados: **#5** con el
   stack completo del estandar y **#1** a medias por construccion, no por descuido — el
-  cliente dejo de calcular y el algebra quedo detras de un adaptador con siete firmas; la
+  cliente dejo de calcular y el algebra quedo detras de un adaptador con nueve firmas; la
   ultima mitad la cierra el `adaptador_sql` cuando exista el esquema, sin tocar la vista.
 - **#9 sigue rojo a proposito.** Es la unica regla que este interinato no puede cumplir, y
   se declara en el propio tablero, en este checklist y en el documento de migracion.

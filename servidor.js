@@ -2,7 +2,7 @@
  * Servidor LOCAL de desarrollo: node servidor.js
  *
  * node:http nativo — Express no esta en la tabla del estandar y R.3.4 prohibe
- * introducir dependencias sin acuerdo con IT. Para una pagina y siete GET, un
+ * introducir dependencias sin acuerdo con IT. Para una pagina y nueve GET, un
  * enrutador propio de sesenta lineas basta. En Vercel el punto de entrada es
  * api/servidor.js; ambos delegan en src/aplicacion.js.
  */

@@ -15,9 +15,9 @@ julio al 26 de agosto.
 
 | Pieza que existe hoy | Destino | Acción |
 |---|---|---|
-| `app\sql\01-esquema.sql` — 11 tablas del esquema `ehs` | DWH / SAMII | **Se lleva tal cual**, salvo dimensiones que IT ya tenga (§4.1) |
-| `app\sql\02-vistas.sql` — 8 vistas analíticas | DWH / SAMII | **Se lleva tal cual.** Es la única implementación definitiva del cálculo |
-| `app\sql\03-carga-inicial.sql` — el histórico 2026 | DWH / SAMII | **Se lleva**, previa conciliación con el DBA |
+| `app\sql\01-esquema.sql` — 12 tablas del esquema `ehs` | DWH / SAMII | **Se lleva tal cual**, salvo dimensiones que IT ya tenga (§4.1) |
+| `app\sql\02-vistas.sql` — 9 vistas analíticas | DWH / SAMII | **Se lleva tal cual.** Es la única implementación definitiva del cálculo |
+| `app\sql\03-carga-inicial.sql` — el histórico 2026 | DWH / SAMII | **Se lleva**, previa conciliación con el DBA. No se versiona: son cifras, y se genera |
 | `app\src\rutas_api.js` — los 9 GET del contrato | Módulo Dashboards de SAMII | **Se lleva tal cual.** No calcula: valida y sirve |
 | `app\src\datos\adaptador_sql.js` | Módulo Dashboards | **Se completa.** El esqueleto y las 9 firmas ya están |
 | `app\src\datos\adaptador_json.js` | — | **Se retira** cuando el SQL responda. Es el interinato |
@@ -89,26 +89,34 @@ dimensión fecha y una dimensión centro corporativas. **Si existen, se usan esa
 propias se retiran: crear una segunda dimensión fecha es exactamente el tipo de duplicado
 que el estándar quiere evitar. Es una decisión del DBA, no del área.
 
-### 4.2 La puerta de ingesta
+### 4.2 La tabla de rechazos ya está, la validación que la llena no
+
+`ehs.lectura_rechazada` y `ehs.v_rechazo_pendiente` existen: lo que no pase validación se
+aparta con su motivo y con la fila cruda tal como llegó, en vez de perderse en una línea
+de consola. Lo que falta es **quién valida**, y eso depende de la puerta de ingesta: si el
+dato entra por formulario de SAMII, la validación es del formulario; si entra por un JOB
+desde SharePoint, es del JOB. La tabla está lista para las dos.
+
+### 4.3 La puerta de ingesta
 
 Hoy el dato entra por lectura local de un `.xlsx`, que no es ninguna de las tres puertas
 del estándar. Falta decidir cuál será: Lista de SharePoint leída por un JOB, o captura
 directa por el módulo de Formularios de SAMII. Es el punto 6 del checklist y no se decide
 por defecto.
 
-### 4.3 El histórico anterior a 2026
+### 4.4 El histórico anterior a 2026
 
 `hecho_lectura_mensual_hist` está creada y vacía. El scorecard corporativo trae 2023-2025
 y no está cargado. Requiere el contrato de exportación con el dueño del dato.
 
-### 4.4 El desglose de residuos ya no necesita nada
+### 4.5 El desglose de residuos ya no necesita nada
 
 `residuosComposicion` no consulta una tabla nueva: las tres magnitudes de residuo ya son
 filas de `ehs.hecho_lectura_mensual`. Agrupar por magnitud es una consulta, no un modelo.
 Es un ejemplo de por qué la tabla de hechos guarda magnitudes crudas y no ratios: el día
 que alguien pregunta «¿de qué está hecho?», la respuesta ya está en la base.
 
-### 4.5 Las lecturas diarias de agua
+### 4.6 Las lecturas diarias de agua
 
 El área lleva el registro y la vista ya está construida para leerlo: `ehs.v_agua_diaria`,
 `ehs.v_estado_agua_diaria`, el endpoint `/api/ehs/agua-diaria` y el panel que hoy se rotula

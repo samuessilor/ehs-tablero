@@ -50,10 +50,10 @@ Detalle del ciclo completo: `docs\proceso-actualizacion.md`.
 | `api\servidor.js` | El mismo tablero como función de Vercel. Cero lógica propia. |
 | `src\aplicacion.js` | El enrutador. Solo GET. |
 | `src
-utas_api.js` | Los siete GET del contrato. Validan y sirven; no calculan. |
+utas_api.js` | Los nueve GET del contrato. Validan y sirven; no calculan. |
 | `src\datos\index.js` | Elige origen según `ORIGEN_DATOS` (`json` por defecto, `sql` cuando exista). |
 | `src\datos\adaptador_json.js` | Rebana la vista materializada del pipeline. |
-| `src\datos\adaptador_sql.js` | Esqueleto del destino: mismas siete firmas contra las vistas `ehs.v_*`. |
+| `src\datos\adaptador_sql.js` | Esqueleto del destino: mismas nueve firmas contra las vistas `ehs.v_*`. |
 | `src\paginas.js` | Renderiza `views\dashboard.ejs`. |
 | `views\` | La plantilla y sus parciales. Marcado, sin cifras. |
 | `public\css\ehs.css` | El sistema visual, extraído tal cual de la propuesta aprobada. |
@@ -63,6 +63,7 @@ utas_api.js` | Los siete GET del contrato. Validan y sirven; no calculan. |
 | `public\js\franja_correccion.js` | La franja de «valor corregido». Con la lista vacía no pinta nada. |
 | `public\vendor\echarts.min.js` | ECharts 5.6.0, servido desde el propio dominio. |
 | `datos\` | El dato publicado. No se versiona. |
+| `sql\` | El esquema y las vistas. Pasar a producción es ejecutar estos scripts. |
 | `docs\` | El estándar, el checklist 7.2, el proceso y el plan de migración. |
 
 ## El contrato
