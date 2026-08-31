@@ -2,7 +2,7 @@
  * Adaptador SQL — el destino. ESQUELETO: se completa cuando IT conceda el esquema.
  *
  * Mismas nueve firmas que adaptador_json.js. Cada funcion consultara las vistas del
- * esquema ehs (sql/02-vistas.sql), que implementan las dos reglas del area una sola
+ * esquema ehs (app/sql/02-vistas.sql), que implementan las dos reglas del area una sola
  * vez y estan verificadas contra el motor en 17 puntos (verificar_sql_contra_motor.py).
  *
  * Correspondencia funcion -> vista:

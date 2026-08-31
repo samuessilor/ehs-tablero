@@ -15,14 +15,14 @@ julio al 26 de agosto.
 
 | Pieza que existe hoy | Destino | Acción |
 |---|---|---|
-| `sql\01-esquema.sql` — 11 tablas del esquema `ehs` | DWH / SAMII | **Se lleva tal cual**, salvo dimensiones que IT ya tenga (§4.1) |
-| `sql\02-vistas.sql` — 8 vistas analíticas | DWH / SAMII | **Se lleva tal cual.** Es la única implementación definitiva del cálculo |
-| `sql\03-carga-inicial.sql` — el histórico 2026 | DWH / SAMII | **Se lleva**, previa conciliación con el DBA |
+| `app\sql\01-esquema.sql` — 11 tablas del esquema `ehs` | DWH / SAMII | **Se lleva tal cual**, salvo dimensiones que IT ya tenga (§4.1) |
+| `app\sql\02-vistas.sql` — 8 vistas analíticas | DWH / SAMII | **Se lleva tal cual.** Es la única implementación definitiva del cálculo |
+| `app\sql\03-carga-inicial.sql` — el histórico 2026 | DWH / SAMII | **Se lleva**, previa conciliación con el DBA |
 | `app\src\rutas_api.js` — los 9 GET del contrato | Módulo Dashboards de SAMII | **Se lleva tal cual.** No calcula: valida y sirve |
 | `app\src\datos\adaptador_sql.js` | Módulo Dashboards | **Se completa.** El esqueleto y las 9 firmas ya están |
 | `app\src\datos\adaptador_json.js` | — | **Se retira** cuando el SQL responda. Es el interinato |
 | `app\views\`, `app\public\` — plantilla, CSS y ECharts | Módulo Dashboards | **Se adapta** al armazón de SAMII (§3) |
-| `scripts\*.py` — el pipeline desde Excel | JOB del DWH | **Se sustituye** por el JOB, salvo `verificar_sql_contra_motor.py`, que se queda de oráculo |
+| `analisis\*.py` — el pipeline desde Excel | JOB del DWH | **Se sustituye** por el JOB, salvo `verificar_sql_contra_motor.py`, que se queda de oráculo |
 | `datos\correcciones.csv` y su guarda | Tabla `ehs.correccion` | **Se adapta**: el mecanismo se conserva, el archivo se vuelve tabla |
 | `app\datos\bitacora.jsonl` | `ehs.carga_log` | **Se sustituye.** La tabla ya está escrita en el esquema |
 | Despliegue en Vercel | Servidor corporativo | **Se retira.** Es el punto 9 del checklist y la única regla que hoy se incumple |
@@ -73,7 +73,7 @@ La correspondencia función a vista ya está escrita en la cabecera de `adaptado
 
 | Qué | Por qué no va tal cual |
 |---|---|
-| Plantilla y CSS | SAMII tendrá su propio armazón, su cabecera y su navegación. Lo que se conserva es el **cuerpo**: las cinco vistas, el orden de lectura y las siete distinciones de `REFERENCIA-TABLERO-VERCEL.md` |
+| Plantilla y CSS | SAMII tendrá su propio armazón, su cabecera y su navegación. Lo que se conserva es el **cuerpo**: las cinco vistas, el orden de lectura y las siete distinciones de `docs/referencia-tablero-vercel.md` |
 | Servidor HTTP | `servidor.js` y `api\servidor.js` son dos envolturas del mismo enrutador. En SAMII se sustituyen por su punto de entrada; `src\aplicacion.js` sobrevive |
 | Gráficas | ECharts 5.6.0 vendorizado. Si SAMII ya estandarizó Chart.js, `public\js\graficos.js` es el **único** archivo a reescribir: es una fábrica, no está mezclado con la lógica |
 | Correcciones | El CSV pasa a tabla `ehs.correccion` con las mismas columnas y la misma guarda. El mecanismo no cambia: se declara qué valor se esperaba y si el origen ya no lo trae, no se aplica |

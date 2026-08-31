@@ -3,3 +3,7 @@ node_modules/
 datos/*.json
 datos/bitacora.jsonl
 !datos/.gitkeep
+
+# La carga inicial son cifras de la empresa, no estructura:
+# se genera con analisis/generar_sql_carga.py y no se versiona (R.5.4.1).
+sql/03-carga-inicial.sql

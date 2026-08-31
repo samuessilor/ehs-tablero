@@ -34,20 +34,20 @@ npx vercel --prod         el mismo proyecto, el mismo enlace
 
 ```powershell
 cd C:\Users\samuel\EssilorLuxottica\ehs\entrega-reunion
-python scripts\construir_datos.py
-python scripts\construir_referencia.py
-python scripts\calcular_kpi.py
-python scripts\estrella.py
-python scripts\web_json.py
-python scripts\agua_detalle.py
-python scripts\publicar_a_app.py
+python analisis\construir_datos.py
+python analisis\construir_referencia.py
+python analisis\calcular_kpi.py
+python analisis\estrella.py
+python analisis\web_json.py
+python analisis\agua_detalle.py
+python analisis\publicar_a_app.py
 cd app
 npx vercel --prod
 ```
 
 ## Dónde se apunta el archivo nuevo
 
-Una línea, en `scripts\construir_datos.py`:
+Una línea, en `analisis\construir_datos.py`:
 
 ```python
 XLSX = os.path.join(RAIZ, "ehs", "KPI´s EHS 2026-julio_versionfinal.xlsx")
@@ -88,8 +88,8 @@ lo mostraba en cero.
 ## Verificar después de actualizar
 
 ```powershell
-python scripts\validar_sin_hallazgos.py        # ninguna cifra escrita a mano
-python scripts\verificar_sql_contra_motor.py   # el SQL y el motor siguen dando lo mismo
+python analisis\validar_sin_hallazgos.py        # ninguna cifra escrita a mano
+python analisis\verificar_sql_contra_motor.py   # el SQL y el motor siguen dando lo mismo
 cd app; npm run lint; npm run format:check
 ```
 

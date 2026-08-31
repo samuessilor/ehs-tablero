@@ -5,7 +5,7 @@
  * datos/agua-detalle.json) y devuelve REBANADAS. No calcula ningun indicador:
  * el calculo tiene una sola implementacion (R.5.2.2) y vive en la capa de datos,
  * cuyo algebra reproduce el motor validado en 17 puntos y es la misma de
- * sql/02-vistas.sql. Cuando exista el esquema ehs en SQL Server, este modulo se
+ * app/sql/02-vistas.sql. Cuando exista el esquema ehs en SQL Server, este modulo se
  * sustituye por adaptador_sql.js con estas MISMAS firmas.
  */
 const fs = require('fs');

@@ -24,13 +24,13 @@ Un solo camino, y ninguno de sus pasos es manual:
 
 ```powershell
 cd ..
-python scripts\construir_datos.py       # lee el .xlsx y aplica correcciones autorizadas
-python scripts\construir_referencia.py
-python scripts\calcular_kpi.py          # 12 puntos de control: aborta si algo no cuadra
-python scripts\estrella.py
-python scripts\web_json.py              # arma la vista materializada
-python scripts\agua_detalle.py
-python scripts\publicar_a_app.py        # copia a app\datos y deja bitacora
+python analisis\construir_datos.py       # lee el .xlsx y aplica correcciones autorizadas
+python analisis\construir_referencia.py
+python analisis\calcular_kpi.py          # 12 puntos de control: aborta si algo no cuadra
+python analisis\estrella.py
+python analisis\web_json.py              # arma la vista materializada
+python analisis\agua_detalle.py
+python analisis\publicar_a_app.py        # copia a app\datos y deja bitacora
 cd app
 npx vercel --prod
 ```
@@ -90,8 +90,8 @@ Así el mes que avanza no obliga a editar código.
 npm run lint                              # ESLint
 npm run format:check                      # Prettier
 cd ..
-python scripts\validar_sin_hallazgos.py   # ninguna cifra escrita a mano
-python scripts\verificar_sql_contra_motor.py   # 17 puntos, diferencia cero
+python analisis\validar_sin_hallazgos.py   # ninguna cifra escrita a mano
+python analisis\verificar_sql_contra_motor.py   # 17 puntos, diferencia cero
 ```
 
 `validar_sin_hallazgos.py` no lleva las cifras escritas: las **regenera** del dato
