@@ -11,7 +11,7 @@
  *   serieMensual  -> ehs.v_kpi_mensual + ehs.v_kpi_ytd
  *   aguaMensual   -> ehs.v_kpi_mensual filtrada a agua + variaciones en la vista
  *   aguaDiaria    -> ehs.v_agua_diaria + ehs.v_estado_agua_diaria
- *   calidadDato   -> ehs.v_calidad_dato
+ *   calidadDato   -> ehs.v_calidad_dato + ehs.v_calidad_avisos (avisos_automaticos)
  *   detalle       -> ehs.hecho_lectura_mensual (solo lectura)
  *   residuosComposicion -> ehs.hecho_lectura_mensual agrupado por magnitud de residuo
  *                          (las tres magnitudes ya son filas: no hace falta vista nueva)

@@ -894,6 +894,63 @@ var Tablero = (function () {
         })
         .join('') +
       '</ul>';
+
+    pintarAvisosAutomaticos(cal.avisos_automaticos || []);
+  }
+
+  /**
+   * A diferencia de los hallazgos de arriba —hechos puntuales del libro heredado,
+   * escritos a mano porque describen una celda concreta—, esto se recalcula en cada
+   * corte: duplicados, valores negativos, denominadores en cero, meses sin un sitio y
+   * saltos atípicos mes a mes. Ver app/sql/02-vistas.sql, ehs.v_calidad_avisos.
+   */
+  function pintarAvisosAutomaticos(avisos) {
+    var errores = avisos.filter(function (a) {
+      return a.gravedad === 'error';
+    });
+    var suaves = avisos.filter(function (a) {
+      return a.gravedad !== 'error';
+    });
+    $('#subAvisos').textContent = avisos.length
+      ? avisos.length +
+        ' · ' +
+        errores.length +
+        (errores.length === 1 ? ' bloqueante' : ' bloqueantes')
+      : 'ninguno';
+
+    if (!avisos.length) {
+      $('#cajaAvisos').innerHTML =
+        '<div class="vacio"><span class="chip cumple">sin avisos</span>' +
+        '<p>Ningún duplicado, valor negativo, denominador en cero, mes incompleto ni salto ' +
+        'atípico mes a mes en los datos de este corte.</p></div>';
+      $('#notaAvisos').innerHTML = '';
+      return;
+    }
+    $('#cajaAvisos').innerHTML =
+      '<ul class="hall">' +
+      errores
+        .concat(suaves)
+        .map(function (a) {
+          return (
+            '<li class="' +
+            (a.gravedad === 'error' ? 'grave' : '') +
+            '">' +
+            chip(
+              a.gravedad === 'error' ? 'incumple' : 'riesgo',
+              a.gravedad === 'error' ? 'bloqueante' : 'a revisar'
+            ) +
+            '<div><p>' +
+            Fmt.esc(a.mensaje) +
+            '</p></div></li>'
+          );
+        })
+        .join('') +
+      '</ul>';
+    $('#notaAvisos').innerHTML = nota(
+      'Un aviso <b>no corrige nada ni bloquea la publicación</b>: señala. Un dato raro puede ser un ' +
+        'error de captura o un mes de verdad atípico, y quien lo sabe es el área. Lo que no puede pasar ' +
+        'es que nadie se entere.'
+    );
   }
 
   /* ------------------------------------------------------------------- render --- */

@@ -339,6 +339,11 @@ module.exports = {
       estado: d.calidad.estado,
       lecturas_diarias: 0,
       hallazgos: d.hallazgos,
+      // a diferencia de "hallazgos" (defectos puntuales del libro heredado, escritos a
+      // mano porque describen un hecho historico), esto se recalcula en cada corte:
+      // duplicados, valores negativos, denominadores en cero, meses sin un sitio y
+      // saltos atipicos mes a mes. Ver analisis/web_json.py, _detectar_avisos_calidad.
+      avisos_automaticos: d.avisosCalidad || [],
     };
   },
 

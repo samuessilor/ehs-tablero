@@ -162,6 +162,72 @@ as
        and m.area = 'ehs';
 go
 
+/* --------------------------------------------------- avisos automaticos de calidad ---
+   Distinto de un "hallazgo" del libro heredado (que describe un hecho puntual y va
+   escrito a mano, porque un validador no puede redescubrir que una celda especifica
+   se escribio a mano): esto corre sobre CUALQUIER corte y avisa si algo del dato de
+   ESTE mes se ve raro. Portado del validador que traia el tablero anterior del area
+   (kpi-dashboard\app\src\motor\validacion.ts), que lo tenia y la primera version de
+   este no.
+
+   Lo que "medicion_duplicada" comprobaba en TypeScript aqui no hace falta: la
+   restriccion uq_lectura_mensual (fecha, sitio_id, magnitud_id) de 01-esquema.sql ya
+   hace estructuralmente imposible que exista. Una regla que la base impone no necesita
+   una vista que la vigile. */
+create or alter view ehs.v_calidad_avisos
+as
+    with valores as (
+        select f.anio, f.num_mes as mes, s.sitio_id, m.magnitud_id, l.valor,
+               lag(l.valor) over (partition by s.sitio_id, m.magnitud_id
+                                   order by f.num_mes)               as valor_anterior,
+               lag(f.num_mes) over (partition by s.sitio_id, m.magnitud_id
+                                     order by f.num_mes)             as mes_anterior
+          from ehs.hecho_lectura_mensual l
+          join ehs.dim_fecha f on f.fecha = l.fecha
+          join ehs.dim_sitio s on s.sitio_id = l.sitio_id
+          join ehs.dim_magnitud m on m.magnitud_id = l.magnitud_id
+    )
+    select anio, mes, sitio_id, magnitud_id,
+           gravedad = 'error', codigo = 'valor_negativo',
+           mensaje = concat(sitio_id, ', mes ', mes, ': ', magnitud_id, ' viene en ',
+                             valor, ', y esta magnitud no puede ser negativa.')
+      from valores
+     where valor < 0
+    union all
+    select anio, mes, sitio_id, magnitud_id,
+           gravedad = 'error', codigo = 'denominador_invalido',
+           mensaje = concat(sitio_id, ', mes ', mes, ': ', magnitud_id, ' en cero; los ',
+                             'indicadores que dividen por esta magnitud no se pueden calcular.')
+      from valores
+     where valor = 0 and magnitud_id in ('unidades_buenas', 'horas_fijos')
+    union all
+    select anio, mes, sitio_id, magnitud_id,
+           gravedad = 'aviso', codigo = 'salto_atipico',
+           mensaje = concat(sitio_id, ', mes ', mes, ': ', magnitud_id, ' paso de ',
+                             valor_anterior, ' (mes ', mes_anterior, ') a ', valor, ' (',
+                             case when valor > valor_anterior then '+' else '' end,
+                             cast(round((valor - valor_anterior) / nullif(valor_anterior, 0) * 100, 0) as int),
+                             '%). Conviene confirmar el dato.')
+      from valores
+     where valor_anterior is not null and valor_anterior <> 0
+       and magnitud_id <> 'accidentes_dafw'  -- pasar de 0 a 1 caso es lo esperado, no una anomalia
+       and abs((valor - valor_anterior) / valor_anterior) > 0.4
+    union all
+    select f.anio, f.num_mes as mes, s.sitio_id, magnitud_id = cast(null as varchar(40)),
+           gravedad = 'error', codigo = 'mes_incompleto',
+           mensaje = concat(s.sitio_id, ' no reporto el mes ', f.num_mes,
+                             ', pero otros sitios si. El consolidado de ese mes queda sesgado.')
+      from ehs.dim_fecha f
+     cross join ehs.dim_sitio s
+     where s.activo = 1
+       and exists (select 1 from ehs.hecho_lectura_mensual l2
+                    join ehs.dim_fecha f2 on f2.fecha = l2.fecha
+                   where f2.num_mes = f.num_mes and f2.anio = f.anio and l2.sitio_id <> s.sitio_id)
+       and not exists (select 1 from ehs.hecho_lectura_mensual l3
+                        join ehs.dim_fecha f3 on f3.fecha = l3.fecha
+                       where f3.num_mes = f.num_mes and f3.anio = f.anio and l3.sitio_id = s.sitio_id);
+go
+
 /* ------------------------------------------------------------- agua diaria ---
    Marca los dias fuera de banda contra la MEDIANA DEL PROPIO MES, no contra una
    constante: si el mes entero sube, el pico sigue siendo relativo a ese mes.
