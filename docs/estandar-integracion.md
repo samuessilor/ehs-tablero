@@ -532,9 +532,9 @@ documenta.
 
 | Sección | Fuente primaria |
 |---|---|
-| 2.1, 2.2, 2.3 | `ehs\diagrama de flujo dataware house.png` · `ehs\data warehouse de estructura de samii(plataforma de descarga de reportes).png` |
+| 2.1, 2.2, 2.3 | `ehs\entrega-reunion\recursos\diagrama-flujo-data-warehouse.png` · `ehs\entrega-reunion\recursos\data-warehouse-estructura-samii.png` |
 | 2.4, 6.1, 6.2 | Transcripción «Proceso de supply entender la parte visual y estructura de Access con Aquilino», 22 de julio de 2026 |
-| 3, 3.5, 4 | Correo «RE: Solicitud de creación de base de datos en ambiente de desarrollo», Santiago Murcia, 21 y 27 de julio de 2026 |
+| 3, 3.5, 4 | Correo «RE: Solicitud de creación de base de datos en ambiente de desarrollo», Santiago Murcia, 21 y 27 de julio de 2026 · `ehs\entrega-reunion\recursos\correo-santiago-murcia-estructura-servidor.pdf` |
 | 5.4.4, 9.2 | `EssilorLuxottica\CLAUDE.md`, secciones 2 y 6 |
 | 6.1, 6.3 | `supply-chain\demanda-historica\docs\recorrido-del-dato.md` · `supply-chain\CLAUDE.md` |
 | 5.2, 5.3.6 | `ehs\CLAUDE.md` — definiciones y auditoría del Excel heredado |
