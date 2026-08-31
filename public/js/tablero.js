@@ -52,6 +52,7 @@ var Tablero = (function () {
   };
   var mesesConDato = [];
   var pintando = false;
+  var pendiente = false;
 
   function $(sel) {
     return document.querySelector(sel);
@@ -897,7 +898,13 @@ var Tablero = (function () {
 
   /* ------------------------------------------------------------------- render --- */
   async function render() {
-    if (pintando) return;
+    // Un clic mientras se dibuja NO se descarta: se recuerda y se atiende al terminar.
+    // Descartarlo dejaba al usuario mirando el filtro que acaba de pulsar sin que la
+    // pantalla lo siguiera, y sin nada que se lo explicara.
+    if (pintando) {
+      pendiente = true;
+      return;
+    }
     pintando = true;
     document.body.classList.add('cargando');
     try {
@@ -931,8 +938,13 @@ var Tablero = (function () {
       $('#tiraEstado').innerHTML =
         '<span class="chip incumple">no se pudo leer el dato del servidor</span>';
     } finally {
-      document.body.classList.remove('cargando');
       pintando = false;
+      if (pendiente) {
+        pendiente = false;
+        render();
+      } else {
+        document.body.classList.remove('cargando');
+      }
     }
   }
 
