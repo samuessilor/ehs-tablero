@@ -28,4 +28,29 @@ async function dashboard(_req, res) {
   res.end(html);
 }
 
-module.exports = { dashboard };
+/**
+ * La pagina de captura. Se dibuja desde el servidor con la lista de magnitudes y
+ * sitios ya dentro: si el formulario los pidiera por fetch, una red lenta enseñaria
+ * una rejilla vacia justo cuando la persona viene a teclear.
+ */
+async function captura(_req, res) {
+  const { MAGNITUDES, SITIOS } = require('./validacion');
+  const modo = process.env.ORIGEN_DATOS === 'sql' ? 'sql' : 'simulado';
+
+  const html = await ejs.renderFile(
+    path.join(VISTAS, 'captura.ejs'),
+    {
+      titulo: 'Captura mensual EHS · Servioptica',
+      magnitudes: MAGNITUDES,
+      sitios: SITIOS,
+      modo,
+      anio: new Date().getFullYear(),
+    },
+    { rmWhitespace: false }
+  );
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.end(html);
+}
+
+module.exports = { dashboard, captura };

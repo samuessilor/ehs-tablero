@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title><%= titulo %></title>
+<link rel="stylesheet" href="/css/ehs.css" />
+</head>
+<body>
+<p class="sr" id="viva" role="status" aria-live="polite"></p>
+
+<header class="rail">
+  <div class="rail-in">
+    <div class="marca">
+      <div>
+        <div style="font-weight:700;font-size:14px;letter-spacing:-.01em">Captura mensual EHS · Servióptica</div>
+        <div style="font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:#8FD3D3;text-transform:uppercase">
+          Puerta de ingesta · <%= modo === 'sql' ? 'SQL Server' : 'validación sin persistencia' %>
+        </div>
+      </div>
+    </div>
+    <div class="ctl rail-derecha">
+      <a class="volver" href="/">← Volver al tablero</a>
+    </div>
+  </div>
+</header>
+
+<main class="body cap">
+
+  <!-- ============================================================ el aviso de modo -->
+  <% if (modo !== 'sql') { %>
+  <section class="panel c12 cap-aviso">
+    <div class="cuerpo">
+      <p><strong>Este despliegue no guarda nada, y no puede hacerlo.</strong>
+      El dato operativo de la empresa no sale del tenant corporativo (R.5.4.2), así que
+      aquí no existe conexión a base de datos ni forma de crearla. Lo que sí es real es
+      <em>la validación</em>: son exactamente las mismas reglas que aplica el servidor de
+      IT, y abajo verás el T-SQL que se ejecutaría contra él.</p>
+      <p class="cap-aviso-fin">Para capturar de verdad, esta misma pantalla corre contra
+      SQL Server con <code>ORIGEN_DATOS=sql</code>. No cambia una línea del formulario.</p>
+    </div>
+  </section>
+  <% } %>
+
+  <!-- ================================================================ 01 · el mes -->
+  <section class="panel c12">
+    <header><span class="ix">01</span><h2>Qué mes se está capturando</h2>
+      <span class="sub" id="subMes"></span></header>
+    <div class="cuerpo cap-fila">
+      <label class="cap-campo">
+        <span class="et">Año</span>
+        <input type="number" id="fAnio" value="<%= anio %>" min="2023" max="2100" step="1" />
+      </label>
+      <label class="cap-campo">
+        <span class="et">Mes</span>
+        <select id="fMes">
+          <% const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
+                            'Agosto','Septiembre','Octubre','Noviembre','Diciembre']; %>
+          <% MESES.forEach(function (m, i) { %>
+          <option value="<%= i + 1 %>"><%= m %></option>
+          <% }); %>
+        </select>
+      </label>
+      <label class="cap-campo cap-campo-ancho">
+        <span class="et">Quién captura</span>
+        <input type="text" id="fQuien" maxlength="60" placeholder="nombre.apellido"
+               autocomplete="username" />
+      </label>
+      <div class="cap-nota-quien">
+        La bitácora tiene que poder decir quién capturó cada número y cuándo (R.5.3.4).
+        No es un trámite: es lo que faltaba el día que un accidente apareció en cero y
+        nadie pudo saber quién lo había escrito.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================================== 02 · la rejilla -->
+  <section class="panel c12">
+    <header><span class="ix">02</span><h2>Las nueve magnitudes, por sitio</h2>
+      <span class="sub" id="subRejilla">27 celdas</span></header>
+    <div class="cuerpo tablabox">
+      <table class="cap-tabla" id="rejilla">
+        <thead>
+          <tr>
+            <th class="cap-th-mag">Magnitud</th>
+            <% sitios.forEach(function (s) { %>
+            <th><%= s.etiqueta %></th>
+            <% }); %>
+          </tr>
+        </thead>
+        <tbody>
+          <% let grupoActual = null; %>
+          <% magnitudes.forEach(function (m) { %>
+            <% if (m.grupo !== grupoActual) { grupoActual = m.grupo; %>
+            <tr class="cap-grupo"><td colspan="<%= sitios.length + 1 %>"><%= m.grupo %></td></tr>
+            <% } %>
+          <tr data-magnitud="<%= m.id %>">
+            <th scope="row">
+              <span class="cap-mag"><%= m.etiqueta %></span>
+              <span class="cap-uni"><%= m.unidad %></span>
+            </th>
+            <% sitios.forEach(function (s) { %>
+            <td>
+              <input class="cap-celda" type="text" inputmode="decimal"
+                     data-sitio="<%= s.id %>" data-magnitud="<%= m.id %>"
+                     aria-label="<%= m.etiqueta %> en <%= s.etiqueta %>" />
+              <span class="cap-marca" aria-live="polite"></span>
+            </td>
+            <% }); %>
+          </tr>
+          <% }); %>
+        </tbody>
+      </table>
+    </div>
+    <div class="cuerpo cap-leyenda">
+      <p><strong>Una celda vacía no es un cero.</strong> Si un dato todavía no llegó, se
+      deja en blanco y no se captura. Escribir <code>0</code> significa que el valor
+      medido fue cero, que es otra cosa (R.5.3.6).</p>
+    </div>
+  </section>
+
+  <!-- ============================================================== 03 · enviar -->
+  <section class="panel c12">
+    <header><span class="ix">03</span><h2>Enviar</h2><span class="sub" id="subEnviar"></span></header>
+    <div class="cuerpo cap-acciones">
+      <button type="button" id="bEnviar" class="cap-boton">Revisar y capturar</button>
+      <button type="button" id="bLimpiar" class="cap-boton cap-boton-suave">Limpiar</button>
+      <span class="cap-conteo" id="conteo">ninguna celda con dato</span>
+    </div>
+    <div class="cuerpo" id="resultado"></div>
+  </section>
+
+</main>
+
+<footer class="pie">
+  <div class="pie-in">
+    <span>Stack del estándar de integración · Node 22 + EJS + CSS + JavaScript</span>
+    <span class="pie-sep">·</span>
+    <span>La validación vive en <code>src/validacion.js</code> y en <code>sql/04-ingesta.sql</code>, y una compuerta comprueba que digan lo mismo</span>
+  </div>
+</footer>
+
+<script src="/js/formato.js"></script>
+<script src="/js/captura.js"></script>
+</body>
+</html>

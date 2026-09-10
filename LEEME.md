@@ -48,22 +48,28 @@ Detalle del ciclo completo: `docs\proceso-actualizacion.md`.
 |---|---|
 | `servidor.js` | Servidor local. `node:http` y nada más. |
 | `api\servidor.js` | El mismo tablero como función de Vercel. Cero lógica propia. |
-| `src\aplicacion.js` | El enrutador. Solo GET. |
-| `src
-utas_api.js` | Los nueve GET del contrato. Validan y sirven; no calculan. |
-| `src\datos\index.js` | Elige origen según `ORIGEN_DATOS` (`json` por defecto, `sql` cuando exista). |
+| `src\aplicacion.js` | El enrutador. Solo GET, salvo la única ruta que escribe. |
+| `src\rutas_api.js` | Los nueve GET del contrato. Validan y sirven; no calculan. |
+| `src\rutas_captura.js` | La **única** superficie de escritura: un POST y dos GET. |
+| `src\validacion.js` | Las reglas de frontera de la captura, como datos, en un solo sitio. |
+| `src\datos\index.js` | Elige origen de **lectura** según `ORIGEN_DATOS` (`json` por defecto). |
+| `src\datos\escritura.js` | Elige destino de **escritura** con la misma variable. |
 | `src\datos\adaptador_json.js` | Rebana la vista materializada del pipeline. |
-| `src\datos\adaptador_sql.js` | Esqueleto del destino: mismas nueve firmas contra las vistas `ehs.v_*`. |
-| `src\paginas.js` | Renderiza `views\dashboard.ejs`. |
+| `src\datos\adaptador_sql.js` | El destino: mismas nueve firmas contra las vistas `ehs.v_*`. |
+| `src\datos\escritura_sql.js` | Graba vía `ehs.sp_capturar_lote`. Nunca hace `insert` por su cuenta. |
+| `src\datos\escritura_simulada.js` | Valida y **no guarda**. Devuelve el T-SQL que se ejecutaría. |
+| `src\paginas.js` | Renderiza `views\dashboard.ejs` y `views\captura.ejs`. |
 | `views\` | La plantilla y sus parciales. Marcado, sin cifras. |
 | `public\css\ehs.css` | El sistema visual, extraído tal cual de la propuesta aprobada. |
 | `public\js\formato.js` | Números, meses y escapado. Lo usan los otros tres. |
-| `public\js	ablero.js` | Pide, dibuja y redacta el texto analítico por ramas sobre el dato servido. |
+| `public\js\tablero.js` | Pide, dibuja y redacta el texto analítico por ramas sobre el dato servido. |
 | `public\js\graficos.js` | Fábrica de gráficas ECharts: tema propio, techo sombreado, mapa de calor. |
 | `public\js\franja_correccion.js` | La franja de «valor corregido». Con la lista vacía no pinta nada. |
+| `public\js\captura.js` | La rejilla de 27 celdas: avisa al teclear, arma el lote y muestra el reparto. |
 | `public\vendor\echarts.min.js` | ECharts 5.6.0, servido desde el propio dominio. |
 | `datos\` | El dato publicado. No se versiona. |
-| `sql\` | El esquema y las vistas. Pasar a producción es ejecutar estos scripts. |
+| `sql\01` `02` `03` | Esquema, vistas y carga: la superficie de **lectura**. |
+| `sql\04-ingesta.sql` | La superficie de **escritura**, aparte a propósito: se aprueba por separado. |
 | `docs\` | El estándar, el checklist 7.2, el proceso y el plan de migración. |
 
 ## El contrato
@@ -85,15 +91,74 @@ Así el mes que avanza no obliga a editar código.
 | `/api/ehs/trayectoria-anual` | `kpi` | Cierres 2023-2025 del scorecard y el año en curso, aparte |
 | `/api/ehs/detalle` | `anio`, `formato=csv` | Las nueve magnitudes crudas |
 
+## La captura
+
+`/captura` es la pantalla donde EHS ingresa los 27 números del mes: nueve magnitudes por
+tres sitios. Reemplaza el trasiego entre hojas del libro heredado, que es de donde salen
+los seis defectos documentados.
+
+Escribe por **una sola ruta**, `POST /api/ehs/captura`. Todo lo demás de la aplicación
+sigue rechazando cualquier método que no sea GET, así que la superficie que escribe se
+lee entera en un archivo.
+
+**Lo que aparta y lo que solo avisa, que no es lo mismo.** Un residuo de −5 kg es
+imposible: se rechaza siempre y se arregla en el origen (R.5.3.5). Un consumo del doble
+del máximo histórico es improbable: puede ser un cero de más al teclear, y puede ser la
+fuga que el indicador existe para detectar. Ése vuelve como **advertencia** y no se
+graba hasta que quien captura lo confirma; la confirmación queda escrita en el origen de
+la fila. Rechazarlo dejaría el mes sin capturar y sin nada que corregir.
+
+**Una celda vacía no es un cero** (R.5.3.6). En blanco significa «todavía no llegó» y no
+viaja en el lote. `0` significa que el valor medido fue cero.
+
+**Dos destinos, misma pantalla:**
+
+| `ORIGEN_DATOS` | Qué hace la captura |
+|---|---|
+| `sql` | Graba de verdad, vía `ehs.sp_capturar_lote`: idempotente, con rechazos y bitácora |
+| cualquier otro | Valida con las mismas reglas, **no guarda**, y muestra el T-SQL que se ejecutaría |
+
+El interinato usa el segundo, y eso no es una promesa de no escribir: es que **no existe
+el camino**. El adaptador de escritura del interinato no sabe grabar, así que R.5.4.2 no
+depende de que nadie se equivoque.
+
+**La validación está escrita tres veces** —navegador, servidor y motor— porque las tres
+hacen falta: el motor es la única que no se puede rodear, el servidor responde antes de
+grabar medio mes, y el navegador avisa mientras se teclea. Que no se separen lo comprueba
+`analisis\verificar_validacion_pareja.py`.
+
+Para probarlo en local contra SQL Server de verdad:
+
+```powershell
+python ..\analisis\verificar_vistas_motor_real.py --levantar
+$env:ORIGEN_DATOS="sql"; $env:SQL_SERVIDOR="localhost"; $env:SQL_BASE="EHS"
+$env:SQL_USUARIO="sa"; $env:SQL_CLAVE="EhsLocal_2026#dev"
+$env:SQL_CONFIAR_CERT="1"; $env:SQL_CIFRAR="0"
+npm run dev
+```
+
 ## Comprobaciones
 
 ```powershell
 npm run lint                              # ESLint
 npm run format:check                      # Prettier
 cd ..
-python analisis\validar_sin_hallazgos.py   # ninguna cifra escrita a mano
-python analisis\verificar_sql_contra_motor.py   # 17 puntos, diferencia cero
+python analisis\verificar_todo.py                  # los siete de disco, en segundos
+python analisis\verificar_todo.py --con-sql        # + ejecuta el SQL en SQL Server real
 ```
+
+Las dos que importan para la migración:
+
+| Script | Qué prueba |
+|---|---|
+| `verificar_vistas_motor_real.py` | Ejecuta `sql\*.sql` **sin modificar** en SQL Server 2022 y consulta las vistas resultantes: 17 de 17 |
+| `comparar_adaptadores.py` | Levanta el tablero contra JSON y contra SQL y exige que las nueve rutas devuelvan lo mismo |
+
+La segunda es la que convierte «migrar es cambiar una variable de entorno» de promesa en
+comprobación. La primera existe porque `verificar_sql_contra_motor.py` prueba el
+**álgebra** en DuckDB, no el archivo — y la primera vez que se ejecutó el archivo de
+verdad, apareció en `03-carga-inicial.sql` un accidente de julio que el área ya había
+corregido a cero.
 
 `validar_sin_hallazgos.py` no lleva las cifras escritas: las **regenera** del dato
 publicado. Vigila el HTML, las plantillas EJS fuera de `<% %>` y los módulos del cliente.

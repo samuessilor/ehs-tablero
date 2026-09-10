@@ -2226,3 +2226,351 @@ body.cargando .body {
 .pie-in .et {
   font-family: var(--mono);
 }
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   CAPTURA · la puerta de ingesta
+   Mismo sistema del tablero. Lo unico propio es la rejilla de 27 celdas y el
+   codigo de color de la validacion, que reutiliza los tres estados que el
+   tablero ya usa: cumple / riesgo / incumple -> bien / raro / mal.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.cap {
+  max-width: 1180px;
+}
+.volver {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  color: #d6e4ee;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(214, 228, 238, 0.35);
+  padding-bottom: 1px;
+}
+.volver:hover {
+  color: #7fe3e3;
+  border-bottom-color: #7fe3e3;
+}
+
+/* --------------------------------------------------------------- aviso de modo */
+.cap-aviso {
+  border-left: 3px solid var(--amb);
+  background: linear-gradient(90deg, rgba(33, 160, 160, 0.05), transparent 55%);
+}
+.cap-aviso p {
+  margin: 0 0 8px;
+  max-width: 78ch;
+}
+.cap-aviso-fin {
+  color: var(--tenue);
+  font-size: 12px;
+}
+
+/* ------------------------------------------------------------- cabecera del mes */
+.cap-fila {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  align-items: flex-end;
+}
+.cap-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 110px;
+}
+.cap-campo-ancho {
+  min-width: 240px;
+  flex: 1 1 240px;
+}
+.cap-campo input,
+.cap-campo select {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--tinta);
+  background: var(--sup);
+  border: 1px solid var(--borde);
+  border-radius: 3px;
+  padding: 7px 9px;
+  font-variant-numeric: tabular-nums;
+}
+.cap-campo input:focus,
+.cap-campo select:focus {
+  border-color: var(--amb);
+}
+.cap-nota-quien {
+  flex: 1 1 320px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--tenue);
+  border-left: 2px solid var(--borde);
+  padding-left: 12px;
+  max-width: 52ch;
+}
+
+/* ------------------------------------------------------------------- la rejilla */
+.cap-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+.cap-tabla th,
+.cap-tabla td {
+  padding: 5px 8px;
+  text-align: left;
+  vertical-align: middle;
+}
+.cap-tabla thead th {
+  font-family: var(--cond);
+  font-size: 10.5px;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--tenue);
+  border-bottom: 1.5px solid var(--tinta);
+  padding-bottom: 7px;
+  white-space: nowrap;
+}
+.cap-th-mag {
+  width: 34%;
+  min-width: 210px;
+}
+.cap-tabla tbody tr {
+  border-bottom: 1px solid var(--borde);
+}
+.cap-tabla tbody th[scope='row'] {
+  font-weight: 500;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-left: 0;
+}
+.cap-mag {
+  color: var(--tinta);
+}
+/* Sin text-transform, a diferencia del resto de etiquetas pequenas del sistema. Un
+   simbolo de unidad distingue mayusculas y minusculas: kWh no es KWH, y m3 no es M3.
+   En un tablero de indicadores eso no es un detalle tipografico. */
+.cap-uni {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--tenue);
+}
+.cap-grupo td {
+  font-family: var(--cond);
+  font-size: 9.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--inst);
+  background: rgba(11, 60, 93, 0.045);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--borde);
+}
+
+/* La celda es lo que mas se mira y lo unico que se teclea: se le da tamaño. */
+.cap-celda {
+  width: 100%;
+  max-width: 170px;
+  font-family: var(--mono);
+  font-size: 13px;
+  text-align: right;
+  color: var(--tinta);
+  background: var(--sup);
+  border: 1px solid var(--borde);
+  border-radius: 3px;
+  padding: 6px 8px;
+  font-variant-numeric: tabular-nums;
+}
+.cap-celda:focus {
+  border-color: var(--amb);
+  box-shadow: 0 0 0 2px rgba(33, 160, 160, 0.14);
+}
+.cap-celda.mal {
+  border-color: var(--incumple);
+  background: rgba(192, 57, 43, 0.045);
+}
+.cap-celda.raro {
+  border-color: var(--riesgo);
+  background: rgba(217, 131, 36, 0.05);
+}
+.cap-marca {
+  display: block;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  min-height: 12px;
+  margin-top: 2px;
+  text-align: right;
+  max-width: 170px;
+}
+.cap-marca.mal {
+  color: var(--incumple);
+}
+.cap-marca.raro {
+  color: var(--riesgo);
+}
+
+.cap-leyenda {
+  border-top: 1px solid var(--borde);
+  font-size: 12px;
+  color: var(--tenue);
+}
+.cap-leyenda p {
+  margin: 0;
+  max-width: 78ch;
+}
+.cap-leyenda code,
+.pie code {
+  font-family: var(--mono);
+  font-size: 11px;
+  background: rgba(11, 34, 57, 0.055);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+/* ------------------------------------------------------------------- acciones */
+.cap-acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+.cap-boton {
+  font-family: var(--cond);
+  font-size: 12px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #fff;
+  background: var(--inst);
+  border: 1px solid var(--inst);
+  border-radius: 3px;
+  padding: 9px 18px;
+  cursor: pointer;
+}
+.cap-boton:hover:not(:disabled) {
+  background: var(--tinta);
+  border-color: var(--tinta);
+}
+.cap-boton:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.cap-boton-suave {
+  color: var(--tenue);
+  background: transparent;
+  border-color: var(--borde);
+}
+.cap-boton-suave:hover {
+  color: var(--tinta);
+  background: rgba(11, 34, 57, 0.04);
+  border-color: var(--tenue);
+}
+.cap-conteo {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--tenue);
+}
+
+/* ------------------------------------------------------------------ resultado */
+.cap-res {
+  border-left: 3px solid var(--metac);
+  padding: 12px 16px;
+  background: rgba(11, 34, 57, 0.025);
+  margin-bottom: 6px;
+}
+.cap-res-bien {
+  border-left-color: var(--cumple);
+  background: rgba(46, 125, 91, 0.05);
+}
+.cap-res-parcial {
+  border-left-color: var(--riesgo);
+  background: rgba(217, 131, 36, 0.05);
+}
+.cap-res-mal {
+  border-left-color: var(--incumple);
+  background: rgba(192, 57, 43, 0.05);
+}
+.cap-res p {
+  margin: 0;
+}
+.cap-res-titular {
+  font-size: 14px;
+}
+.cap-res-carga {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--tenue);
+  letter-spacing: 0.05em;
+}
+.cap-res-aviso {
+  margin-top: 6px !important;
+  font-size: 12px;
+  color: var(--tenue);
+  max-width: 80ch;
+}
+.cap-res-h {
+  font-family: var(--cond);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--tinta);
+  margin: 20px 0 4px;
+}
+.cap-res-p {
+  margin: 0 0 8px;
+  font-size: 12px;
+  color: var(--tenue);
+  max-width: 80ch;
+}
+.cap-res-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+.cap-res-tabla td {
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--borde);
+  vertical-align: top;
+}
+.cap-res-tabla.mal td:first-child {
+  border-left: 2px solid var(--incumple);
+}
+.cap-res-tabla.raro td:first-child {
+  border-left: 2px solid var(--riesgo);
+}
+.cap-res-donde {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--tenue);
+  white-space: nowrap;
+}
+.cap-res-valor {
+  font-family: var(--mono);
+  text-align: right;
+  white-space: nowrap;
+  width: 90px;
+}
+.cap-sql {
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.55;
+  color: #d6e4ee;
+  background: var(--tinta);
+  border-radius: 3px;
+  padding: 14px 16px;
+  overflow-x: auto;
+  margin: 0;
+}
+
+@media (max-width: 720px) {
+  .cap-th-mag {
+    min-width: 140px;
+  }
+  .cap-tabla {
+    font-size: 11.5px;
+  }
+  .cap-celda,
+  .cap-marca {
+    max-width: none;
+  }
+}

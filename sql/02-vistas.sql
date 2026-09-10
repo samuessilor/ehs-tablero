@@ -78,7 +78,25 @@ as
               indefine y se devuelve NULL, jamas infinito ni cero. */
            case when d.valor is null then n.valor * k.factor
                 when d.valor = 0     then null
-                else n.valor * k.factor / d.valor
+                /* El cast NO es decorativo, y sin el la vista publica un numero
+                   distinto al del motor validado.
+
+                   n.valor es decimal(18,4) y k.factor es decimal(18,6), asi que el
+                   producto sale decimal(38,10). Al dividir eso entre decimal(18,4),
+                   SQL Server recorta la escala del resultado a 6 y TRUNCA el septimo
+                   digito en vez de redondearlo. El agua de nacional en marzo vale
+                   5,5946509678...; la vista publicaba 5,594650, que redondeado a los
+                   cuatro decimales del reporte da 5,5946 en vez de 5,5947.
+
+                   Casteando el producto a (24,6) queda sitio para 16 decimales en el
+                   cociente y el redondeo final cae del lado correcto. Los factores
+                   son 1, 1000 y 1000000 —enteros—, asi que el cast no pierde nada
+                   del producto.
+
+                   Eran 4 valores de 350 en el corte de julio. Ninguno cambia una
+                   decision, y aun asi hay que arreglarlo: el compromiso del proyecto
+                   es que la vista y el motor den lo MISMO, no algo parecido. */
+                else cast(n.valor * k.factor as decimal(24,6)) / d.valor
            end                                    as valor
       from numerador n
       join ehs.dim_kpi k on k.kpi_id = n.kpi_id
@@ -102,7 +120,10 @@ as
            case when max(k.factor) is null then null
                 when sum(m.denominador) is null then sum(m.numerador) * max(k.factor)
                 when sum(m.denominador) = 0     then null
-                else sum(m.numerador) * max(k.factor) / sum(m.denominador)
+                /* Mismo cast y por lo mismo que en ehs.v_kpi_mensual: sin el, la
+                   division trunca el septimo decimal en vez de redondearlo. */
+                else cast(sum(m.numerador) * max(k.factor) as decimal(24,6))
+                     / sum(m.denominador)
            end                                    as valor
       from ehs.v_kpi_mensual m
       join ehs.dim_kpi k on k.kpi_id = m.kpi_id
@@ -209,9 +230,18 @@ as
                              cast(round((valor - valor_anterior) / nullif(valor_anterior, 0) * 100, 0) as int),
                              '%). Conviene confirmar el dato.')
       from valores
-     where valor_anterior is not null and valor_anterior <> 0
+     where valor_anterior is not null
        and magnitud_id <> 'accidentes_dafw'  -- pasar de 0 a 1 caso es lo esperado, no una anomalia
-       and abs((valor - valor_anterior) / valor_anterior) > 0.4
+       /* nullif y no 'valor_anterior <> 0' delante, aunque parezca que basta.
+          SQL Server NO garantiza que evalue los predicados del where en el orden en
+          que estan escritos: puede resolver la division antes que el filtro. Con
+          'valor_anterior <> 0' aqui, la vista lanzaba «Divide by zero error
+          encountered» al consultarla, porque horas_temp vale 0 todos los meses en
+          Celta y La Estrella. Estuvo asi desde que se escribio y no se vio porque
+          nadie la habia ejecutado: la prueba en DuckDB no reproduce esa evaluacion.
+          Con nullif la division devuelve null, y null > 0.4 es falso, que es
+          justamente lo que se queria decir. */
+       and abs((valor - valor_anterior) / nullif(valor_anterior, 0)) > 0.4
     union all
     select f.anio, f.num_mes as mes, s.sitio_id, magnitud_id = cast(null as varchar(40)),
            gravedad = 'error', codigo = 'mes_incompleto',
@@ -220,6 +250,21 @@ as
       from ehs.dim_fecha f
      cross join ehs.dim_sitio s
      where s.activo = 1
+       /* en_nacional = 1, no solo activo. dim_sitio guarda ademas 'peru' y
+          'colombia_peru', que existen para el scorecard corporativo anual y no
+          capturan magnitudes mensuales. Sin este filtro la vista denunciaba que
+          'peru no reporto el mes 1' catorce veces —dos sitios por siete meses— y
+          los rotulaba como ERROR. Eran el 58% de los avisos y ninguno era real.
+          Un panel de calidad que grita en falso es un panel que se deja de mirar. */
+       and s.en_nacional = 1
+       /* Solo hasta el corte publicado. Un mes que se esta capturando AHORA tiene
+          sitios sin reportar por definicion —alguien lleva tres de los nueve numeros
+          de Celta— y eso no es un defecto de calidad: es trabajo en curso. Sin este
+          filtro, abrir el formulario el dia 2 llenaria la vista de Calidad de errores
+          rojos que solo dicen que el mes acaba de empezar. Lo que falta por capturar
+          se mira en ehs.v_captura_estado, que existe para eso. */
+       and f.num_mes <= isnull((select c.corte from ehs.v_corte_publicado c
+                                 where c.anio = f.anio), 0)
        and exists (select 1 from ehs.hecho_lectura_mensual l2
                     join ehs.dim_fecha f2 on f2.fecha = l2.fecha
                    where f2.num_mes = f.num_mes and f2.anio = f.anio and l2.sitio_id <> s.sitio_id)
@@ -291,6 +336,65 @@ as
            dias_abierto = datediff(day, r.detectado_en, sysdatetime())
       from ehs.lectura_rechazada r
      where r.resuelto = 0;
+go
+
+/* ----------------------------------------------------- cual es el corte publicado */
+
+/* QUE MES ES "EL CORTE", Y POR QUE NO ES SIMPLEMENTE EL ULTIMO CON DATO.
+
+   Mientras el dato llego solo en lotes mensuales completos —el pipeline leia el Excel
+   entero y publicaba— la distincion no existia: el ultimo mes con alguna lectura era
+   siempre un mes entero. Con una puerta de captura eso deja de ser cierto. El primer
+   dia que alguien teclee cuatro numeros de septiembre, "el ultimo mes con dato" pasa a
+   ser septiembre, y el tablero se republicaria entero contra un mes de cuatro lecturas:
+   los YTD se moverian, los estados contra meta cambiarian y el gerente veria cifras que
+   no significan nada.
+
+   Es exactamente la familia de errores que este trabajo vino a quitar. En el libro
+   heredado, julio estaba capturado en la hoja cruda y el reporte lo mostraba en cero;
+   aqui seria al reves, un mes a medias presentado como cerrado. El dano es el mismo:
+   el reporte dice algo que el dato no sostiene.
+
+   Un mes es corte cuando TODOS los sitios activos tienen TODAS las magnitudes. No se
+   cuenta contra un 27 escrito a mano: se cuenta contra las dimensiones, para que anadir
+   un sitio o una magnitud no deje esta regla mintiendo en silencio.
+
+   El mes en curso, incompleto, no desaparece: sigue en ehs.v_calidad_dato y en
+   ehs.v_captura_estado, que es donde se mira lo que falta por capturar. Lo que no hace
+   es gobernar lo que se publica. */
+create or alter view ehs.v_corte_publicado
+as
+    with esperadas as (
+        /* en_nacional = 1 son los tres sitios que capturan cada mes: Celta, La Estrella
+           y Agencias. dim_sitio guarda ademas 'colombia_peru' y 'peru', que existen
+           para el scorecard corporativo anual y no capturan magnitudes mensuales;
+           contarlos aqui haria que ningun mes fuera nunca completo. */
+        select total = (select count(*) from ehs.dim_sitio
+                         where activo = 1 and en_nacional = 1)
+                     * (select count(*) from ehs.dim_magnitud)
+    ),
+    por_mes as (
+        select f.anio,
+               f.num_mes,
+               lecturas = count(*),
+               completo = case when count(*) >= (select total from esperadas)
+                               then 1 else 0 end
+          from ehs.hecho_lectura_mensual l
+          join ehs.dim_fecha f on f.fecha = l.fecha
+         group by f.anio, f.num_mes
+    )
+    select p.anio,
+           corte        = max(case when p.completo = 1 then p.num_mes end),
+           ultimo_visto = max(p.num_mes),
+           /* Si los dos no coinciden, hay un mes en curso a medias. Se expone en vez de
+              esconderse: el tablero puede decir "septiembre, 4 de 27" en su barra de
+              contexto en lugar de callarlo. */
+           en_curso     = case when max(p.num_mes) >
+                                    isnull(max(case when p.completo = 1 then p.num_mes end), 0)
+                               then max(p.num_mes) end,
+           esperadas_por_mes = (select total from esperadas)
+      from por_mes p
+     group by p.anio;
 go
 
 print 'Vistas de ehs creadas.';

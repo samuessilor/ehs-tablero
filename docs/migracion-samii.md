@@ -89,20 +89,52 @@ dimensión fecha y una dimensión centro corporativas. **Si existen, se usan esa
 propias se retiran: crear una segunda dimensión fecha es exactamente el tipo de duplicado
 que el estándar quiere evitar. Es una decisión del DBA, no del área.
 
-### 4.2 La tabla de rechazos ya está, la validación que la llena no
+### 4.2 La tabla de rechazos ya está, y desde septiembre la validación que la llena también
 
-`ehs.lectura_rechazada` y `ehs.v_rechazo_pendiente` existen: lo que no pase validación se
-aparta con su motivo y con la fila cruda tal como llegó, en vez de perderse en una línea
-de consola. Lo que falta es **quién valida**, y eso depende de la puerta de ingesta: si el
-dato entra por formulario de SAMII, la validación es del formulario; si entra por un JOB
-desde SharePoint, es del JOB. La tabla está lista para las dos.
+`ehs.lectura_rechazada` y `ehs.v_rechazo_pendiente` existían desde el principio, pero
+vacías de sentido: nada las llenaba. Ahora sí. **`app\sql\04-ingesta.sql`** trae
+`ehs.sp_capturar_lote`, que valida, graba lo válido, aparta lo inválido con su motivo y
+deja bitácora, todo en la misma transacción.
+
+Lo importante es que esa validación **no depende de qué puerta de ingesta elija IT**. Si
+el dato entra por formulario de SAMII, el formulario llama al procedimiento. Si entra por
+un JOB desde SharePoint, el JOB llama al procedimiento. Si entra por el formulario propio
+de esta aplicación, igual. Es el mismo movimiento que ya funcionó con las nueve vistas:
+escribir la pieza que sobrevive a las tres respuestas posibles, y dejar reversible lo que
+depende de la que llegue.
+
+Probado ejecutando contra SQL Server 2022, no solo escrito:
+
+| Regla | Prueba |
+|---|---|
+| R.5.3.3 idempotencia | Reenviar el mismo lote graba 0 filas |
+| R.5.3.4 bitácora | `carga_log` con quién, cuándo, cuántas, cuántas apartadas |
+| R.5.3.5 rechazos | 7 apartadas con motivo; las otras 3 entraron igual |
+| R.5.3.6 vacío ≠ cero | La celda en blanco se rechaza con ese motivo exacto |
+
+**Y trae una distinción que el diseño anterior no hacía.** Un residuo negativo es
+imposible y se rechaza siempre. Un consumo del doble del máximo histórico es solo
+improbable: puede ser un cero de más al teclear y puede ser una fuga real. Ése vuelve como
+**advertencia** y entra solo si quien captura lo confirma, y la confirmación queda escrita
+en el origen de la fila. Rechazarlo dejaría el mes sin capturar y sin nada que corregir en
+el origen.
 
 ### 4.3 La puerta de ingesta
 
 Hoy el dato entra por lectura local de un `.xlsx`, que no es ninguna de las tres puertas
-del estándar. Falta decidir cuál será: Lista de SharePoint leída por un JOB, o captura
-directa por el módulo de Formularios de SAMII. Es el punto 6 del checklist y no se decide
-por defecto.
+del estándar. Falta decidir cuál será, y **es la decisión con más consecuencias de todo el
+proyecto** — más que dónde vive la base de datos, que a este volumen es casi indiferente.
+La lección de Supply Chain, en el propio estándar, dice por qué: el cuello de botella fue
+la extracción y la dependencia de que una persona actualizara su archivo, no el
+procesamiento.
+
+Lo que ya no falta es la pieza de destino: el procedimiento de 4.2 está escrito y probado,
+y una pantalla de captura funcionando (`/captura`) demuestra el flujo de punta a punta. Lo
+que falta es la respuesta de IT a la pregunta 8.3 del estándar.
+
+El análisis completo de las opciones —incluido el hecho de que la API `/workbook/` de
+Microsoft Graph **no admite permisos de aplicación**, que invierte la respuesta obvia—
+está en `..\..\docs\09-evaluacion-y-arquitectura-objetivo.md`, sección 4.
 
 ### 4.4 El histórico anterior a 2026
 
@@ -130,19 +162,32 @@ solo en cuanto el registro entre; no hay que programar nada más.
 Cada paso tiene una condición de salida verificable. Ninguno empieza sin que el anterior
 esté en verde.
 
-| # | Paso | Compuerta |
-|---|---|---|
-| 1 | Esquema `ehs` creado en el servidor que indique el DBA | `01-esquema.sql` corre sin error; las dimensiones compartidas están resueltas |
-| 2 | Carga inicial del 2026 | El conteo de filas coincide con `hechos_mensual_2026.csv` |
-| 3 | Vistas desplegadas | `verificar_sql_contra_motor.py` apuntando al servidor real: **17 de 17, diferencia cero** |
-| 4 | `adaptador_sql.js` completo | Los 9 endpoints devuelven **byte a byte** lo mismo con `ORIGEN_DATOS=sql` que con `json` |
-| 5 | JOB de ingesta programado | Dos ejecuciones seguidas no duplican filas (idempotencia, R.5.3.3) y `ehs.carga_log` registra ambas |
-| 6 | Tablero servido desde SAMII | Las cinco vistas cargan, sin errores de consola, y el dato coincide con el interinato |
-| 7 | Retiro de Vercel | El proyecto `_deploy-web1` se elimina. Cierra el punto 9 del checklist |
+| # | Paso | Compuerta | Ensayada |
+|---|---|---|---|
+| 1 | Esquema `ehs` creado en el servidor que indique el DBA | `01-esquema.sql` corre sin error; las dimensiones compartidas están resueltas | **Sí** |
+| 2 | Carga inicial del 2026 | El conteo de filas coincide con `hechos_mensual_2026.csv` | **Sí** |
+| 3 | Vistas desplegadas | `verificar_vistas_motor_real.py` contra el motor: **17 de 17, diferencia cero** | **Sí** |
+| 4 | `adaptador_sql.js` completo | `comparar_adaptadores.py`: las 9 rutas dan lo mismo con `ORIGEN_DATOS=sql` que con `json` | En curso |
+| 5 | JOB de ingesta programado | Dos ejecuciones seguidas no duplican filas (R.5.3.3) y `ehs.carga_log` registra ambas | **Sí**, vía `sp_capturar_lote` |
+| 6 | Tablero servido desde SAMII | Las cinco vistas cargan, sin errores de consola, y el dato coincide con el interinato | No: requiere SAMII |
+| 7 | Retiro de Vercel | El proyecto `_deploy-web1` se elimina. Cierra el punto 9 del checklist | No |
+
+**La columna «Ensayada» es nueva, y es el cambio de fondo de septiembre de 2026.** Los
+pasos 1, 2, 3 y 5 ya se ejecutaron de principio a fin sobre **SQL Server 2022 real**, en
+un contenedor local, con los archivos de `app\sql\` sin modificar una coma. No es una
+simulación del plan: es el plan corrido. Lo que falta en el servidor de IT es la
+infraestructura, no la verificación.
+
+Ese ensayo encontró algo que ninguna comprobación anterior podía encontrar:
+`03-carga-inicial.sql` traía **un accidente en julio que el área ya había corregido a
+cero**. El archivo se generó antes de la corrección y nunca se regeneró, y la prueba en
+DuckDB no lo veía porque construye sus tablas desde los CSV, no desde el archivo de carga.
+Regenerado, los 17 puntos coinciden. Un guardarraíl que solo prueba el álgebra no prueba
+el archivo que alguien va a ejecutar.
 
 El paso 4 es el que convierte esto en una migración y no en una construcción: la
-comparación byte a byte contra el interinato es posible **porque el interinato sirve el
-mismo contrato**. Sin ese diseño, el paso 4 sería «volver a probarlo todo a mano».
+comparación contra el interinato es posible **porque el interinato sirve el mismo
+contrato**. Sin ese diseño, el paso 4 sería «volver a probarlo todo a mano».
 
 ---
 

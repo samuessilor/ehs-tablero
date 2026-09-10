@@ -4,7 +4,7 @@
   "private": true,
   "description": "Tablero de indicadores EHS - Servioptica Colombia. Stack del estandar de integracion: Node + EJS + CSS + JS + ECharts. Interinato en Vercel; destino: modulo Dashboards de SAMII.",
   "engines": {
-    "node": "22.x"
+    "node": "22.19.0"
   },
   "scripts": {
     "dev": "node servidor.js",
@@ -19,5 +19,8 @@
     "echarts": "^5.5.1",
     "eslint": "^9.9.0",
     "prettier": "^3.3.3"
+  },
+  "optionalDependencies": {
+    "mssql": "^12.7.1"
   }
 }

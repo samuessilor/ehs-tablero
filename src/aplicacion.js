@@ -8,22 +8,46 @@
 const { URL } = require('url');
 const paginas = require('./paginas');
 const api = require('./rutas_api');
+const captura = require('./rutas_captura');
 const errores = require('./errores');
+
+/* La aplicacion nacio siendo de solo lectura y rechazaba todo lo que no fuera GET. La
+   captura obliga a abrir el paso a POST, y se abre por el hueco mas estrecho posible:
+   UNA ruta, resuelta antes de cualquier otra cosa. Todo lo demas sigue rechazando
+   igual que antes, asi que la superficie que escribe se puede leer entera en un
+   archivo (src/rutas_captura.js) en vez de estar repartida. */
+const RUTAS_QUE_ESCRIBEN = ['/api/ehs/captura'];
 
 async function atender(req, res) {
   const url = new URL(req.url, 'http://interno');
+  const ruta = url.pathname.replace(/\/+$/, '') || '/';
+
+  if (ruta === '/api/ehs/captura' || ruta.startsWith('/api/ehs/captura/')) {
+    if (await captura.atender(req, res, url)) return;
+  }
 
   if (req.method !== 'GET') {
-    errores.parametroInvalido(res, 'Este tablero solo responde consultas (GET).');
+    errores.parametroInvalido(
+      res,
+      `Este tablero solo responde consultas (GET). Lo unico que admite escritura es ${RUTAS_QUE_ESCRIBEN.join(', ')}.`
+    );
     return;
   }
 
   if (await api.atender(req, res, url)) return;
 
-  const ruta = url.pathname.replace(/\/+$/, '') || '/';
   if (ruta === '/' || ruta === '/index.html') {
     try {
       await paginas.dashboard(req, res);
+    } catch (err) {
+      errores.interno(res, err);
+    }
+    return;
+  }
+
+  if (ruta === '/captura' || ruta === '/captura.html') {
+    try {
+      await paginas.captura(req, res);
     } catch (err) {
       errores.interno(res, err);
     }
