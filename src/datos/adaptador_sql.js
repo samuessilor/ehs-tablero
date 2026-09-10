@@ -48,11 +48,16 @@
  *      atipico es la vista.
  *
  * METADATOS DEL PROYECTO. Los hallazgos del libro heredado, las correcciones
- * autorizadas, la fecha de publicacion del corte y el rotulo del archivo del que salio
- * la captura no son dato operativo: describen el informe, se escriben a mano y no
- * tienen tabla porque no la necesitan. Viven en app/datos/datos.json, que es el
- * manifiesto del corte publicado, y de ahi los lee tambien este adaptador para que las
- * dos rutas cuenten la misma historia sobre el mismo corte.
+ * autorizadas y el rotulo del archivo del que salio la captura no son dato operativo:
+ * describen el informe, se escriben a mano y no tienen tabla porque no la necesitan.
+ * Viven en app/datos/datos.json, el manifiesto del corte publicado, y de ahi los lee
+ * este adaptador para que las dos rutas cuenten la misma historia sobre el mismo corte.
+ *
+ * La excepcion es actualizado_en, que SI sale de la base. Describe cuando cambio el
+ * DATO, no cuando se escribio el informe, y leerlo del manifiesto hacia que el tablero
+ * dijera "corte agosto" junto a una fecha anterior a la captura que lo habia movido.
+ * Es el unico campo de la cabecera que puede diferir legitimamente entre los dos
+ * adaptadores, y comparar_adaptadores.py lo excluye de la comparacion por eso.
  */
 const fs = require('fs');
 const path = require('path');
@@ -112,12 +117,6 @@ const META_DE_AMBITO = {
   nacional_labs: null,
 };
 
-/**
- * El valor del indicador, con el decimal que la vista pierde al truncar. `v` es una
- * fila de v_kpi_mensual o de v_kpi_ytd y `k` su fila de dim_kpi. Las ramas de KPI sin
- * denominador (un conteo) y de denominador cero (ratio indefinido) se dejan tal como
- * las resolvio la vista: aqui solo se rehace la division que pierde precision.
- */
 /* El valor tal como lo publica la vista.
  *
  * Aqui hubo un rodeo y ya no hace falta. v_kpi_mensual y v_kpi_ytd truncaban el sexto
@@ -221,7 +220,17 @@ async function contexto() {
            corte_nombre = (select top 1 mes from ehs.dim_fecha
                             where anio = @anio and num_mes = @corte),
            meta_vigente = (select max(fuente) from ehs.meta
-                            where anio = @anio and vigente = 1);
+                            where anio = @anio and vigente = 1),
+           /* Cuando cambio por ultima vez el dato que se esta publicando.
+              Sale de la base y NO del manifiesto, aunque el manifiesto traiga un
+              campo con ese nombre: el manifiesto dice cuando publico el pipeline por
+              ultima vez, que en modo SQL no tiene nada que ver. Con el manifiesto, el
+              tablero decia "corte agosto" y "ultima actualizacion 31 de agosto" a la
+              vez, con una fecha ANTERIOR a la captura que acababa de moverlo. */
+           actualizado_en = (select max(coalesce(l.modificado_en, l.capturado_en))
+                               from ehs.hecho_lectura_mensual l
+                               join ehs.dim_fecha f on f.fecha = l.fecha
+                              where f.anio = @anio and f.num_mes <= @corte);
     select num_mes = f.num_mes
       from ehs.hecho_lectura_mensual l
       join ehs.dim_fecha f on f.fecha = l.fecha
@@ -235,6 +244,8 @@ async function contexto() {
     corte: c.corte ?? null,
     corteNombre: c.corte_nombre ?? null,
     metaVigente: c.meta_vigente ?? null,
+    // el mismo formato que publica el pipeline: 'AAAA-MM-DDTHH:MM:SS', sin zona
+    actualizadoEn: c.actualizado_en ? new Date(c.actualizado_en).toISOString().slice(0, 19) : null,
     mesesConDato: r.recordsets[1].map((x) => x.num_mes),
   };
 }
@@ -244,7 +255,13 @@ function cabecera(ctx) {
   return {
     anio: ctx.anio,
     corte: { mes: ctx.corte, nombre: ctx.corteNombre, mesesConDato: ctx.mesesConDato },
-    actualizado_en: m.actualizadoEn,
+    /* Del dato, no del manifiesto. Es el unico campo de la cabecera que puede
+       diferir legitimamente entre los dos adaptadores, y por eso la compuerta lo
+       excluye de la comparacion: describe CUANDO cambio el dato en cada sistema, no
+       QUE dice el dato. El JSON publica cuando corrio el pipeline; SQL publica
+       cuando se capturo por ultima vez. Las dos respuestas son correctas y son
+       distintas porque las dos fuentes se alimentan distinto. */
+    actualizado_en: ctx.actualizadoEn ?? m.actualizadoEn,
     fuente: m.fuente,
     meta_vigente: ctx.metaVigente,
   };
