@@ -180,5 +180,7 @@ construye con 22. La diferencia está aquí escrita a propósito, no escondida.
 
 **Vercel es interinato.** Publicar dato de EHS fuera del tenant incumple R.5.4.2. Es una
 decisión tomada a conciencia mientras no exista la superficie interna, con `noindex` y con
-fecha de retiro: la migración a SAMII. Está declarado en `docs\checklist-7.2.md` (punto 9)
-y es lo primero que resuelve `docs\migracion-samii.md`.
+fecha de retiro: la migración al servidor de la empresa (fase 1, decidida el 10 de
+septiembre de 2026 — sin adaptar a ningún otro armazón, ver `docs\migracion-samii.md`).
+Está declarado en `docs\checklist-7.2.md` (punto 9) y es lo primero que resuelve
+`docs\migracion-samii.md`.

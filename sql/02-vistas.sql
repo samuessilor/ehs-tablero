@@ -183,6 +183,75 @@ as
        and m.area = 'ehs';
 go
 
+/* ----------------------------------------------------- cual es el corte publicado */
+
+/* QUE MES ES "EL CORTE", Y POR QUE NO ES SIMPLEMENTE EL ULTIMO CON DATO.
+
+   Mientras el dato llego solo en lotes mensuales completos —el pipeline leia el Excel
+   entero y publicaba— la distincion no existia: el ultimo mes con alguna lectura era
+   siempre un mes entero. Con una puerta de captura eso deja de ser cierto. El primer
+   dia que alguien teclee cuatro numeros de septiembre, "el ultimo mes con dato" pasa a
+   ser septiembre, y el tablero se republicaria entero contra un mes de cuatro lecturas:
+   los YTD se moverian, los estados contra meta cambiarian y el gerente veria cifras que
+   no significan nada.
+
+   Es exactamente la familia de errores que este trabajo vino a quitar. En el libro
+   heredado, julio estaba capturado en la hoja cruda y el reporte lo mostraba en cero;
+   aqui seria al reves, un mes a medias presentado como cerrado. El dano es el mismo:
+   el reporte dice algo que el dato no sostiene.
+
+   Un mes es corte cuando TODOS los sitios activos tienen TODAS las magnitudes. No se
+   cuenta contra un 27 escrito a mano: se cuenta contra las dimensiones, para que anadir
+   un sitio o una magnitud no deje esta regla mintiendo en silencio.
+
+   El mes en curso, incompleto, no desaparece: sigue en ehs.v_calidad_dato y en
+   ehs.v_captura_estado, que es donde se mira lo que falta por capturar. Lo que no hace
+   es gobernar lo que se publica.
+
+   Va ANTES de v_calidad_avisos a proposito, aunque en la primera version del archivo
+   estaba al final: v_calidad_avisos la consulta en su filtro de "mes_incompleto", y
+   SQL Server exige que el objeto referenciado exista en la base en el momento del
+   create, no solo mas adelante en el mismo archivo. Ejecutar el script contra un
+   contenedor limpio lo revento con "Invalid object name 'ehs.v_corte_publicado'" — un
+   defecto que una base con estado acumulado de pruebas anteriores nunca iba a mostrar,
+   porque en esa base el objeto ya existia de una corrida previa. Es la misma leccion de
+   siempre: solo un entorno realmente limpio prueba el archivo tal como IT lo va a
+   ejecutar. */
+create or alter view ehs.v_corte_publicado
+as
+    with esperadas as (
+        /* en_nacional = 1 son los tres sitios que capturan cada mes: Celta, La Estrella
+           y Agencias. dim_sitio guarda ademas 'colombia_peru' y 'peru', que existen
+           para el scorecard corporativo anual y no capturan magnitudes mensuales;
+           contarlos aqui haria que ningun mes fuera nunca completo. */
+        select total = (select count(*) from ehs.dim_sitio
+                         where activo = 1 and en_nacional = 1)
+                     * (select count(*) from ehs.dim_magnitud)
+    ),
+    por_mes as (
+        select f.anio,
+               f.num_mes,
+               lecturas = count(*),
+               completo = case when count(*) >= (select total from esperadas)
+                               then 1 else 0 end
+          from ehs.hecho_lectura_mensual l
+          join ehs.dim_fecha f on f.fecha = l.fecha
+         group by f.anio, f.num_mes
+    )
+    select p.anio,
+           corte        = max(case when p.completo = 1 then p.num_mes end),
+           ultimo_visto = max(p.num_mes),
+           /* Si los dos no coinciden, hay un mes en curso a medias. Se expone en vez de
+              esconderse: el tablero puede decir "septiembre, 4 de 27" en su barra de
+              contexto en lugar de callarlo. */
+           en_curso     = case when max(p.num_mes) >
+                                    isnull(max(case when p.completo = 1 then p.num_mes end), 0)
+                               then max(p.num_mes) end,
+           esperadas_por_mes = (select total from esperadas)
+      from por_mes p
+     group by p.anio;
+go
+
 /* --------------------------------------------------- avisos automaticos de calidad ---
    Distinto de un "hallazgo" del libro heredado (que describe un hecho puntual y va
    escrito a mano, porque un validador no puede redescubrir que una celda especifica
@@ -336,65 +405,6 @@ as
            dias_abierto = datediff(day, r.detectado_en, sysdatetime())
       from ehs.lectura_rechazada r
      where r.resuelto = 0;
-go
-
-/* ----------------------------------------------------- cual es el corte publicado */
-
-/* QUE MES ES "EL CORTE", Y POR QUE NO ES SIMPLEMENTE EL ULTIMO CON DATO.
-
-   Mientras el dato llego solo en lotes mensuales completos —el pipeline leia el Excel
-   entero y publicaba— la distincion no existia: el ultimo mes con alguna lectura era
-   siempre un mes entero. Con una puerta de captura eso deja de ser cierto. El primer
-   dia que alguien teclee cuatro numeros de septiembre, "el ultimo mes con dato" pasa a
-   ser septiembre, y el tablero se republicaria entero contra un mes de cuatro lecturas:
-   los YTD se moverian, los estados contra meta cambiarian y el gerente veria cifras que
-   no significan nada.
-
-   Es exactamente la familia de errores que este trabajo vino a quitar. En el libro
-   heredado, julio estaba capturado en la hoja cruda y el reporte lo mostraba en cero;
-   aqui seria al reves, un mes a medias presentado como cerrado. El dano es el mismo:
-   el reporte dice algo que el dato no sostiene.
-
-   Un mes es corte cuando TODOS los sitios activos tienen TODAS las magnitudes. No se
-   cuenta contra un 27 escrito a mano: se cuenta contra las dimensiones, para que anadir
-   un sitio o una magnitud no deje esta regla mintiendo en silencio.
-
-   El mes en curso, incompleto, no desaparece: sigue en ehs.v_calidad_dato y en
-   ehs.v_captura_estado, que es donde se mira lo que falta por capturar. Lo que no hace
-   es gobernar lo que se publica. */
-create or alter view ehs.v_corte_publicado
-as
-    with esperadas as (
-        /* en_nacional = 1 son los tres sitios que capturan cada mes: Celta, La Estrella
-           y Agencias. dim_sitio guarda ademas 'colombia_peru' y 'peru', que existen
-           para el scorecard corporativo anual y no capturan magnitudes mensuales;
-           contarlos aqui haria que ningun mes fuera nunca completo. */
-        select total = (select count(*) from ehs.dim_sitio
-                         where activo = 1 and en_nacional = 1)
-                     * (select count(*) from ehs.dim_magnitud)
-    ),
-    por_mes as (
-        select f.anio,
-               f.num_mes,
-               lecturas = count(*),
-               completo = case when count(*) >= (select total from esperadas)
-                               then 1 else 0 end
-          from ehs.hecho_lectura_mensual l
-          join ehs.dim_fecha f on f.fecha = l.fecha
-         group by f.anio, f.num_mes
-    )
-    select p.anio,
-           corte        = max(case when p.completo = 1 then p.num_mes end),
-           ultimo_visto = max(p.num_mes),
-           /* Si los dos no coinciden, hay un mes en curso a medias. Se expone en vez de
-              esconderse: el tablero puede decir "septiembre, 4 de 27" en su barra de
-              contexto en lugar de callarlo. */
-           en_curso     = case when max(p.num_mes) >
-                                    isnull(max(case when p.completo = 1 then p.num_mes end), 0)
-                               then max(p.num_mes) end,
-           esperadas_por_mes = (select total from esperadas)
-      from por_mes p
-     group by p.anio;
 go
 
 print 'Vistas de ehs creadas.';
