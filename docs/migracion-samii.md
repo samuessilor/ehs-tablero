@@ -29,7 +29,7 @@ julio al 26 de agosto.
 | Pieza que existe hoy | Destino | Acción |
 |---|---|---|
 | `app\sql\01-esquema.sql` — 12 tablas del esquema `ehs` | Instancia SQL Server que asigne IT | **Se lleva tal cual**, salvo dimensiones que IT ya tenga (§4.1) |
-| `app\sql\02-vistas.sql` — 10 vistas analíticas | Misma instancia | **Se lleva tal cual.** Es la única implementación definitiva del cálculo |
+| `app\sql\02-vistas.sql` — 11 vistas analíticas | Misma instancia | **Se lleva tal cual.** Es la única implementación definitiva del cálculo |
 | `app\sql\03-carga-inicial.sql` — el histórico 2026 | Misma instancia | **Se lleva**, previa conciliación con el DBA. No se versiona: son cifras, y se genera |
 | `app\sql\04-ingesta.sql` — la puerta de escritura | Misma instancia | **Se lleva tal cual.** Probado ejecutando contra SQL Server real (§4.2) |
 | `app\src\rutas_api.js` — los 9 GET del contrato | Servidor propio (fase 1) | **Se lleva tal cual, sin adaptar.** No calcula: valida y sirve |
