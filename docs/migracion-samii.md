@@ -1,4 +1,4 @@
-# Migrar a SAMII: qué se lleva, qué se adapta, qué se sustituye
+# Migrar al servidor de la empresa: qué se lleva, qué se adapta, qué se sustituye
 
 Este documento existe para que la implementación real **no empiece de cero**. Lo que hoy
 corre en Vercel no es un prototipo desechable: es la misma arquitectura que pide el
@@ -9,23 +9,37 @@ sirve la página. La lógica del área ya está escrita, verificada y probada en
 Fecha: 30 de agosto de 2026 · Contra `ESTANDARINTEGRACION.md` y el hilo con IT del 3 de
 julio al 26 de agosto.
 
+> **Actualizado el 10 de septiembre de 2026 — decisión de despliegue tomada.** El destino
+> de la fase 1 es el **servidor propio de la empresa**, no el módulo Dashboards de SAMII.
+> El tablero se despliega **tal como está hoy**, sin adaptarlo a ningún otro armazón: las
+> mismas pantallas, el mismo enrutador, las mismas gráficas. Lo único que cambia entre el
+> interinato de Vercel y esta fase 1 es **dónde corre** la misma aplicación.
+>
+> Eso hace que la sección 3 de abajo («lo que se adapta a SAMII») quede en suspenso para
+> esta fase: nada de eso aplica mientras el destino sea un servidor propio. Se conserva
+> escrita porque una integración con SAMII sigue siendo una evolución posible más
+> adelante, no porque sea el plan actual. El resto del documento —el esquema, las vistas,
+> el contrato de la API, la puerta de ingesta— no cambia con esta decisión: es exactamente
+> lo mismo, sirva el front desde donde sirva.
+
 ---
 
 ## 1. El resumen en una tabla
 
 | Pieza que existe hoy | Destino | Acción |
 |---|---|---|
-| `app\sql\01-esquema.sql` — 12 tablas del esquema `ehs` | DWH / SAMII | **Se lleva tal cual**, salvo dimensiones que IT ya tenga (§4.1) |
-| `app\sql\02-vistas.sql` — 9 vistas analíticas | DWH / SAMII | **Se lleva tal cual.** Es la única implementación definitiva del cálculo |
-| `app\sql\03-carga-inicial.sql` — el histórico 2026 | DWH / SAMII | **Se lleva**, previa conciliación con el DBA. No se versiona: son cifras, y se genera |
-| `app\src\rutas_api.js` — los 9 GET del contrato | Módulo Dashboards de SAMII | **Se lleva tal cual.** No calcula: valida y sirve |
-| `app\src\datos\adaptador_sql.js` | Módulo Dashboards | **Se completa.** El esqueleto y las 9 firmas ya están |
+| `app\sql\01-esquema.sql` — 12 tablas del esquema `ehs` | Instancia SQL Server que asigne IT | **Se lleva tal cual**, salvo dimensiones que IT ya tenga (§4.1) |
+| `app\sql\02-vistas.sql` — 10 vistas analíticas | Misma instancia | **Se lleva tal cual.** Es la única implementación definitiva del cálculo |
+| `app\sql\03-carga-inicial.sql` — el histórico 2026 | Misma instancia | **Se lleva**, previa conciliación con el DBA. No se versiona: son cifras, y se genera |
+| `app\sql\04-ingesta.sql` — la puerta de escritura | Misma instancia | **Se lleva tal cual.** Probado ejecutando contra SQL Server real (§4.2) |
+| `app\src\rutas_api.js` — los 9 GET del contrato | Servidor propio (fase 1) | **Se lleva tal cual, sin adaptar.** No calcula: valida y sirve |
+| `app\src\datos\adaptador_sql.js` | Servidor propio | **Ya está completo** y verificado: 38 de 38 rutas dan lo mismo que el interinato |
 | `app\src\datos\adaptador_json.js` | — | **Se retira** cuando el SQL responda. Es el interinato |
-| `app\views\`, `app\public\` — plantilla, CSS y ECharts | Módulo Dashboards | **Se adapta** al armazón de SAMII (§3) |
-| `analisis\*.py` — el pipeline desde Excel | JOB del DWH | **Se sustituye** por el JOB, salvo `verificar_sql_contra_motor.py`, que se queda de oráculo |
+| `app\views\`, `app\public\` — plantilla, CSS y ECharts | Servidor propio | **Se lleva tal cual, sin adaptar.** No hay armazón ajeno que absorber en fase 1 |
+| `analisis\*.py` — el pipeline desde Excel | JOB del DWH (cuando exista) | **Se sustituye** por el JOB, salvo `verificar_sql_contra_motor.py` y `verificar_vistas_motor_real.py`, que quedan de oráculo |
 | `datos\correcciones.csv` y su guarda | Tabla `ehs.correccion` | **Se adapta**: el mecanismo se conserva, el archivo se vuelve tabla |
 | `app\datos\bitacora.jsonl` | `ehs.carga_log` | **Se sustituye.** La tabla ya está escrita en el esquema |
-| Despliegue en Vercel | Servidor corporativo | **Se retira.** Es el punto 9 del checklist y la única regla que hoy se incumple |
+| Despliegue en Vercel | Servidor corporativo (fase 1) | **Se retira.** Es el punto 9 del checklist y la única regla que hoy se incumple |
 
 **Lo que no se lleva a ninguna parte:** las tres implementaciones paralelas del cálculo.
 Hoy quedan dos escritas (el motor Python y las vistas SQL) atadas por una compuerta de 17
@@ -53,8 +67,9 @@ servidor.
 ### 2.2 El contrato de la API
 
 Nueve GET, con parámetros validados contra lista blanca y errores en español con forma
-fija. No calculan: piden al adaptador y serializan. Portarlos a SAMII no cambia una línea
-de lógica de negocio.
+fija. No calculan: piden al adaptador y serializan. Llevarlos al servidor propio no
+cambia una línea de lógica de negocio, y tampoco lo haría llevarlos a SAMII el día que
+esa integración exista.
 
 ### 2.3 El interruptor
 
@@ -66,16 +81,48 @@ module.exports = origen === 'sql' ? require('./adaptador_sql') : require('./adap
 El día que el esquema `ehs` exista y `adaptador_sql.js` esté completo, la migración de la
 capa de datos es **una variable de entorno**. No hay que tocar rutas, plantilla ni cliente.
 La correspondencia función a vista ya está escrita en la cabecera de `adaptador_sql.js`.
+**Ya está completo** desde el 10 de septiembre: las 38 peticiones que cubren las 9 rutas
+dan exactamente lo mismo con `ORIGEN_DATOS=json` que con `ORIGEN_DATOS=sql`
+(`comparar_adaptadores.py`).
+
+### 2.4 Cómo se ejecuta en el servidor propio
+
+`servidor.js` es el artefacto de esta fase: un servidor HTTP autocontenido
+(`node servidor.js`), sin nada de Vercel de por medio. Es literalmente el mismo comando
+con el que se ha probado toda esta arquitectura durante esta sesión, apuntando a un SQL
+Server real. Lo que hace falta del lado de IT, cuando exista el servidor:
+
+| Variable de entorno | Para qué |
+|---|---|
+| `PUERTO` | El puerto donde escucha (por defecto 3000) |
+| `ORIGEN_DATOS=sql` | Activa `adaptador_sql.js` en vez del interinato JSON |
+| `SQL_SERVIDOR`, `SQL_BASE` | Host y nombre de la base con el esquema `ehs` |
+| `SQL_USUARIO`, `SQL_CLAVE` | Credenciales de la aplicación. Solo lectura para servir el tablero; escritura solo si la puerta de captura se activa en este servidor (R.5.3.1) |
+| `SQL_CIFRAR`, `SQL_CONFIAR_CERT` | Según la política TLS de la instancia que asigne IT |
+
+Nada de esto exige un proceso especial: es Node 22.19.0, el driver `mssql` (la única
+dependencia nueva, pendiente de acordar con IT por R.3.4 — ver `docs/09-…`, sección 6.3),
+y un proceso que IT mantenga vivo con lo que ya use para sus otros servicios —Windows
+Service, un administrador de procesos, o lo que sea su estándar. No hay nada de esta
+aplicación que exija una plataforma en particular; por eso la fila 12 del formulario de
+levantamiento («Sistema operativo») queda abierta a lo que IT ya tenga.
 
 ---
 
 ## 3. Lo que se adapta
 
-| Qué | Por qué no va tal cual |
+**En fase 1 (servidor propio), nada de esta sección aplica.** El tablero se despliega tal
+como está: `servidor.js` es exactamente el punto de entrada que hace falta —ya es un
+servidor HTTP autocontenido, sin depender de la función serverless de Vercel
+(`api\servidor.js`, que solo existía para ese despliegue concreto y se retira con él—.
+Esta tabla queda escrita para el día en que una integración con SAMII sea el plan, no
+antes:
+
+| Qué | Por qué no iría tal cual, si algún día se integra en SAMII |
 |---|---|
-| Plantilla y CSS | SAMII tendrá su propio armazón, su cabecera y su navegación. Lo que se conserva es el **cuerpo**: las cinco vistas, el orden de lectura y las siete distinciones de `docs/referencia-tablero-vercel.md` |
-| Servidor HTTP | `servidor.js` y `api\servidor.js` son dos envolturas del mismo enrutador. En SAMII se sustituyen por su punto de entrada; `src\aplicacion.js` sobrevive |
-| Gráficas | ECharts 5.6.0 vendorizado. Si SAMII ya estandarizó Chart.js, `public\js\graficos.js` es el **único** archivo a reescribir: es una fábrica, no está mezclado con la lógica |
+| Plantilla y CSS | SAMII tendría su propio armazón, su cabecera y su navegación. Lo que se conservaría es el **cuerpo**: las cinco vistas, el orden de lectura y las siete distinciones de `docs/referencia-tablero-vercel.md` |
+| Servidor HTTP | `servidor.js` es el punto de entrada para el servidor propio. Si en el futuro el destino fuera SAMII, se sustituiría por el suyo; `src\aplicacion.js` (el enrutador) sobreviviría igual |
+| Gráficas | ECharts 5.6.0 vendorizado. Si algún día SAMII exige Chart.js, `public\js\graficos.js` es el **único** archivo a reescribir: es una fábrica, no está mezclado con la lógica |
 | Correcciones | El CSV pasa a tabla `ehs.correccion` con las mismas columnas y la misma guarda. El mecanismo no cambia: se declara qué valor se esperaba y si el origen ya no lo trae, no se aplica |
 
 ---
@@ -169,7 +216,7 @@ esté en verde.
 | 3 | Vistas desplegadas | `verificar_vistas_motor_real.py` contra el motor: **17 de 17, diferencia cero** | **Sí** |
 | 4 | `adaptador_sql.js` completo | `comparar_adaptadores.py`: las 9 rutas dan lo mismo con `ORIGEN_DATOS=sql` que con `json` | En curso |
 | 5 | JOB de ingesta programado | Dos ejecuciones seguidas no duplican filas (R.5.3.3) y `ehs.carga_log` registra ambas | **Sí**, vía `sp_capturar_lote` |
-| 6 | Tablero servido desde SAMII | Las cinco vistas cargan, sin errores de consola, y el dato coincide con el interinato | No: requiere SAMII |
+| 6 | Tablero servido desde el servidor de la empresa | Las cinco vistas cargan, sin errores de consola, y el dato coincide con el interinato | No: requiere el servidor y las credenciales de IT |
 | 7 | Retiro de Vercel | El proyecto `_deploy-web1` se elimina. Cierra el punto 9 del checklist | No |
 
 **La columna «Ensayada» es nueva, y es el cambio de fondo de septiembre de 2026.** Los
@@ -205,12 +252,16 @@ bloquean.
 4. ¿Cómo se organizan las capas internas del DWH y qué convención de nombres siguen?
 5. ¿Cuál es el paso de objetos de base de datos de desarrollo a producción?
 
-### 6.2 Bloquean el paso 4 — el adaptador
+### 6.2 Bloquean el paso 4 y el paso 6 — el adaptador y el servidor propio
 
 6. ¿Qué driver aprueba IT para conectar Node con SQL Server? No se elige por cuenta propia
    (R.3.4): sería introducir una dependencia fuera de la tabla del estándar.
-7. ¿SAMII ya tiene una capa de consulta propia que sustituya entero a `adaptador_sql.js`?
-8. ¿Servidor, base y credenciales de solo lectura para la aplicación?
+7. **El servidor propio en sí** (fase 1, decidido): ¿qué servidor —físico, VM o
+   contenedor— se asigna para correr `servidor.js`, con qué sistema operativo, y quién lo
+   administra? Es la pregunta que de verdad bloquea el paso 6 ahora.
+8. Servidor, base y credenciales de SQL Server para la aplicación: de solo lectura para
+   servir el tablero, y de escritura si la puerta de captura (`04-ingesta.sql`) se activa
+   ahí mismo.
 
 ### 6.3 Bloquean el paso 5 — la ingesta
 
@@ -224,10 +275,14 @@ bloquean.
 13. ¿Qué datos de laboratorio ya viven en el DWH: producción, horas-hombre, consumos? Si
     producción ya está, el denominador de todos los KPI deja de depender del Excel.
 
-### 6.4 Bloquean el paso 6 — la superficie
+### 6.4 Para una futura integración con SAMII — no bloquean el plan actual
 
-14. ¿Cuál es el camino para que EHS tenga una rama en SAMII, y quién acompaña?
-15. ¿La rama es sobre el repositorio completo de SAMII o hay repos separados por módulo?
+Con la fase 1 decidida en servidor propio, estas preguntas dejan de ser urgentes. Se
+conservan porque una integración con SAMII sigue siendo una evolución posible, y el día
+que se retome, la conversación ya está preparada:
+
+14. ¿Cuál sería el camino para que EHS tenga una rama en SAMII, y quién acompaña?
+15. ¿La rama sería sobre el repositorio completo de SAMII o hay repos separados por módulo?
 16. ¿Cómo se levanta SAMII en local? ¿Es `PRUEBAS SAMII` ese ambiente?
 17. ¿SAMII usa Chart.js o ECharts, y hay un componente de gráfico ya estandarizado?
 18. ¿Hay plantillas de dashboard ya hechas para reutilizar?
