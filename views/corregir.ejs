@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title><%= titulo %></title>
+<link rel="stylesheet" href="/css/ehs.css" />
+</head>
+<body>
+<p class="sr" id="viva" role="status" aria-live="polite"></p>
+
+<header class="rail">
+  <div class="rail-in">
+    <div class="marca">
+      <div>
+        <div style="font-weight:700;font-size:14px;letter-spacing:-.01em">Consultar y corregir · EHS · Servióptica</div>
+        <div style="font-family:var(--mono);font-size:8.5px;letter-spacing:.14em;color:#8FD3D3;text-transform:uppercase">
+          Puerta de corrección · <%= modo === 'sql' ? 'SQL Server' : 'validación sin persistencia' %>
+        </div>
+      </div>
+    </div>
+    <div class="ctl rail-derecha">
+      <a class="volver" href="/">← Volver al tablero</a>
+      <a class="volver" href="/captura">Ir a captura</a>
+    </div>
+  </div>
+</header>
+
+<main class="body cap">
+
+  <% if (modo !== 'sql') { %>
+  <section class="panel c12 cap-aviso">
+    <div class="cuerpo">
+      <p><strong>Este despliegue no guarda nada, y no puede hacerlo.</strong>
+      Igual que en captura, aquí no existe conexión a base de datos. La validación del
+      motivo y del valor sí es real, y abajo se ve el T-SQL que se ejecutaría.</p>
+    </div>
+  </section>
+  <% } %>
+
+  <!-- ============================================================== 01 · elegir -->
+  <section class="panel c12">
+    <header><span class="ix">01</span><h2>Qué lectura consultar</h2>
+      <span class="sub" id="subConsulta"></span></header>
+    <div class="cuerpo cap-fila">
+      <label class="cap-campo">
+        <span class="et">Año</span>
+        <input type="number" id="cAnio" value="<%= anio %>" min="2023" max="2100" step="1" />
+      </label>
+      <label class="cap-campo">
+        <span class="et">Mes</span>
+        <select id="cMes">
+          <% const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio',
+                            'Agosto','Septiembre','Octubre','Noviembre','Diciembre']; %>
+          <% MESES.forEach(function (m, i) { %>
+          <option value="<%= i + 1 %>"><%= m %></option>
+          <% }); %>
+        </select>
+      </label>
+      <label class="cap-campo">
+        <span class="et">Sitio</span>
+        <select id="cSitio">
+          <% sitios.forEach(function (s) { %>
+          <option value="<%= s.id %>"><%= s.etiqueta %></option>
+          <% }); %>
+        </select>
+      </label>
+      <button type="button" id="bConsultar" class="cap-boton">Consultar</button>
+    </div>
+  </section>
+
+  <!-- =========================================================== 02 · valores -->
+  <section class="panel c12" id="secValores" style="display:none">
+    <header><span class="ix">02</span><h2>Valores capturados</h2>
+      <span class="sub">Elige cuál corregir</span></header>
+    <div class="cuerpo tablabox">
+      <table class="cap-tabla" id="tablaValores">
+        <thead><tr><th class="cap-th-mag">Magnitud</th><th>Valor actual</th><th></th></tr></thead>
+        <tbody id="cuerpoValores"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========================================================== 03 · corregir -->
+  <section class="panel c12" id="secCorregir" style="display:none">
+    <header><span class="ix">03</span><h2>Corregir <span id="magACorregir"></span></h2>
+      <span class="sub" id="subCorregir"></span></header>
+    <div class="cuerpo cap-fila">
+      <label class="cap-campo">
+        <span class="et">Valor nuevo</span>
+        <input type="text" inputmode="decimal" id="corValor" />
+      </label>
+      <label class="cap-campo">
+        <span class="et">Quién corrige</span>
+        <input type="text" id="corQuien" maxlength="60" placeholder="nombre.apellido"
+               autocomplete="username" />
+      </label>
+    </div>
+    <div class="cuerpo">
+      <label class="cap-campo cap-campo-ancho" style="width:100%">
+        <span class="et">Motivo (mínimo <%= motivoMinimo %> caracteres)</span>
+        <textarea id="corMotivo" rows="3" maxlength="300"
+                  placeholder="Por qué cambia este valor. Queda archivado junto con el anterior."></textarea>
+      </label>
+    </div>
+    <div class="cuerpo cap-acciones">
+      <button type="button" id="bCorregir" class="cap-boton">Corregir</button>
+      <button type="button" id="bCancelar" class="cap-boton cap-boton-suave">Cancelar</button>
+    </div>
+    <div class="cuerpo" id="resultadoCorreccion"></div>
+  </section>
+
+  <!-- =========================================================== 04 · historial -->
+  <section class="panel c12">
+    <header><span class="ix">04</span><h2>Historial de correcciones</h2>
+      <span class="sub" id="subHistorial"></span></header>
+    <div class="cuerpo tablabox">
+      <table class="cap-tabla" id="tablaHistorial">
+        <thead>
+          <tr><th>Cuándo</th><th>Dónde</th><th>Cambio</th><th>Motivo</th><th>Quién</th></tr>
+        </thead>
+        <tbody id="cuerpoHistorial"><tr><td colspan="5">Cargando…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<footer class="pie">
+  <div class="pie-in">
+    <span>Stack del estándar de integración · Node 22 + EJS + CSS + JavaScript</span>
+    <span class="pie-sep">·</span>
+    <span>El valor anterior queda archivado y el motivo es obligatorio (R.5.3.4, migración 0009)</span>
+  </div>
+</footer>
+
+<script>window.EHS_MAGNITUDES = <%- JSON.stringify(magnitudes) %>;</script>
+<script src="/js/formato.js"></script>
+<script src="/js/corregir.js"></script>
+</body>
+</html>

@@ -24,7 +24,7 @@
  * pantalla, la sentencia que se ejecutaria contra su servidor. Las dos audiencias
  * miran la misma pieza.
  */
-const { MAGNITUDES, SITIOS, examinarLote } = require('../validacion');
+const { MAGNITUDES, SITIOS, examinarLote, examinarCorreccion } = require('../validacion');
 
 /** Literal de cadena en T-SQL: la comilla simple se duplica. */
 function txt(v) {
@@ -141,4 +141,59 @@ async function estadoCaptura({ anio }) {
   };
 }
 
-module.exports = { capturarLote, estadoCaptura, sentenciaEquivalente };
+/**
+ * Igual que capturarLote: valida con la misma regla que ehs.sp_corregir_lectura y no
+ * guarda nada, porque no tiene donde.
+ */
+async function corregirLectura({ anio, mes, sitio, magnitud, valor, motivo, corregidoPor }) {
+  if (!corregidoPor || !String(corregidoPor).trim()) {
+    const e = new Error('Falta quién corrige. La bitácora tiene que poder nombrarlo (R.5.3.4).');
+    e.codigo = 'falta_corrector';
+    throw e;
+  }
+
+  const r = examinarCorreccion({ magnitud, valor, motivo });
+  if (r.motivoInvalido) {
+    const e = new Error(r.motivoInvalido);
+    e.codigo = 'motivo_invalido';
+    throw e;
+  }
+  if (r.error) {
+    const e = new Error(r.error);
+    e.codigo = 'valor_invalido';
+    throw e;
+  }
+
+  const fecha = `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-01`;
+  return {
+    modo: 'simulado',
+    persistido: false,
+    corregida: false,
+    advertencia: r.advertencia || null,
+    sentencia:
+      `exec ehs.sp_corregir_lectura @fecha = ${txt(fecha)}, @sitio_id = ${txt(sitio)}, ` +
+      `@magnitud_id = ${txt(magnitud)}, @valor_nuevo = ${txt(valor)}, ` +
+      `@motivo = ${txt(motivo)}, @corregido_por = ${txt(corregidoPor)};`,
+    aviso:
+      'Interinato sin base de datos: no se guardó nada, y no se puede. El T-SQL de ' +
+      'abajo es exactamente el que se ejecutaría contra el servidor de IT.',
+  };
+}
+
+/** Sin base de datos no hay historial que mostrar: se declara vacio, no se inventa. */
+async function historialCorrecciones({ anio }) {
+  return {
+    modo: 'simulado',
+    anio,
+    correcciones: [],
+    aviso: 'Sin base de datos no hay historial de correcciones que mostrar.',
+  };
+}
+
+module.exports = {
+  capturarLote,
+  estadoCaptura,
+  corregirLectura,
+  historialCorrecciones,
+  sentenciaEquivalente,
+};

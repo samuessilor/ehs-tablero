@@ -74,6 +74,10 @@ const RANGO = {
 const MAG_IDS = new Set(MAGNITUDES.map((m) => m.id));
 const SITIO_IDS = new Set(SITIOS.map((s) => s.id));
 
+/* Mismo piso que ehs.sp_corregir_lectura (migracion 0009): un motivo de una
+   palabra no es un motivo. */
+const MOTIVO_MINIMO_CORRECCION = 10;
+
 /** Numero decimal con punto o coma. Devuelve null si no lo es. */
 function aNumero(texto) {
   if (texto === null || texto === undefined) return null;
@@ -176,11 +180,52 @@ function examinarLote(filas) {
   return { validas, rechazadas, advertidas };
 }
 
+/**
+ * La correccion de UN valor ya capturado (pantalla "Consultar y corregir"), distinta
+ * de examinarFila: aqui el motivo es parte de lo que se examina, y no hay una fila de
+ * "celda vacia" posible porque el valor viene de un campo numerico, no de texto libre.
+ */
+function examinarCorreccion({ magnitud, valor, motivo }) {
+  const motivoTexto = motivo == null ? '' : String(motivo).trim();
+  if (motivoTexto.length < MOTIVO_MINIMO_CORRECCION) {
+    return {
+      motivoInvalido: `El motivo tiene que explicar algo, no solo llenar el campo (mínimo ${MOTIVO_MINIMO_CORRECCION} caracteres).`,
+    };
+  }
+
+  const n = aNumero(valor);
+  if (n === null) {
+    return { motivoInvalido: null, error: `El valor no es un número: ${valor}.`, advertencia: null };
+  }
+  if (n < 0) {
+    return {
+      motivoInvalido: null,
+      error: 'Valor negativo. Ninguna de las nueve magnitudes puede serlo.',
+      advertencia: null,
+    };
+  }
+
+  const rango = RANGO[magnitud];
+  let advertencia = null;
+  if (rango) {
+    const [min, max] = rango;
+    if (n > max) {
+      advertencia = `Supera el máximo histórico de ${magnitud} con holgura (${max}). Confirma que es correcto.`;
+    } else if (n > 0 && n < min) {
+      advertencia = `Queda por debajo del mínimo histórico de ${magnitud} (${min}). Confirma que es correcto.`;
+    }
+  }
+
+  return { motivoInvalido: null, error: null, advertencia, valor: n };
+}
+
 module.exports = {
   MAGNITUDES,
   SITIOS,
   RANGO,
+  MOTIVO_MINIMO_CORRECCION,
   aNumero,
   examinarFila,
   examinarLote,
+  examinarCorreccion,
 };

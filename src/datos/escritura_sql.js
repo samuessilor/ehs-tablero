@@ -110,4 +110,67 @@ async function estadoCaptura({ anio }) {
   };
 }
 
-module.exports = { capturarLote, estadoCaptura, cerrar };
+/**
+ * Corrige UN valor ya capturado, via ehs.sp_corregir_lectura (migracion 0009). Puerta
+ * de escritura distinta de capturarLote a proposito: exige un motivo escrito, y solo
+ * toca una fila que ya existe — no crea nada nuevo.
+ */
+async function corregirLectura({ anio, mes, sitio, magnitud, valor, motivo, corregidoPor }) {
+  const sql = cargarDriver();
+  const p = await pool();
+
+  const fecha = `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-01`;
+  const r = await p
+    .request()
+    .input('fecha', sql.Date, fecha)
+    .input('sitio_id', sql.VarChar(20), sitio)
+    .input('magnitud_id', sql.VarChar(40), magnitud)
+    .input('valor_nuevo', sql.Decimal(18, 4), valor)
+    .input('motivo', sql.VarChar(300), motivo)
+    .input('corregido_por', sql.VarChar(60), corregidoPor)
+    .execute('ehs.sp_corregir_lectura');
+
+  const fila = (r.recordset || [])[0] || {};
+  return {
+    modo: 'sql',
+    persistido: true,
+    corregida: (fila.filas_corregidas ?? 0) > 0,
+  };
+}
+
+/**
+ * El historial de correcciones (pantalla "Consultar y corregir" y, en el futuro, la
+ * franja que hoy pinta franja_correccion.js desde un CSV estatico del modo JSON).
+ */
+async function historialCorrecciones({ anio }) {
+  const sql = cargarDriver();
+  const p = await pool();
+  const r = await p
+    .request()
+    .input('anio', sql.SmallInt, anio)
+    .query(
+      'select fecha, anio, mes, sitio_id, sitio_corto, magnitud_id, magnitud, ' +
+        'valor_anterior, valor_corregido, motivo, autorizado_por, corregido_en ' +
+        'from ehs.v_correcciones where anio = @anio order by corregido_en desc'
+    );
+
+  return {
+    modo: 'sql',
+    anio,
+    correcciones: r.recordset.map((x) => ({
+      fecha: x.fecha,
+      mes: x.mes,
+      sitio: x.sitio_id,
+      sitioCorto: x.sitio_corto,
+      magnitud: x.magnitud_id,
+      magnitudNombre: x.magnitud,
+      valorAnterior: x.valor_anterior,
+      valorCorregido: x.valor_corregido,
+      motivo: x.motivo,
+      autorizadoPor: x.autorizado_por,
+      corregidoEn: x.corregido_en,
+    })),
+  };
+}
+
+module.exports = { capturarLote, estadoCaptura, corregirLectura, historialCorrecciones, cerrar };

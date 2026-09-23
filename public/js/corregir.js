@@ -1,0 +1,245 @@
+/**
+ * El cliente de "Consultar y corregir". Reusa /api/ehs/detalle (lectura ya publicada
+ * en el resto de la app) para mostrar qué hay, y manda la corrección a
+ * /api/ehs/correccion. No decide si un valor entra: eso lo deciden el servidor y
+ * después el procedimiento, igual que en captura.js.
+ */
+/* global Fmt */
+(function () {
+  'use strict';
+
+  var $ = function (s, raiz) {
+    return (raiz || document).querySelector(s);
+  };
+  var $$ = function (s, raiz) {
+    return Array.prototype.slice.call((raiz || document).querySelectorAll(s));
+  };
+
+  var MAGNITUDES = window.EHS_MAGNITUDES || [];
+  var porId = {};
+  MAGNITUDES.forEach(function (m) {
+    porId[m.id] = m;
+  });
+
+  var estado = { anio: null, mes: null, sitio: null, magnitud: null, valorActual: null };
+
+  /* --------------------------------------------------------------- 01 · consultar */
+
+  async function consultar() {
+    var anio = Number($('#cAnio').value);
+    var mes = Number($('#cMes').value);
+    var sitio = $('#cSitio').value;
+    estado.anio = anio;
+    estado.mes = mes;
+    estado.sitio = sitio;
+
+    $('#subConsulta').textContent = 'Consultando…';
+    try {
+      var r = await fetch('/api/ehs/detalle?anio=' + anio);
+      var cuerpo = await r.json();
+      if (!r.ok) {
+        $('#subConsulta').textContent = cuerpo.mensaje || 'No se pudo consultar.';
+        return;
+      }
+      var fila = (cuerpo.filas || []).find(function (f) {
+        return Number(f.mes) === mes && f.sitio === sitio;
+      });
+      pintarValores(fila);
+    } catch (e) {
+      $('#subConsulta').textContent = 'No se pudo hablar con el servidor: ' + e.message;
+    }
+  }
+
+  function pintarValores(fila) {
+    var cuerpo = $('#cuerpoValores');
+    cuerpo.innerHTML = '';
+    MAGNITUDES.forEach(function (m) {
+      var valor = fila ? fila[m.id] : null;
+      var tr = document.createElement('tr');
+      tr.innerHTML =
+        '<th scope="row"><span class="cap-mag">' +
+        Fmt.esc(m.etiqueta) +
+        '</span><span class="cap-uni">' +
+        Fmt.esc(m.unidad) +
+        '</span></th>' +
+        '<td>' +
+        (valor === null || valor === undefined ? '<em>sin captura</em>' : Fmt.esc(valor)) +
+        '</td>' +
+        '<td></td>';
+      var celdaBoton = tr.lastElementChild;
+      var boton = document.createElement('button');
+      boton.type = 'button';
+      boton.className = 'cap-boton cap-boton-suave';
+      boton.textContent = valor === null || valor === undefined ? 'sin valor que corregir' : 'Corregir';
+      boton.disabled = valor === null || valor === undefined;
+      boton.addEventListener('click', function () {
+        abrirCorreccion(m, valor);
+      });
+      celdaBoton.appendChild(boton);
+      cuerpo.appendChild(tr);
+    });
+
+    $('#secValores').style.display = '';
+    var mesNombre = Fmt.mesLargo[estado.mes - 1];
+    $('#subConsulta').textContent = mesNombre + ' ' + estado.anio + ' · ' + estado.sitio;
+  }
+
+  /* --------------------------------------------------------------- 02 · corregir */
+
+  function abrirCorreccion(magnitud, valorActual) {
+    estado.magnitud = magnitud.id;
+    estado.valorActual = valorActual;
+    $('#magACorregir').textContent = magnitud.etiqueta;
+    $('#subCorregir').textContent =
+      'Valor actual: ' + Fmt.esc(valorActual) + ' ' + magnitud.unidad;
+    $('#corValor').value = valorActual;
+    $('#corMotivo').value = '';
+    $('#resultadoCorreccion').innerHTML = '';
+    $('#secCorregir').style.display = '';
+    $('#secCorregir').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    $('#corValor').focus();
+  }
+
+  function cerrarCorreccion() {
+    $('#secCorregir').style.display = 'none';
+    estado.magnitud = null;
+  }
+
+  async function enviarCorreccion() {
+    var quien = String($('#corQuien').value || '').trim();
+    if (!quien) {
+      pintarErrorCorreccion('Falta escribir quién corrige.');
+      $('#corQuien').focus();
+      return;
+    }
+    var motivo = String($('#corMotivo').value || '').trim();
+    var boton = $('#bCorregir');
+    boton.disabled = true;
+    boton.textContent = 'Corrigiendo…';
+
+    try {
+      var r = await fetch('/api/ehs/correccion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          anio: estado.anio,
+          mes: estado.mes,
+          sitio: estado.sitio,
+          magnitud: estado.magnitud,
+          valor: $('#corValor').value,
+          motivo: motivo,
+          corregidoPor: quien,
+        }),
+      });
+      var cuerpo = await r.json();
+      if (!r.ok) {
+        pintarErrorCorreccion(cuerpo.mensaje || 'El servidor rechazó la corrección.');
+        return;
+      }
+      pintarResultadoCorreccion(cuerpo);
+    } catch (e) {
+      pintarErrorCorreccion('No se pudo hablar con el servidor: ' + e.message);
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Corregir';
+    }
+  }
+
+  function pintarErrorCorreccion(mensaje) {
+    $('#resultadoCorreccion').innerHTML =
+      '<div class="cap-res cap-res-mal"><p>' + Fmt.esc(mensaje) + '</p></div>';
+    $('#viva').textContent = mensaje;
+  }
+
+  function pintarResultadoCorreccion(r) {
+    var partes = [];
+    var simulado = r.persistido === false;
+    if (simulado) {
+      partes.push('<div class="cap-res cap-res-parcial"><p class="cap-res-titular">Corrección validada, no guardada</p>');
+      if (r.aviso) partes.push('<p class="cap-res-aviso">' + Fmt.esc(r.aviso) + '</p>');
+      partes.push('</div>');
+      if (r.sentencia) {
+        partes.push('<h3 class="cap-res-h">Lo que se ejecutaría contra el servidor de IT</h3>');
+        partes.push('<pre class="cap-sql">' + Fmt.esc(r.sentencia) + '</pre>');
+      }
+    } else if (r.corregida) {
+      partes.push('<div class="cap-res cap-res-bien"><p class="cap-res-titular">Corrección grabada.</p></div>');
+    } else {
+      partes.push(
+        '<div class="cap-res cap-res-parcial"><p class="cap-res-titular">El valor nuevo es igual al que ya había: no se archivó nada.</p></div>'
+      );
+    }
+    $('#resultadoCorreccion').innerHTML = partes.join('');
+    $('#viva').textContent = r.corregida ? 'Corrección grabada.' : 'Sin cambios.';
+
+    if (r.corregida) {
+      consultar();
+      cargarHistorial();
+    }
+  }
+
+  /* -------------------------------------------------------------- 03 · historial */
+
+  async function cargarHistorial() {
+    var anio = Number($('#cAnio').value) || new Date().getFullYear();
+    $('#subHistorial').textContent = 'Cargando…';
+    try {
+      var r = await fetch('/api/ehs/correccion/historial?anio=' + anio);
+      var cuerpo = await r.json();
+      pintarHistorial(cuerpo.correcciones || []);
+    } catch (e) {
+      $('#subHistorial').textContent = 'No se pudo cargar: ' + e.message;
+    }
+  }
+
+  function pintarHistorial(lista) {
+    var cuerpo = $('#cuerpoHistorial');
+    if (!lista.length) {
+      cuerpo.innerHTML = '<tr><td colspan="5">Sin correcciones registradas este año.</td></tr>';
+      $('#subHistorial').textContent = '0 correcciones';
+      return;
+    }
+    cuerpo.innerHTML = lista
+      .map(function (c) {
+        var mag = porId[c.magnitud];
+        return (
+          '<tr><td>' +
+          Fmt.esc(c.corregidoEn) +
+          '</td><td>' +
+          Fmt.esc(c.sitioCorto) +
+          ' · ' +
+          Fmt.esc(Fmt.mesMini[c.mes - 1]) +
+          ' ' +
+          Fmt.esc(c.anio) +
+          '</td><td><s>' +
+          Fmt.esc(c.valorAnterior) +
+          '</s> → <b>' +
+          Fmt.esc(c.valorCorregido) +
+          '</b> ' +
+          Fmt.esc((mag && mag.unidad) || c.magnitudNombre) +
+          '</td><td>' +
+          Fmt.esc(c.motivo) +
+          '</td><td>' +
+          Fmt.esc(c.autorizadoPor) +
+          '</td></tr>'
+        );
+      })
+      .join('');
+    $('#subHistorial').textContent = lista.length + (lista.length === 1 ? ' corrección' : ' correcciones');
+  }
+
+  /* ----------------------------------------------------------------------- inicio */
+
+  function iniciar() {
+    $('#bConsultar').addEventListener('click', consultar);
+    $('#bCorregir').addEventListener('click', enviarCorreccion);
+    $('#bCancelar').addEventListener('click', cerrarCorreccion);
+    cargarHistorial();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', iniciar);
+  } else {
+    iniciar();
+  }
+})();

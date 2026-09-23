@@ -53,4 +53,56 @@ async function captura(_req, res) {
   res.end(html);
 }
 
-module.exports = { dashboard, captura };
+/**
+ * La pantalla "Consultar y corregir". Se dibuja con año/sitio/magnitud fijos como en
+ * captura.ejs; el cliente pide /api/ehs/detalle para mostrar el valor actual y manda
+ * la correccion a /api/ehs/correccion. No es la misma pantalla que captura: aquella
+ * entra dato nuevo del mes, esta arregla un dato que ya entró, con un motivo que
+ * queda escrito y archivado (R.5.3.4, ver migración 0009).
+ */
+async function corregir(_req, res) {
+  const { MAGNITUDES, SITIOS, MOTIVO_MINIMO_CORRECCION } = require('./validacion');
+  const modo = process.env.ORIGEN_DATOS === 'sql' ? 'sql' : 'simulado';
+
+  const html = await ejs.renderFile(
+    path.join(VISTAS, 'corregir.ejs'),
+    {
+      titulo: 'Consultar y corregir · EHS · Servióptica',
+      magnitudes: MAGNITUDES,
+      sitios: SITIOS,
+      modo,
+      anio: new Date().getFullYear(),
+      motivoMinimo: MOTIVO_MINIMO_CORRECCION,
+    },
+    { rmWhitespace: false }
+  );
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.end(html);
+}
+
+/**
+ * La pantalla "Descargar reporte": un resumen imprimible del corte publicado, sin los
+ * graficos interactivos del tablero. R.5.2.1/R.5.2.2 siguen mandando aquí: los
+ * cinco valores y sus estados los calcula la misma capa de datos, nunca la plantilla.
+ */
+async function reporte(_req, res, url) {
+  const ambito = (url && url.searchParams.get('ambito')) || 'nacional';
+  const pan = await datos.panorama({ ambito });
+
+  const html = await ejs.renderFile(
+    path.join(VISTAS, 'reporte.ejs'),
+    {
+      titulo: 'Reporte EHS · Servióptica',
+      ambito,
+      pan,
+      generadoEn: new Date().toISOString(),
+    },
+    { rmWhitespace: false }
+  );
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'text/html; charset=utf-8');
+  res.end(html);
+}
+
+module.exports = { dashboard, captura, corregir, reporte };
