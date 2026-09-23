@@ -17,8 +17,8 @@
                    abajo — en resumen, DDL + lectura/escritura + BACKUP DATABASE
                    + otorgar permisos, sin volver a pedir la clave de sa cada
                    vez que una migracion agrega un procedimiento). Solo lo usan
-                   scripts/migrar.js e instalacion/*.ps1, nunca la app en
-                   ejecucion.
+                   scripts/migrar.js y los scripts de instalacion, nunca la app
+                   en ejecucion.
      ehs_app       db_datareader (todo el dato es de lectura publica dentro de
                    la app: tablero, captura, reportes) + EXECUTE en
                    ehs.sp_capturar_lote — sin db_datawriter. src/datos/

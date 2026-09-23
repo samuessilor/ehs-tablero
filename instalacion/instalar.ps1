@@ -63,7 +63,18 @@ param(
     [switch]$ConDatosSemilla
 )
 
-$ErrorActionPreference = 'Stop'
+# 'Continue', no 'Stop': este script llama a varios ejecutables nativos (docker,
+# sqlcmd, node, icacls) que escriben avisos benignos en stderr — un
+# DeprecationWarning de Node, un mensaje informativo de sqlcmd. Con
+# $ErrorActionPreference = 'Stop', PowerShell convierte CUALQUIER linea de stderr
+# de un ejecutable nativo en una excepcion terminante (NativeCommandError), asi
+# que el primer aviso inocuo tumbaba el instalador entero antes de llegar a
+# revisar si el comando realmente fallo. Se vio en vivo instalando de verdad: el
+# propio aviso de Node sobre TLS/RFC 6066 aborto la instalacion aunque migrar.js
+# iba a fallar de todas formas por otra razon (un login que no existia). Cada
+# llamada a un ejecutable nativo de este script comprueba $LASTEXITCODE por su
+# cuenta despues — eso es lo que de verdad decide si algo fallo.
+$ErrorActionPreference = 'Continue'
 Set-StrictMode -Version Latest
 
 # ------------------------------------------------------------------- rutas base
@@ -96,9 +107,16 @@ Write-Host ""
 # --------------------------------------------------------- claves de un solo uso
 
 function Nueva-Clave {
-    # 24 caracteres de un alfabeto que evita ambiguedades visuales (sin 0/O, 1/l/I)
-    # y que sqlcmd/T-SQL puede llevar entre comillas simples sin escapar nada raro.
-    $alfabeto = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#%^*-_='
+    # 24 caracteres de un alfabeto que evita ambiguedades visuales (sin 0/O, 1/l/I) y,
+    # sobre todo, SIN el signo '='. Probado en vivo instalando de verdad: sqlcmd -v
+    # Nombre=Valor trunca el valor en el primer '=' que encuentre DENTRO del propio
+    # valor (una clave "Abc123=Def456..." llegaba a SQL Server como "Abc123" nada
+    # mas, de 6 caracteres — y create login la rechazaba por corta). Con un alfabeto
+    # de 63 caracteres sin '=' antes, 1 de cada ~64 caracteres generados podia
+    # romper esto, y rompio: ehs_migrador se creaba bien y ehs_app fallaba, con la
+    # misma funcion generando las dos claves — pura mala suerte de a cual le tocaba
+    # el caracter problematico.
+    $alfabeto = 'ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#%^*-_'
     -join (1..24 | ForEach-Object { $alfabeto[(Get-Random -Maximum $alfabeto.Length)] })
 }
 
@@ -109,21 +127,29 @@ $ClaveApp = Nueva-Clave
 # ------------------------------------------------------------- preparar el motor
 
 function Esperar-Motor {
-    param([int]$Puerto, [int]$TimeoutSeg = 90)
-    Write-Host "Esperando que el motor responda en 127.0.0.1:$Puerto…"
+    param([int]$Puerto, [string]$ClaveSa, [int]$TimeoutSeg = 120)
+    # Un TCP connect exitoso NO significa que el motor ya acepte logins: el puerto
+    # puede quedar escuchando antes de que termine de recuperar tempdb y las demas
+    # bases del sistema. Probado de verdad al instalar contra un contenedor recien
+    # creado: el connect pasaba en segundos y el primer sqlcmd fallaba con "Login
+    # timeout expired" porque el motor todavia no estaba listo para autenticar.
+    # Por eso esto intenta un login real (sqlcmd -Q "select 1"), no un TCP connect.
+    Write-Host "Esperando que el motor acepte conexiones en 127.0.0.1:$Puerto…"
     $limite = (Get-Date).AddSeconds($TimeoutSeg)
     while ((Get-Date) -lt $limite) {
-        try {
-            $cliente = New-Object System.Net.Sockets.TcpClient
-            $cliente.Connect('127.0.0.1', $Puerto)
-            $cliente.Close()
-            Write-Host "Motor responde." -ForegroundColor Green
-            return
-        } catch {
-            Start-Sleep -Seconds 2
+        if ($Motor -eq 'contenedor') {
+            docker exec $script:NombreContenedor /opt/mssql-tools18/bin/sqlcmd `
+                -C -S localhost -U sa -P $ClaveSa -Q "select 1" 2>$null 1>$null
+        } else {
+            & sqlcmd -C -S "127.0.0.1,$Puerto" -U sa -P $ClaveSa -Q "select 1" 2>$null 1>$null
         }
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "Motor listo." -ForegroundColor Green
+            return
+        }
+        Start-Sleep -Seconds 3
     }
-    throw "El motor no respondio en 127.0.0.1:$Puerto tras $TimeoutSeg segundos."
+    throw "El motor no acepto conexiones en 127.0.0.1:$Puerto tras $TimeoutSeg segundos."
 }
 
 # Ejecuta crear-logins.sql. En modo contenedor via 'docker exec' (sqlcmd ya vive
@@ -146,6 +172,22 @@ function Correr-CrearLogins {
             -i $rutaScript
     }
     if ($LASTEXITCODE -ne 0) { throw "crear-logins.sql termino con codigo $LASTEXITCODE." }
+}
+
+# Administrador local, en LOS DOS MODOS — no solo en nativo. Instalar el motor SQL
+# Server de verdad si lo necesita (nativo); registrar la tarea programada que arranca
+# el tablero lo necesita SIEMPRE, en cualquier modo: probado en vivo, Register-
+# ScheduledTask devuelve "Acceso denegado" incluso para la tarea por-usuario mas
+# simple posible cuando el proceso no esta elevado, aunque la cuenta SI sea
+# administradora (token filtrado por UAC corriendo sin elevar). Que la tarea en si
+# vaya a correr sin privilegios de sistema es un hecho distinto de si HACE FALTA
+# estar elevado para REGISTRARLA — son dos preguntas distintas, y la reunion de este
+# encargo asumia que solo la primera necesitaba el permiso.
+$esAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
+if (-not $esAdmin) {
+    throw "Este instalador necesita PowerShell como Administrador — una sola vez, solo " +
+          "durante la instalacion (ni el motor ni el tablero corren despues con privilegios " +
+          "de sistema). Es el UNICO permiso que pide instalacion/requisitos-it.md."
 }
 
 if ($Motor -eq 'contenedor') {
@@ -175,15 +217,10 @@ if ($Motor -eq 'contenedor') {
             mcr.microsoft.com/mssql/server:2022-latest | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "$herramienta run termino con codigo $LASTEXITCODE." }
     }
-    Esperar-Motor -Puerto $PuertoMotor
+    Esperar-Motor -Puerto $PuertoMotor -ClaveSa $ClaveSa
     Correr-CrearLogins -ClaveSa $ClaveSa
 } else {
     # ------------------------------------------------------------- modo nativo
-    $esAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
-    if (-not $esAdmin) {
-        throw "Instalar el motor nativo requiere PowerShell como Administrador. " +
-              "Es el UNICO permiso que pide instalacion/requisitos-it.md, y solo durante esta instalacion."
-    }
     if (-not $RutaInstaladorSqlExpress -or -not (Test-Path $RutaInstaladorSqlExpress)) {
         throw "-RutaInstaladorSqlExpress no se dio o no existe. Ver instalacion/requisitos-it.md."
     }
@@ -210,38 +247,85 @@ if ($Motor -eq 'contenedor') {
     Remove-Item $iniTemporal -Force -ErrorAction SilentlyContinue
 
     # TCPENABLED=1 del .ini deja la instancia escuchando en TODAS las interfaces:
-    # setup.exe no tiene una opcion para restringirlo. Se corrige aqui, via el
-    # proveedor WMI que usa SQL Server Configuration Manager por debajo, fijando
-    # el puerto y dejando activa solo la IP de loopback antes de reiniciar el
-    # servicio — sin este paso, "nada escucha fuera de 127.0.0.1" seria falso.
+    # setup.exe no tiene una opcion para restringirlo. Sin este paso, "nada escucha
+    # fuera de 127.0.0.1" seria falso para el modo nativo — es la unica parte de
+    # todo este script que NO se pudo probar de verdad en esta sesion (no hay medio
+    # de SQL Server Express ni una maquina limpia disponibles aqui): quien instale
+    # en modo nativo por primera vez deberia confirmar con
+    # 'netstat -ano | findstr :<PuertoMotor>' que solo aparece en 127.0.0.1.
+    #
+    # Dos caminos, no uno, porque el primero depende de un ensamblado que
+    # 'FEATURES=SQLENGINE' (solo el motor, sin herramientas de administracion, tal
+    # como confirmo la auditoria de Fase A que este esquema no necesita) puede no
+    # dejar instalado:
+    #   1. El proveedor WMI de SQL Server (lo que usa Configuration Manager) — mas
+    #      confiable cuando esta disponible, porque DESCUBRE cual IP es 127.0.0.1
+    #      en vez de asumir un numero de slot.
+    #   2. El registro directamente, si el primero no esta disponible. Aqui SI hay
+    #      que asumir el nombre de instancia en el registro (MSSQL16.<nombre> para
+    #      SQL Server 2022 — MSSQL13=2016, 14=2017, 15=2019, 16=2022, convencion de
+    #      Microsoft) y buscar cual IPn corresponde a loopback en vez de adivinar
+    #      un numero fijo.
     Write-Host "Restringiendo el motor a 127.0.0.1:$PuertoMotor…"
     $smo = [System.Reflection.Assembly]::LoadWithPartialName('Microsoft.SqlServer.SqlWmiManagement')
-    if (-not $smo) {
-        Write-Warning ("No se pudo cargar el proveedor WMI de SQL Server. Configura manualmente en " +
-                        "SQL Server Configuration Manager: Protocolos > TCP/IP > IPAll = puerto $PuertoMotor, " +
-                        "y en cada IP que no sea 127.0.0.1, Habilitado = No. Reinicia el servicio despues.")
-    } else {
-        $wmi = New-Object Microsoft.SqlServer.Management.Smo.Wmi.ManagedComputer
-        $instancia = $wmi.ServerInstances['EHSLOCAL']
-        $tcp = $instancia.ServerProtocols['Tcp']
-        foreach ($ip in $tcp.IPAddresses) {
-            if ($ip.Name -eq 'IPAll') {
-                $ip.IPAddressProperties['TcpPort'].Value = "$PuertoMotor"
-                $ip.IPAddressProperties['TcpDynamicPorts'].Value = ''
-            } elseif ($ip.IPAddress.ToString() -eq '127.0.0.1') {
-                $ip.IPAddressProperties['Enabled'].Value = $true
-                $ip.IPAddressProperties['TcpPort'].Value = "$PuertoMotor"
-                $ip.IPAddressProperties['TcpDynamicPorts'].Value = ''
-            } else {
-                $ip.IPAddressProperties['Enabled'].Value = $false
+    $logrado = $false
+    if ($smo) {
+        try {
+            $wmi = New-Object Microsoft.SqlServer.Management.Smo.Wmi.ManagedComputer
+            $instancia = $wmi.ServerInstances['EHSLOCAL']
+            $tcp = $instancia.ServerProtocols['Tcp']
+            foreach ($ip in $tcp.IPAddresses) {
+                if ($ip.Name -eq 'IPAll') {
+                    $ip.IPAddressProperties['TcpPort'].Value = "$PuertoMotor"
+                    $ip.IPAddressProperties['TcpDynamicPorts'].Value = ''
+                } elseif ($ip.IPAddress.ToString() -eq '127.0.0.1') {
+                    $ip.IPAddressProperties['Enabled'].Value = $true
+                    $ip.IPAddressProperties['TcpPort'].Value = "$PuertoMotor"
+                    $ip.IPAddressProperties['TcpDynamicPorts'].Value = ''
+                } else {
+                    $ip.IPAddressProperties['Enabled'].Value = $false
+                }
             }
+            $tcp.IsEnabled = $true
+            $tcp.Alter()
+            $logrado = $true
+        } catch {
+            Write-Warning "El proveedor WMI cargo pero fallo configurando el protocolo: $($_.Exception.Message)"
         }
-        $tcp.IsEnabled = $true
-        $tcp.Alter()
-        Restart-Service 'MSSQL$EHSLOCAL' -Force
     }
 
-    Esperar-Motor -Puerto $PuertoMotor
+    if (-not $logrado) {
+        Write-Host "Proveedor WMI no disponible: ajustando el registro directamente…"
+        $rutaBase = 'HKLM:\SOFTWARE\Microsoft\Microsoft SQL Server\MSSQL16.EHSLOCAL\MSSQLServer\SuperSocketNetLib\Tcp'
+        if (Test-Path $rutaBase) {
+            Set-ItemProperty "$rutaBase\IPAll" -Name TcpPort -Value "$PuertoMotor"
+            Set-ItemProperty "$rutaBase\IPAll" -Name TcpDynamicPorts -Value ''
+            $subclaves = Get-ChildItem $rutaBase | Where-Object { $_.PSChildName -match '^IP\d+$' }
+            foreach ($sub in $subclaves) {
+                $ipRuta = "$rutaBase\$($sub.PSChildName)"
+                $props = Get-ItemProperty $ipRuta
+                if ($props.IpAddress -eq '127.0.0.1') {
+                    Set-ItemProperty $ipRuta -Name Enabled -Value 1
+                    Set-ItemProperty $ipRuta -Name TcpPort -Value "$PuertoMotor"
+                    Set-ItemProperty $ipRuta -Name TcpDynamicPorts -Value ''
+                } else {
+                    Set-ItemProperty $ipRuta -Name Enabled -Value 0
+                }
+            }
+            $logrado = $true
+        }
+    }
+
+    if ($logrado) {
+        Restart-Service 'MSSQL$EHSLOCAL' -Force
+    } else {
+        Write-Warning ("Ni el proveedor WMI ni la ruta del registro esperada estan disponibles. Configura " +
+            "manualmente en SQL Server Configuration Manager: Protocolos > TCP/IP > IPAll = puerto " +
+            "$PuertoMotor, y en cada IP que no sea 127.0.0.1, Habilitado = No. Reinicia el servicio despues. " +
+            "SIN ESTE PASO el motor queda escuchando en todas las interfaces, no solo en 127.0.0.1.")
+    }
+
+    Esperar-Motor -Puerto $PuertoMotor -ClaveSa $ClaveSa
     Correr-CrearLogins -ClaveSa $ClaveSa
 }
 
@@ -298,7 +382,7 @@ $accion = New-ScheduledTaskAction -Execute $NodeExe -Argument '"servidor.js"' -W
 $disparador = New-ScheduledTaskTrigger -AtLogOn
 $config = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable
 Register-ScheduledTask -TaskName $NombreTarea -Action $accion -Trigger $disparador -Settings $config -Force `
-    -Description 'Arranca el tablero EHS al iniciar sesion. Sin privilegios de sistema.' | Out-Null
+    -Description 'Arranca el tablero EHS al iniciar sesion. Sin privilegios de sistema.' -ErrorAction Stop | Out-Null
 
 # Respaldo diario, mismo patron: tarea por usuario, oculta. SQL Server Express no
 # trae SQL Server Agent (es Standard+), asi que el respaldo no puede programarse
@@ -308,7 +392,7 @@ $accionRespaldo = New-ScheduledTaskAction -Execute 'powershell.exe' `
     -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\respaldar.ps1`""
 $disparadorRespaldo = New-ScheduledTaskTrigger -Daily -At '20:00'
 Register-ScheduledTask -TaskName $NombreTareaRespaldo -Action $accionRespaldo -Trigger $disparadorRespaldo -Settings $config -Force `
-    -Description 'Respaldo diario de la base EHS a la carpeta local que sincroniza OneDrive.' | Out-Null
+    -Description 'Respaldo diario de la base EHS a la carpeta local que sincroniza OneDrive.' -ErrorAction Stop | Out-Null
 
 # Arranca ya, para no obligar a cerrar sesion antes de poder usarlo.
 Start-ScheduledTask -TaskName $NombreTarea

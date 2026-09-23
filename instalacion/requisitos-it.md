@@ -5,6 +5,12 @@ con derechos de administrador local durante esa instalación.** Nada más. No pi
 acceso a internet, no abre ningún puerto hacia afuera, no toca el dominio ni ninguna
 política de grupo, y no deja una cuenta con privilegios corriendo después.
 
+Esto vale para **los dos modos**, no solo el nativo: registrar la tarea programada
+que arranca el tablero necesita un proceso elevado para poder escribirla, aunque
+la tarea en sí después corra sin ningún privilegio especial — son dos preguntas
+distintas (quién puede *crear* la tarea, y con qué privilegios *corre* después), y
+solo la segunda tiene una respuesta sin admin.
+
 ## Qué instala, exactamente
 
 | Elemento | Detalle |
