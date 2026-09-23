@@ -182,6 +182,7 @@
         return;
       }
       pintarResultado(cuerpo);
+      pintarEstadoMes();
     } catch (e) {
       pintarError('No se pudo hablar con el servidor: ' + e.message);
     } finally {
@@ -289,11 +290,119 @@
     $('#resultado').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 
+  /* ------------------------------------------------- lo que el mes ya tiene dentro */
+
+  /* Al abrir la pantalla y al cambiar de mes: que celdas de ese mes ya estan en la base.
+     Las marca (sin llenarlas: una celda llena se volveria a enviar) y dice cuales faltan.
+     Sin esto, volver a completar un mes a medias era abrir una rejilla vacia sin saber
+     que faltaba, y reescribir una celda ya capturada la reemplaza sin pedir motivo. */
+  var consultaEstado = 0;
+  // Fmt.num redondea a enteros; aqui se muestra lo capturado tal cual (979,1 kg)
+  function valorVisible(v) {
+    return v == null ? '—' : Number(v).toLocaleString('es-CO', { maximumFractionDigits: 4 });
+  }
+  async function pintarEstadoMes() {
+    var caja = $('#estadoMes');
+    var anio = Number($('#fAnio').value);
+    var mes = Number($('#fMes').value);
+    var nombreMes = (MESES[mes - 1] || '') + ' de ' + anio;
+    var mia = ++consultaEstado;
+    celdas().forEach(function (i) {
+      i.classList.remove('cap-ya');
+      i.placeholder = '';
+      i.title = '';
+    });
+    if (!Number.isInteger(anio) || anio < 2023 || anio > 2100) {
+      caja.hidden = true;
+      return;
+    }
+
+    var e;
+    try {
+      var r = await fetch('/api/ehs/captura/estado?anio=' + anio + '&mes=' + mes);
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      e = await r.json();
+    } catch (err) {
+      if (mia !== consultaEstado) return;
+      caja.hidden = false;
+      caja.innerHTML =
+        '<p>No se pudo consultar qué tiene ya ' +
+        Fmt.esc(nombreMes) +
+        ': ' +
+        Fmt.esc(err.message) +
+        '</p>';
+      return;
+    }
+    // una respuesta vieja (el mes cambio mientras llegaba) no pisa la nueva
+    if (mia !== consultaEstado) return;
+    if (!e.celdas) {
+      caja.hidden = true;
+      return;
+    }
+
+    var ya = {};
+    e.celdas.forEach(function (c) {
+      ya[c.sitio + '|' + c.magnitud] = c.valor;
+    });
+    var faltan = [];
+    var total = 0;
+    var capturadas = 0;
+    celdas().forEach(function (i) {
+      total++;
+      var clave = i.dataset.sitio + '|' + i.dataset.magnitud;
+      if (Object.prototype.hasOwnProperty.call(ya, clave)) {
+        capturadas++;
+        i.classList.add('cap-ya');
+        i.placeholder = 'ya: ' + valorVisible(ya[clave]);
+        i.title =
+          'Ya capturado: ' +
+          valorVisible(ya[clave]) +
+          '. Para cambiarlo, usa Consultar y corregir (ahí queda el motivo).';
+      } else {
+        faltan.push(i.getAttribute('aria-label'));
+      }
+    });
+
+    var t;
+    if (capturadas === 0) {
+      t = '<strong>' + Fmt.esc(nombreMes) + '</strong> todavía no tiene ninguna lectura.';
+    } else if (capturadas === total) {
+      t =
+        '<strong>' +
+        Fmt.esc(nombreMes) +
+        ' ya está completo</strong> (' +
+        total +
+        ' de ' +
+        total +
+        ') y publicado en el tablero. Para cambiar un valor, usa ' +
+        '<a href="/corregir">Consultar y corregir</a>: ahí queda escrito el motivo.';
+    } else {
+      t =
+        '<strong>' +
+        Fmt.esc(nombreMes) +
+        ' va en ' +
+        capturadas +
+        ' de ' +
+        total +
+        '</strong>: el tablero lo publica cuando estén todas. Falta: ' +
+        faltan
+          .map(function (f) {
+            return '<span class="cap-falta">' + Fmt.esc(f) + '</span>';
+          })
+          .join(' ') +
+        '. Las celdas en gris ya están capturadas; para cambiar una, usa ' +
+        '<a href="/corregir">Consultar y corregir</a>.';
+    }
+    caja.innerHTML = '<p>' + t + '</p>';
+    caja.hidden = false;
+  }
+
   /* ----------------------------------------------------------------------- inicio */
 
   function sincronizarTitulo() {
     var mes = MESES[Number($('#fMes').value) - 1] || '';
     $('#subMes').textContent = mes + ' de ' + $('#fAnio').value;
+    pintarEstadoMes();
   }
 
   function iniciar() {

@@ -2,19 +2,20 @@
 <#
 .SYNOPSIS
     Arma la carpeta que se lleva al equipo del area: la app, node.exe portable, el
-    instalador de SQL Server 2022 Express y dos archivos de doble clic. Corre en la
+    instalador de SQL Server 2022 Express y los archivos de doble clic. Corre en la
     maquina de desarrollo (con internet), nunca en la de destino.
 
 .DESCRIPTION
     Resultado:
 
       paquete\
-        INSTALAR-EHS.cmd       doble clic: pide administrador (UAC) e instala
-        DESINSTALAR-EHS.cmd    doble clic: retira EHS conservando el dato
+        INSTALAR-EHS.cmd         doble clic: modo contenedor, SIN administrador
+        INSTALAR-EHS-NATIVO.cmd  doble clic: modo nativo, pide administrador (UAC)
+        DESINSTALAR-EHS.cmd      doble clic: retira EHS conservando el dato
         LEEME.txt
-        app\                   la aplicacion, con node_modules SOLO de produccion
-        node\node.exe          Node 22 portable: el equipo del area no instala Node
-        instaladores\          SQLEXPR_x64_*.exe (y, opcional, la imagen del contenedor)
+        app\                     la aplicacion, con node_modules SOLO de produccion
+        node\node.exe            Node 22 portable: el equipo del area no instala Node
+        instaladores\            SQLEXPR_x64_*.exe (y, opcional, la imagen del contenedor)
 
     node_modules se arma con 'npm ci --omit=dev' dentro del paquete, no copiando el
     de desarrollo: la version anterior copiaba con robocopy /XD 'config', que excluye
@@ -29,9 +30,11 @@
     ENU se instala sobre Windows en cualquier idioma; ESN solo sobre Windows en espanol.
 
 .PARAMETER ConImagenContenedor
-    Ademas guarda la imagen de SQL Server 2022 para el modo contenedor (plan B), con
-    'docker save'. Pesa ~1,5 GB y hace que el .zip no se pueda armar (limite de 2 GB
-    de Compress-Archive): se lleva la carpeta tal cual.
+    Ademas guarda la imagen de SQL Server 2022 para el modo contenedor, con
+    'docker save', para instalar en un equipo SIN internet. La de 2022-latest pesa
+    ~600 MB y el paquete completo ~1 GB, asi que el .zip todavia se arma (el limite de
+    Compress-Archive es 2 GB). Sin esto, el equipo del area descarga la imagen al
+    instalar. INSTALAR-EHS.cmd usa el .tar solo si esta en instaladores\.
 
 .PARAMETER ImagenContenedor
     Que imagen guardar con -ConImagenContenedor. Por defecto la que se probo.
@@ -69,6 +72,12 @@ if ($firma.Status -ne 'Valid' -or $firma.SignerCertificate.Subject -notmatch 'O=
 }
 
 if (Test-Path $CarpetaSalida) {
+    # Nunca borrar una instalacion en uso: si alguien instalo DESDE esta carpeta, aqui
+    # estan su dato (ehs-datos) y sus claves (config\ehs.env).
+    if ((Test-Path (Join-Path $CarpetaSalida 'ehs-datos')) -or (Test-Path (Join-Path $PaqueteApp 'config\ehs.env'))) {
+        throw ("$CarpetaSalida tiene una instalacion en uso (ehs-datos o config\ehs.env). Arma el paquete en otra " +
+               "carpeta con -CarpetaSalida, o desinstala primero.")
+    }
     Write-Host "La carpeta de salida ya existe: se arma de nuevo desde cero."
     Remove-Item $CarpetaSalida -Recurse -Force
 }
@@ -78,7 +87,10 @@ New-Item -ItemType Directory -Force -Path $PaqueteApp, $PaqueteNode, $PaqueteIns
 
 # Rutas COMPLETAS en /XD: con un nombre suelto, robocopy excluye toda carpeta que se
 # llame asi en cualquier nivel (asi se perdian las 'config' de node_modules).
-$excluir = @('.git', '.vercel', 'node_modules', 'config', 'datos') | ForEach-Object { Join-Path $RaizApp $_ }
+# 'datos' SI viaja: app\datos\datos.json es el manifiesto del corte (fuente, hallazgos
+# del libro heredado, correcciones autorizadas) y adaptador_sql.js lo lee en cada
+# panorama. Una version anterior lo excluia, y el tablero instalado respondia 503.
+$excluir = @('.git', '.vercel', 'node_modules', 'config') | ForEach-Object { Join-Path $RaizApp $_ }
 robocopy $RaizApp $PaqueteApp /E /XD @excluir /NFL /NDL /NJH /NJS /NP | Out-Null
 if ($LASTEXITCODE -ge 8) { throw "robocopy fallo copiando la app (codigo $LASTEXITCODE)." }
 
@@ -116,7 +128,7 @@ Copy-Item $RutaMedioSql $PaqueteInstaladores
 $nombreMedio = Split-Path $RutaMedioSql -Leaf
 
 if ($ConImagenContenedor) {
-    Write-Host "Guardando la imagen $ImagenContenedor (plan B, modo contenedor)…"
+    Write-Host "Guardando la imagen $ImagenContenedor (modo contenedor sin internet)…"
     & docker image inspect $ImagenContenedor *> $null
     if ($LASTEXITCODE -ne 0) { throw "No esta la imagen $ImagenContenedor en esta maquina (docker pull primero)." }
     & docker save -o (Join-Path $PaqueteInstaladores 'mssql-server-2022.tar') $ImagenContenedor
@@ -125,15 +137,43 @@ if ($ConImagenContenedor) {
 
 # ------------------------------------------------------- los doble clic
 
-# Los .cmd no hacen nada por su cuenta: piden el permiso de administrador (UAC) — si
-# la persona del area es usuaria estandar, alli escribe IT su usuario y clave — y
-# le pasan el control a instalar.ps1 / desinstalar.ps1. -NoExit deja la ventana
-# abierta al terminar para leer el resultado.
+# INSTALAR-EHS.cmd instala en modo CONTENEDOR y SIN administrador: corre en la misma
+# ventana, sin aviso de Windows. Necesita Docker Desktop (o Podman) ya instalado y
+# abierto en el equipo. Si el paquete trae la imagen (.tar, con -ConImagenContenedor)
+# la carga sin internet; si no, usa la que ya este en Docker o la descarga.
+#
+# INSTALAR-EHS-NATIVO.cmd es el modo nativo (SQL Server Express como servicio de
+# Windows): pide administrador (UAC) y no necesita Docker.
 #
 # Unblock-File: un .zip traido de OneDrive o de un correo marca cada archivo como
-# "descargado de internet", y con la directiva RemoteSigned esos .ps1 no corren.
-# Es lo mismo que hacer clic en "Desbloquear" en Propiedades, archivo por archivo.
+# "descargado de internet", y con la directiva RemoteSigned esos .ps1 no corren. Es lo
+# mismo que "Desbloquear" en Propiedades, archivo por archivo.
+$preparar = @"
+echo Preparando la instalacion de EHS...
+powershell.exe -NoProfile -Command "Get-ChildItem -LiteralPath '%RAIZ%' -Recurse -File | Unblock-File"
+powershell.exe -NoProfile -Command "`$p = Get-ExecutionPolicy -Scope MachinePolicy; `$u = Get-ExecutionPolicy -Scope UserPolicy; if (@(`$p, `$u) | Where-Object { `$_ -in 'AllSigned', 'Restricted' }) { Write-Host ('Una directiva de IT (' + `$p + ' / ' + `$u + ') impide correr los scripts de EHS. Pide a IT que los permita en este equipo.') -ForegroundColor Red; exit 1 }"
+if errorlevel 1 ( pause & exit /b 1 )
+"@
+
 $instalarCmd = @"
+@echo off
+setlocal
+set "RAIZ=%~dp0"
+$preparar
+set "IMAGEN="
+if exist "%RAIZ%instaladores\mssql-server-2022.tar" set "IMAGEN=-RutaImagen "%RAIZ%instaladores\mssql-server-2022.tar""
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%RAIZ%app\instalacion\instalar.ps1" -Motor contenedor -ConDatosSemilla %IMAGEN%
+if errorlevel 1 (
+  echo.
+  echo La instalacion NO termino. Lee el mensaje en rojo de arriba.
+) else (
+  echo.
+  echo Instalacion terminada. En el escritorio quedaron EHS y Reparar EHS.
+)
+pause
+"@
+
+$instalarNativoCmd = @"
 @echo off
 setlocal
 set "RAIZ=%~dp0"
@@ -143,36 +183,40 @@ if not exist "%MEDIO%" (
   pause
   exit /b 1
 )
-echo Preparando la instalacion de EHS...
-powershell.exe -NoProfile -Command "Get-ChildItem -LiteralPath '%RAIZ%' -Recurse -File | Unblock-File"
-powershell.exe -NoProfile -Command "`$p = Get-ExecutionPolicy -Scope MachinePolicy; `$u = Get-ExecutionPolicy -Scope UserPolicy; if (@(`$p, `$u) | Where-Object { `$_ -in 'AllSigned', 'Restricted' }) { Write-Host ('Una directiva de IT (' + `$p + ' / ' + `$u + ') impide correr los scripts de EHS. Pide a IT que los permita en este equipo.') -ForegroundColor Red; exit 1 }"
-if errorlevel 1 ( pause & exit /b 1 )
+$preparar
 echo Windows va a pedir permiso de administrador (una sola vez).
 powershell.exe -NoProfile -Command "Start-Process powershell.exe -Verb RunAs -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -NoExit -File \"%RAIZ%app\instalacion\instalar.ps1\" -Motor nativo -RutaInstaladorSqlExpress \"%MEDIO%\" -ConDatosSemilla')"
 "@
+
 $desinstalarCmd = @"
 @echo off
 setlocal
 set "RAIZ=%~dp0"
-echo Windows va a pedir permiso de administrador para retirar EHS (el dato se conserva).
-powershell.exe -NoProfile -Command "Start-Process powershell.exe -Verb RunAs -ArgumentList ('-NoProfile -ExecutionPolicy Bypass -NoExit -File \"%RAIZ%app\instalacion\desinstalar.ps1\"')"
+echo Retirando EHS de este equipo (el dato se conserva: se toma un ultimo respaldo).
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%RAIZ%app\instalacion\desinstalar.ps1"
+pause
 "@
-[IO.File]::WriteAllText((Join-Path $CarpetaSalida 'INSTALAR-EHS.cmd'), $instalarCmd.Replace("`n", "`r`n"), [Text.Encoding]::ASCII)
-[IO.File]::WriteAllText((Join-Path $CarpetaSalida 'DESINSTALAR-EHS.cmd'), $desinstalarCmd.Replace("`n", "`r`n"), [Text.Encoding]::ASCII)
+
+[IO.File]::WriteAllText((Join-Path $CarpetaSalida 'INSTALAR-EHS.cmd'), $instalarCmd.Replace("`r`n", "`n").Replace("`n", "`r`n"), [Text.Encoding]::ASCII)
+[IO.File]::WriteAllText((Join-Path $CarpetaSalida 'INSTALAR-EHS-NATIVO.cmd'), $instalarNativoCmd.Replace("`r`n", "`n").Replace("`n", "`r`n"), [Text.Encoding]::ASCII)
+[IO.File]::WriteAllText((Join-Path $CarpetaSalida 'DESINSTALAR-EHS.cmd'), $desinstalarCmd.Replace("`r`n", "`n").Replace("`n", "`r`n"), [Text.Encoding]::ASCII)
 
 @"
 EHS - tablero de indicadores
 ============================
 
-Para instalar: doble clic en INSTALAR-EHS.cmd.
-Windows pide permiso de administrador una vez (si la cuenta no es administradora,
-alli escribe IT su usuario y clave). Tarda unos 10 minutos. Al final se abre el
-tablero y quedan dos iconos en el escritorio: EHS y Reparar EHS.
+ANTES: Docker Desktop instalado y abierto en este equipo.
 
-No hace falta internet. No hay que instalar nada mas.
+Para instalar: doble clic en INSTALAR-EHS.cmd. No pide permiso de administrador.
+Tarda unos minutos. Al final se abre el tablero y quedan dos iconos en el
+escritorio: EHS (el tablero) y Reparar EHS (si la franja de arriba se pone roja).
+El tablero arranca solo cada vez que se inicia sesion en Windows.
+
+Sin Docker en el equipo: INSTALAR-EHS-NATIVO.cmd instala SQL Server Express como
+servicio de Windows. Ese SI pide permiso de administrador una vez.
 
 Detalle completo: app\instalacion\guia-instalacion.md
-"@.Replace("`n", "`r`n") | Set-Content -Path (Join-Path $CarpetaSalida 'LEEME.txt') -Encoding ASCII
+"@.Replace("`r`n", "`n").Replace("`n", "`r`n") | Set-Content -Path (Join-Path $CarpetaSalida 'LEEME.txt') -Encoding ASCII
 
 # ------------------------------------------------------------------------- zip
 

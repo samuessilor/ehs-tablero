@@ -385,6 +385,23 @@ select.kpisel {
 .nav-in .navsp {
   flex: 1 1 auto;
 }
+.nav-grupo {
+  display: flex;
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.nav-in a.tab {
+  text-decoration: none;
+}
+/* Las otras pantallas: mismo rail, rotulo mas chico y mas claro que las vistas, para
+   que se lean como "ir a otra pantalla" y no como una sexta pestaña del tablero. */
+.nav-pantallas .tab .l {
+  font-size: 12.5px;
+  color: #d6e4ee;
+}
+.nav-pantallas .tab:hover .l {
+  color: #7fe3e3;
+}
 .nav-in .pregunta {
   align-self: center;
   font-family: var(--mono);
@@ -2424,6 +2441,41 @@ body.cargando .body {
 .cap-leyenda p {
   margin: 0;
   max-width: 78ch;
+}
+.cap-leyenda p + p {
+  margin-top: 6px;
+}
+
+/* ------------------------------------------------ lo que el mes ya tiene dentro */
+.cap-estado-mes {
+  border-top: 1px solid var(--borde);
+  border-left: 3px solid var(--amb);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+.cap-estado-mes p {
+  margin: 0;
+  max-width: 110ch;
+}
+.cap-falta {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  background: rgba(217, 131, 36, 0.09);
+  border: 1px solid rgba(217, 131, 36, 0.35);
+  border-radius: 2px;
+  padding: 0 5px;
+  margin: 1px 2px;
+}
+/* Ya capturada: gris, con el valor como placeholder. Solo mientras esta vacia: si
+   alguien escribe encima (reemplazar), vuelve a verse como una celda normal. */
+.cap-celda.cap-ya:placeholder-shown {
+  background: rgba(11, 34, 57, 0.045);
+  border-style: dashed;
+}
+.cap-celda.cap-ya::placeholder {
+  color: var(--tenue);
+  font-size: 11.5px;
 }
 .cap-leyenda code,
 .pie code {

@@ -45,7 +45,7 @@ async function atender(req, res) {
     try {
       await paginas.dashboard(req, res);
     } catch (err) {
-      errores.interno(res, err);
+      errores.pagina(res, err);
     }
     return;
   }
@@ -54,7 +54,7 @@ async function atender(req, res) {
     try {
       await paginas.captura(req, res);
     } catch (err) {
-      errores.interno(res, err);
+      errores.pagina(res, err);
     }
     return;
   }
@@ -63,7 +63,7 @@ async function atender(req, res) {
     try {
       await paginas.corregir(req, res);
     } catch (err) {
-      errores.interno(res, err);
+      errores.pagina(res, err);
     }
     return;
   }
@@ -72,7 +72,7 @@ async function atender(req, res) {
     try {
       await paginas.reporte(req, res, url);
     } catch (err) {
-      errores.interno(res, err);
+      errores.pagina(res, err);
     }
     return;
   }

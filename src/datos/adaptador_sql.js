@@ -103,17 +103,23 @@ function decimales(formato) {
 }
 
 /**
- * De donde saca su meta cada ambito. Reproduce AMBITO_META de analisis/web_json.py:
- * cada sitio usa la suya; el consolidado nacional toma PRESTADA la del perimetro
- * corporativo COLOMBIA y PERU —y por eso se marca es_referencia—; y Nacional Labs no
- * tiene meta y no hereda ninguna, porque el scorecard no publica objetivo para ese
- * subconjunto y heredar el del consolidado seria inventarlo.
+ * De donde saca su meta cada ambito: cada uno usa la suya, la vigente en ehs.meta.
+ *
+ * Nacional Labs + Agencias usa SU meta (7,5 L · 1,5 kWh · 126 g · 1,6 · 5, de
+ * 'KPIs 2026'!F14:H14 e indicadores!C39:C40), que es la que fija ehs/CLAUDE.md y la que
+ * el libro del area grafica como "Meta". Antes tomaba prestada la del perimetro
+ * corporativo COLOMBIA y PERU (8,39 · 1,67 · 126 · 1,76 · 5), heredado de
+ * analisis/web_json.py de cuando la base no tenia meta nacional vigente: el estado
+ * salia igual, pero cada brecha contra una meta que el area no usa (agua -39 % en vez
+ * de -32 %). La del perimetro corporativo sigue donde corresponde: la trayectoria en
+ * el scorecard (trayectoriaAnual). Nacional Labs no tiene meta y no hereda ninguna:
+ * nadie publica un objetivo para ese subconjunto, y heredarlo seria inventarlo.
  */
 const META_DE_AMBITO = {
   celta: 'celta',
   estrella: 'estrella',
   agencias: 'agencias',
-  nacional: 'colombia_peru',
+  nacional: 'nacional',
   nacional_labs: null,
 };
 
@@ -194,32 +200,7 @@ async function peticion() {
   return { sql, req: p.request() };
 }
 
-/**
- * Cuando se tomo el ultimo respaldo (.bak) que dejo instalacion/respaldar.ps1, o null.
- * El respaldo lo disparan una tarea programada y la propia app en segundo plano, sin
- * consola que mirar: sin esto, un respaldo que deja de salir no lo nota nadie hasta el
- * dia que hace falta. La carpeta la escribe instalar.ps1 en config\ehs.env; en
- * desarrollo no existe y la respuesta es null, no un error.
- */
-function fechaUltimoRespaldo() {
-  const carpeta = require('./configuracion').obtener('EHS_CARPETA_RESPALDO');
-  // undefined (y no null) sin carpeta configurada: JSON.stringify omite la clave, y
-  // la franja distingue "no aplica aqui" de "aplica y no hay ningun respaldo".
-  if (!carpeta) return undefined;
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    let ultima = 0;
-    for (const nombre of fs.readdirSync(carpeta)) {
-      if (!/^ehs-analitica-.*\.bak$/.test(nombre)) continue;
-      const t = fs.statSync(path.join(carpeta, nombre)).mtimeMs;
-      if (t > ultima) ultima = t;
-    }
-    return ultima ? new Date(ultima).toISOString() : null;
-  } catch {
-    return null;
-  }
-}
+const { fechaUltimoRespaldo } = require('../respaldo');
 
 /**
  * El corte publicado: que anio y hasta que mes hay dato COMPLETO, y que juego de metas
@@ -246,8 +227,19 @@ async function contexto() {
            corte = @corte,
            corte_nombre = (select top 1 mes from ref.dim_fecha
                             where anio = @anio and num_mes = @corte),
-           meta_vigente = (select max(fuente) from ehs.meta
-                            where anio = @anio and vigente = 1),
+           /* Las metas vigentes vienen de dos fuentes, y el pie las nombra a las dos: la
+              nacional del libro del area y la de cada sitio del scorecard. Antes era un
+              max(fuente) sobre todas, que por orden alfabetico decia "scorecard" aunque
+              los cinco numeros de arriba se midieran contra el libro. */
+           meta_vigente = case
+               when exists (select 1 from ehs.meta
+                             where anio = @anio and vigente = 1 and ambito_id = 'nacional')
+               then N'Nacional: libro KPIs ' + cast(@anio as nvarchar(4)) + N' · sitios: '
+                    + isnull((select max(fuente) from ehs.meta
+                               where anio = @anio and vigente = 1 and ambito_id <> 'nacional'),
+                             N'sin meta')
+               else (select max(fuente) from ehs.meta where anio = @anio and vigente = 1)
+           end,
            /* Cuando cambio por ultima vez el dato que se esta publicando.
               Sale de la base y NO del manifiesto, aunque el manifiesto traiga un
               campo con ese nombre: el manifiesto dice cuando publico el pipeline por
@@ -756,7 +748,6 @@ module.exports = {
       .input('anio', sql.SmallInt, ctx.anio)
       .input('mes', sql.TinyInt, ctx.corte)
       .input('ambito', sql.VarChar(20), 'nacional')
-      .input('ambito_meta', sql.VarChar(20), META_DE_AMBITO.nacional)
       .input('kpi', sql.VarChar(40), kpi).query(`
         -- el perimetro del scorecard es el sitio de tipo Consolidado (COLOMBIA y PERU):
         -- no es un laboratorio ni una agencia, es la suma que reporta corporativo
@@ -786,9 +777,11 @@ module.exports = {
                estado = ${ESTADO},
                ambito = ${NOMBRE_AMBITO}
           from @ytd y
+          -- la barra de 2026 se mide contra la meta del PERIMETRO del scorecard, igual
+          -- que los cierres de 2023 a 2025 de esta misma grafica
           left join ehs.meta mt
                  on mt.anio = @anio and mt.vigente = 1
-                and mt.ambito_id = @ambito_meta and mt.kpi_id = y.kpi_id;
+                and mt.ambito_id = @perimetro and mt.kpi_id = y.kpi_id;
       `);
 
     const [[def], anios, [curso] = []] = r.recordsets;

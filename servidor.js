@@ -12,6 +12,7 @@ const path = require('path');
 const { URL } = require('url');
 const aplicacion = require('./src/aplicacion');
 const { obtener } = require('./src/datos/configuracion');
+const respaldo = require('./src/respaldo');
 
 // Por configuracion y no solo por entorno: la tarea programada que arranca el
 // tablero en el equipo del area no le pasa ninguna variable, asi que todo tiene que
@@ -59,4 +60,5 @@ http
   })
   .listen(PUERTO, HOST, () => {
     console.log(`Tablero EHS en http://${HOST}:${PUERTO}`);
+    respaldo.programarDiario();
   });

@@ -16,37 +16,9 @@
  * La conexion (driver, configuracion y pool) vive en conexion_sql.js, compartida con
  * el adaptador de lectura: una sola forma de conectarse a la base para toda la app.
  */
-const path = require('path');
-const { spawn } = require('child_process');
 const { MAGNITUDES } = require('../validacion');
 const { cargarDriver, pool, cerrar } = require('./conexion_sql');
-
-/**
- * Dispara instalacion/respaldar.ps1 en segundo plano, sin esperarlo ni dejar que su
- * fallo afecte la respuesta que ya se le dio a quien capturo o corrigio. Es "mejor
- * esfuerzo" a proposito: la tarea programada diaria (instalar.ps1) sigue siendo el
- * respaldo que de verdad se puede prometer; esto es solo adelantarlo cuando hay un
- * cambio real, tal como lo pide el encargo ("diario y despues de cada captura").
- *
- * Nunca corre en un equipo de desarrollo sin instalar (no existe respaldar.ps1 fuera
- * de un paquete instalado) — por eso el primer chequeo es que el archivo exista, no
- * un try/catch que lo descubra tarde.
- */
-function dispararRespaldoEnSegundoPlano() {
-  const rutaScript = path.join(__dirname, '..', '..', 'instalacion', 'respaldar.ps1');
-  try {
-    if (!require('fs').existsSync(rutaScript)) return;
-    const hijo = spawn(
-      'powershell.exe',
-      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', rutaScript],
-      { detached: true, stdio: 'ignore', windowsHide: true }
-    );
-    hijo.unref();
-    hijo.on('error', () => {}); // mejor esfuerzo: un respaldo que no arranco no es motivo para nada mas
-  } catch {
-    // igual, mejor esfuerzo
-  }
-}
+const respaldo = require('../respaldo');
 
 /**
  * Graba un lote. Devuelve el mismo objeto que el adaptador simulado, para que la
@@ -86,7 +58,7 @@ async function capturarLote({ filas, capturadoPor, origen, confirmarAtipicos }) 
   const [resumen = [], rechazos = [], advertencias = []] = r.recordsets;
   const cab = resumen[0] || {};
 
-  if (cab.grabadas > 0) dispararRespaldoEnSegundoPlano();
+  if (cab.grabadas > 0) respaldo.disparar();
 
   return {
     modo: 'sql',
@@ -112,8 +84,12 @@ async function capturarLote({ filas, capturadoPor, origen, confirmarAtipicos }) 
 /**
  * Que hay capturado ya, por mes y sitio. Lo pide el formulario al abrirse para no
  * pedir dos veces lo mismo ni dejar un mes a medias sin que se note.
+ *
+ * Con `mes`, ademas las celdas de ESE mes que ya tienen lectura, con su valor: el
+ * formulario las marca como ya capturadas y nombra las que faltan. Sin eso, volver a
+ * completar un mes a medias era abrir una rejilla vacia sin saber que faltaba.
  */
-async function estadoCaptura({ anio }) {
+async function estadoCaptura({ anio, mes }) {
   const sql = cargarDriver();
   const p = await pool();
   const r = await p
@@ -125,9 +101,28 @@ async function estadoCaptura({ anio }) {
         'from ehs.v_captura_estado where anio = @anio order by num_mes, sitio_id'
     );
 
+  let celdas;
+  if (mes) {
+    const c = await p
+      .request()
+      .input('anio', sql.SmallInt, anio)
+      .input('mes', sql.TinyInt, mes)
+      .query(
+        'select sitio_id, magnitud_id, valor from ehs.v_calidad_dato ' +
+          'where anio = @anio and num_mes = @mes and tiene_lectura = 1'
+      );
+    celdas = c.recordset.map((x) => ({
+      sitio: x.sitio_id,
+      magnitud: x.magnitud_id,
+      valor: x.valor == null ? null : Number(x.valor),
+    }));
+  }
+
   return {
     modo: 'sql',
     anio,
+    mes: mes || undefined,
+    celdas,
     magnitudes: MAGNITUDES,
     filas: r.recordset.map((x) => ({
       mes: x.num_mes,
@@ -163,7 +158,7 @@ async function corregirLectura({ anio, mes, sitio, magnitud, valor, motivo, corr
 
   const fila = (r.recordset || [])[0] || {};
   const corregida = (fila.filas_corregidas ?? 0) > 0;
-  if (corregida) dispararRespaldoEnSegundoPlano();
+  if (corregida) respaldo.disparar();
 
   return {
     modo: 'sql',
@@ -193,6 +188,7 @@ async function historialCorrecciones({ anio }) {
     anio,
     correcciones: r.recordset.map((x) => ({
       fecha: x.fecha,
+      anio: x.anio,
       mes: x.mes,
       sitio: x.sitio_id,
       sitioCorto: x.sitio_corto,

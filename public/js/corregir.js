@@ -193,6 +193,14 @@
     }
   }
 
+  /* corregido_en es la hora LOCAL del motor (sysdatetime, con TZ America/Bogota), pero
+     el driver la serializa con una 'Z' que no le corresponde. Se muestra la hora tal
+     como viene: pasarla por new Date() la correria cinco horas. */
+  function fechaHora(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(iso || ''));
+    return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : String(iso || '—');
+  }
+
   function pintarHistorial(lista) {
     var cuerpo = $('#cuerpoHistorial');
     if (!lista.length) {
@@ -205,7 +213,7 @@
         var mag = porId[c.magnitud];
         return (
           '<tr><td>' +
-          Fmt.esc(c.corregidoEn) +
+          Fmt.esc(fechaHora(c.corregidoEn)) +
           '</td><td>' +
           Fmt.esc(c.sitioCorto) +
           ' · ' +
@@ -232,11 +240,28 @@
 
   /* ----------------------------------------------------------------------- inicio */
 
+  /* Abre en el mes del corte publicado, ya consultado: lo que se corrige casi siempre es
+     lo ultimo que se capturo. Antes abria en enero y vacio. */
+  async function abrirEnElCorte() {
+    try {
+      var r = await fetch('/api/ehs/salud');
+      var s = await r.json();
+      if (s && s.corte && s.corte.mes) {
+        $('#cMes').value = String(s.corte.mes);
+        if (s.corte.anio) $('#cAnio').value = String(s.corte.anio);
+      }
+    } catch {
+      // sin salud se queda en lo que trae la pagina; consultar igual funciona a mano
+    }
+    consultar();
+  }
+
   function iniciar() {
     $('#bConsultar').addEventListener('click', consultar);
     $('#bCorregir').addEventListener('click', enviarCorreccion);
     $('#bCancelar').addEventListener('click', cerrarCorreccion);
     cargarHistorial();
+    abrirEnElCorte();
   }
 
   if (document.readyState === 'loading') {

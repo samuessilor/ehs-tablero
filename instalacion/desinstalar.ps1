@@ -1,7 +1,8 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Retira EHS de este equipo: tareas programadas, accesos directos, el motor.
+    Retira EHS de este equipo: el tablero, su arranque automatico, los accesos
+    directos y el motor.
 
 .DESCRIPTION
     Por defecto CONSERVA el dato: antes de retirar el motor toma un ultimo
@@ -12,8 +13,8 @@
     Es tambien el paso para CAMBIAR DE MODO si uno falla: desinstalar.ps1, y
     despues instalar.ps1 -Motor <el otro>.
 
-    Necesita PowerShell como Administrador, igual que instalar.ps1: retirar
-    tareas programadas y desinstalar SQL Server lo exigen.
+    Con el motor en contenedor NO necesita administrador. Con el motor nativo si,
+    porque desinstala SQL Server.
 
 .PARAMETER BorrarDatoTambien
     Ademas borra el volumen/carpeta de datos del motor, los respaldos locales y
@@ -39,7 +40,7 @@ $CarpetaDatos = Join-Path $RaizPaquete 'ehs-datos'
 $CarpetaMotorNativo = Join-Path $CarpetaDatos 'motor'
 
 $esAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
-if (-not $esAdmin) { throw "desinstalar.ps1 necesita PowerShell como Administrador." }
+. (Join-Path $PSScriptRoot 'tablero.ps1')
 
 function Leer-Config {
     $variables = @{}
@@ -56,6 +57,10 @@ function Leer-Config {
 
 $cfg = Leer-Config
 $motor = $cfg['EHS_MOTOR']
+# Solo el modo nativo necesita administrador aqui: desinstalar SQL Server.
+if ($motor -eq 'nativo' -and -not $esAdmin) {
+    throw "Con el motor nativo, desinstalar.ps1 necesita PowerShell como Administrador (desinstala SQL Server)."
+}
 
 Write-Host "=== EHS · desinstalar ($motor) ===" -ForegroundColor Cyan
 
@@ -69,10 +74,13 @@ if ($BorrarDatoTambien -and -not $SinConfirmacion) {
 
 # --------------------------------------------------------- lo que corre solo
 
+Detener-Tablero -RaizApp $RaizApp
+Write-Host "Tablero detenido."
+# Versiones anteriores del instalador arrancaban con tareas programadas.
 foreach ($tarea in @('EHS Tablero', 'EHS Respaldo diario')) {
-    if (Get-ScheduledTask -TaskName $tarea -ErrorAction SilentlyContinue) {
+    if ($esAdmin -and (Get-ScheduledTask -TaskName $tarea -ErrorAction SilentlyContinue)) {
         Stop-ScheduledTask -TaskName $tarea -ErrorAction SilentlyContinue
-        Unregister-ScheduledTask -TaskName $tarea -Confirm:$false -ErrorAction Stop
+        Unregister-ScheduledTask -TaskName $tarea -Confirm:$false -ErrorAction SilentlyContinue
         Write-Host "Tarea programada '$tarea' retirada."
     }
 }
@@ -89,6 +97,13 @@ if ($consola) {
         $valor = if ($clave) { $clave.GetValue('Desktop', $null, 'DoNotExpandEnvironmentNames') } else { $null }
         if ($valor -and $perfil) { $escritorio = $valor.Replace('%USERPROFILE%', $perfil) }
         elseif ($perfil) { $escritorio = Join-Path $perfil 'Desktop' }
+        $inicio = if ($clave) { $clave.GetValue('Startup', $null, 'DoNotExpandEnvironmentNames') } else { $null }
+        $inicio = if ($inicio -and $perfil) { $inicio.Replace('%USERPROFILE%', $perfil).Replace('%APPDATA%', (Join-Path $perfil 'AppData\Roaming')) }
+                  elseif ($perfil) { Join-Path $perfil 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup' }
+        if ($inicio -and (Test-Path (Ruta-AccesoInicio -CarpetaInicio $inicio))) {
+            Remove-Item (Ruta-AccesoInicio -CarpetaInicio $inicio) -Force
+            Write-Host "Arranque automatico retirado."
+        }
     } catch { }
 }
 foreach ($acceso in @('EHS.url', 'EHS.lnk', 'Reparar EHS.lnk')) {
@@ -121,6 +136,27 @@ if ($motor -eq 'contenedor') {
             Write-Host "Volumen de datos del motor borrado." -ForegroundColor Yellow
         } else {
             Write-Host "El volumen ehs-motor-datos se CONSERVA: instalar.ps1 -Motor contenedor lo vuelve a usar."
+        }
+    }
+    # instalar.ps1 encendio "Start Docker Desktop when you sign in" y guardo el archivo
+    # de antes como .ehs-antes. Se devuelve SOLO ese ajuste al valor que tenia: copiar
+    # el archivo entero pisaria cualquier otro ajuste que la persona cambio despues.
+    $docker = Join-Path $env:APPDATA 'Docker'
+    foreach ($nombre in 'settings-store.json', 'settings.json') {
+        $actual = Join-Path $docker $nombre
+        $antes = "$actual.ehs-antes"
+        if (-not ((Test-Path $actual) -and (Test-Path $antes))) { continue }
+        try {
+            $valorAntes = [bool]((Get-Content $antes -Raw | ConvertFrom-Json).PSObject.Properties |
+                Where-Object Name -eq 'AutoStart' | Select-Object -ExpandProperty Value)
+            $ajustes = Get-Content $actual -Raw | ConvertFrom-Json
+            if ($ajustes.PSObject.Properties.Name -contains 'AutoStart') { $ajustes.AutoStart = $valorAntes }
+            else { $ajustes | Add-Member -NotePropertyName AutoStart -NotePropertyValue $valorAntes }
+            [IO.File]::WriteAllText($actual, ($ajustes | ConvertTo-Json -Depth 50), [Text.UTF8Encoding]::new($false))
+            Remove-Item $antes -Force
+            Write-Host "Docker Desktop vuelve a su ajuste anterior de arranque al iniciar sesion ($valorAntes)."
+        } catch {
+            Write-Warning "No se pudo devolver el ajuste de arranque de Docker Desktop: $($_.Exception.Message)"
         }
     }
 } elseif ($motor -eq 'nativo') {

@@ -16,8 +16,10 @@
       2. Vuelve a correr crear-logins.sql, por si la version nueva agrego un
          procedimiento que necesita un GRANT que todavia no existe (como paso
          con ehs.sp_corregir_lectura en esta misma sesion).
-      3. Reinicia la tarea programada del tablero para que cargue el codigo
-         nuevo del servidor.
+      3. Reinicia el tablero (el node.exe de esta carpeta) para que cargue el
+         codigo nuevo del servidor.
+
+    No necesita administrador en ninguno de los dos modos.
 #>
 [CmdletBinding()]
 param(
@@ -90,9 +92,13 @@ if ($cfg['EHS_MOTOR'] -eq 'contenedor') {
 if ($LASTEXITCODE -ne 0) { throw "crear-logins.sql termino con codigo $LASTEXITCODE." }
 
 Write-Host "Reiniciando el tablero con el codigo nuevo…"
-Stop-ScheduledTask -TaskName 'EHS Tablero' -ErrorAction SilentlyContinue
+. (Join-Path $PSScriptRoot 'tablero.ps1')
+Detener-Tablero -RaizApp $RaizApp
 Start-Sleep -Seconds 1
-Start-ScheduledTask -TaskName 'EHS Tablero'
+Iniciar-Tablero -RaizApp $RaizApp -NodeExe $NodeExe
+if (-not (Esperar-Tablero -Puerto ([int]$cfg['PUERTO']) -TimeoutSeg 60)) {
+    throw "El tablero no volvio a responder despues de actualizar."
+}
 
 Write-Host ""
 Write-Host "=== Listo ===" -ForegroundColor Green

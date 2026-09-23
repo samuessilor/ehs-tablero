@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex,nofollow" />
 <title><%= titulo %></title>
 <link rel="stylesheet" href="/css/ehs.css" />
+<link rel="icon" href="data:," />
 </head>
 <body>
 <div id="tip" role="tooltip" aria-hidden="true"></div>
@@ -39,7 +40,17 @@
   </div>
 
   <nav class="rail-nav" aria-label="Vistas">
-    <div class="nav-in" id="navVistas"></div>
+    <div class="nav-in">
+      <div class="nav-grupo" id="navVistas" role="tablist"></div>
+      <span class="navsp"></span>
+      <!-- Las otras tres pantallas. Sin esto, desde el tablero no habia forma de
+           llegar a la captura, la correccion ni el reporte salvo escribiendo la URL. -->
+      <div class="nav-grupo nav-pantallas" aria-label="Otras pantallas">
+        <a class="tab" href="/captura"><span class="l">Capturar mes</span></a>
+        <a class="tab" href="/corregir"><span class="l">Consultar y corregir</span></a>
+        <a class="tab" href="/reporte"><span class="l">Descargar reporte</span></a>
+      </div>
+    </div>
   </nav>
 </header>
 

@@ -1,129 +1,128 @@
-# EHS en el equipo del área — cuál modo, y cómo instalarlo
+# EHS en el equipo del área: instalación paso a paso
 
-## La recomendación, primero
+La versión final se instala **en modo contenedor y sin administrador**: un doble clic
+en `INSTALAR-EHS.cmd`, con Docker Desktop abierto. Tarda unos dos minutos.
 
-**Modo nativo** para el equipo del área. **Modo contenedor** solo si IT ya tiene
-Docker Business o Podman aprobado en ese equipo.
-
-La razón no es técnica, es de licencia. Docker Desktop es gratis para uso personal y
-para empresas chicas, pero **no para EssilorLuxottica**: su licencia exige una
-suscripción paga (Docker Business) en empresas de más de 250 empleados o más de 10
-millones de dólares en ingresos. SQL Server 2022 Express, en cambio, es gratis para
-uso comercial sin esa condición, y cabe de sobra en lo que este proyecto necesita
-(la auditoría de Fase A midió la base en 16 MB; el límite de Express es 10 GB).
-
-Podman es gratis y no tiene esa restricción, así que el modo contenedor sigue
-siendo una opción válida **si** IT instala Podman en vez de Docker Desktop.
-
-## Qué se probó de verdad, y qué no
-
-| | Modo contenedor | Modo nativo |
-|---|---|---|
-| Motor arrancando y aceptando logins | ✅ probado en vivo | ⚠️ no probado — no hay instalador de SQL Server Express en este entorno |
-| `crear-logins.sql` (los dos logins, los permisos) | ✅ probado en vivo | ✅ mismo script — cambia solo cómo se le habla al motor |
-| Las 9 migraciones | ✅ probado en vivo | ✅ mismo `migrar.js` — no depende del modo |
-| Restringir el motor a `127.0.0.1` | ✅ lo hace Docker (`-p 127.0.0.1:…`) | ⚠️ no probado — WMI o registro, ver abajo |
-| Tarea programada y accesos directos | ⚠️ bloqueado por UAC en esta sesión | ⚠️ igual — mismo código |
-
-Construyendo y corriendo el modo contenedor aparecieron **seis defectos reales**, ya
-corregidos (ver el commit `e82e626`). El modo nativo comparte el 80% del código con
-el contenedor, así que la mayoría de esos arreglos le aplican también — pero su
-parte propia (instalar SQL Server Express, restringirlo a `127.0.0.1`) **no se pudo
-correr ni una vez** aquí. Es la parte con más probabilidad de sorprender en el primer
-intento real.
-
-## El único paso que no se puede automatizar
-
-**Hay que aceptar una ventana de Windows (UAC) una vez**, al principio. Registrar la
-tarea programada que arranca el tablero exige un PowerShell elevado — en los dos
-modos, no solo en el nativo. Se confirmó con dos herramientas distintas de Windows
-(`Register-ScheduledTask` y `schtasks.exe`): ninguna deja crear la tarea sin
-elevación, aunque la cuenta sea administradora y la tarea misma corra después sin
-privilegios. No es un error del script: es cómo funciona el Programador de tareas.
-
-Todo lo demás corre solo después de ese clic, sin más ventanas ni preguntas.
+El modo nativo (SQL Server Express como servicio de Windows) queda como plan B en
+`INSTALAR-EHS-NATIVO.cmd`, para un equipo donde Docker no sea posible. Ese sí pide
+administrador una vez.
 
 ---
 
-## Paso a paso — modo nativo (recomendado)
+## 1. Antes: lo que el equipo necesita
 
-**Antes, en la máquina de desarrollo:**
+| Qué | Cómo saber si ya está |
+|---|---|
+| Windows 10 u 11 de 64 bits, 8 GB de RAM, unos 4 GB libres en disco | Configuración → Sistema → Información |
+| **Docker Desktop instalado** | Aparece en el menú Inicio |
+| La cuenta de la persona en el grupo `docker-users` | Al abrir Docker Desktop no sale un error de permisos |
+| Docker Desktop **abierto**, con el motor corriendo | La ballena en la barra de tareas; en Docker Desktop, abajo a la izquierda, *Engine running* |
 
-1. Descarga el instalador oficial de SQL Server 2022 Express desde Microsoft
-   (`SQL2022-SSEI-Expr.exe`). Guárdalo junto al paquete.
-2. Descarga Node.js 22 portable para Windows x64 (el `.zip` "win-x64" de
-   nodejs.org, **no** el instalador `.msi`). Extráelo en una carpeta.
-3. En `app\`, corre `npm install --omit=dev` para que el paquete no lleve
-   herramientas de desarrollo.
-4. Arma el paquete:
-   ```powershell
-   cd app\instalacion
-   .\empaquetar.ps1 -RutaNodePortable 'C:\ruta\a\node-v22-win-x64'
-   ```
-   Deja `paquete.zip` junto a `app\`.
-5. Copia `paquete.zip` y `SQL2022-SSEI-Expr.exe` al equipo del área (USB, OneDrive,
-   como IT lo prefiera).
+Instalar Docker Desktop **sí** pide administrador. Si el equipo no lo tiene, eso lo
+hace IT una vez: ver [requisitos-it.md](requisitos-it.md), que además explica la
+licencia. En resumen: para uso de trabajo en EssilorLuxottica, Docker Desktop requiere
+suscripción paga (Docker Business), sin importar lo pequeño del proyecto. Rancher
+Desktop o Podman Desktop son gratis y sirven igual.
 
-**En el equipo del área:**
+No hace falta internet: la imagen del motor viaja dentro del paquete.
 
-6. Extrae `paquete.zip` en una carpeta permanente — por ejemplo
-   `C:\EHS\`. No en Descargas ni en el Escritorio: esa carpeta es la instalación.
-7. Abre **PowerShell como Administrador** (clic derecho en el ícono → Ejecutar como
-   administrador). **Este es el único clic que no se puede evitar.**
-8. Corre, ajustando las dos rutas:
-   ```powershell
-   cd C:\EHS\app\instalacion
-   .\instalar.ps1 -Motor nativo -RutaInstaladorSqlExpress 'C:\ruta\a\SQL2022-SSEI-Expr.exe'
-   ```
-   Tarda varios minutos (instalar SQL Server es lo lento). Al terminar, abre el
-   navegador solo.
-9. **Verifica que el motor solo escucha en `127.0.0.1`** — es la parte no probada:
-   ```powershell
-   netstat -ano | findstr :14330
-   ```
-   Tiene que mostrar **solo** `127.0.0.1:14330`. Si aparece `0.0.0.0:14330`, abre
-   *SQL Server Configuration Manager* → *Protocolos de EHSLOCAL* → *TCP/IP* → en
-   cada IP que no sea `127.0.0.1`, pon *Habilitado = No*, y reinicia el servicio.
-10. Cierra la ventana de PowerShell. Desde aquí, quien usa el equipo solo ve el
-    ícono **EHS** del escritorio.
+## 2. Instalar
 
-## Paso a paso — modo contenedor (si IT tiene Podman o Docker Business)
+1. **Copia `paquete.zip` al equipo** (USB, OneDrive, correo; lo que sea más fácil).
+2. **Clic derecho → Extraer todo… → `C:\EHS`.** No en Descargas ni en el Escritorio:
+   esa carpeta es la instalación y no se debe mover después. Quedan
+   `C:\EHS\INSTALAR-EHS.cmd`, `app\`, `node\` e `instaladores\`.
+3. **Abre Docker Desktop** y espera a que diga *Engine running*.
+4. **Doble clic en `C:\EHS\INSTALAR-EHS.cmd`.** Si Windows pregunta "¿Desea ejecutar
+   este archivo?" (pasa cuando el .zip vino de internet o de un correo), responde
+   **Ejecutar**. No aparece ningún aviso de administrador.
+5. **Espera unos dos minutos.** La ventana va mostrando cada paso. Al terminar dice
+   `Instalacion terminada` y se abre el tablero en el navegador. Presiona una tecla
+   para cerrar la ventana.
+6. **Comprueba** que arriba del tablero la franja dice **"Motor conectado"** con el
+   punto verde, y que en el escritorio quedaron dos íconos: **EHS** y **Reparar EHS**.
 
-Igual que el nativo, salvo:
+Si algo falla, la ventana lo dice en rojo y **no se pierde nada**: se corrige lo que
+diga el mensaje (tabla de la sección 5) y se vuelve a hacer doble clic en
+`INSTALAR-EHS.cmd`. Volver a correrlo es seguro.
 
-- **No hace falta** el instalador de SQL Server (pasos 1 y 5 sin el `.exe`).
-- **Sí hace falta** Podman o Docker Desktop **ya instalado y corriendo** en el equipo
-  del área antes del paso 8.
-- En el paso 8:
-  ```powershell
-  .\instalar.ps1 -Motor contenedor
-  ```
-- El paso 9 no hace falta: Docker/Podman publica el puerto **solo** en `127.0.0.1`
-  por construcción (`-p 127.0.0.1:14330:1433`), y eso sí se probó.
+## 3. El uso de cada mes
 
----
+- **Tablero** (ícono EHS): los cinco indicadores al corte, contra su meta.
+- **Capturar mes** (arriba a la derecha): las 27 lecturas del mes que cerró.
+  - Una celda vacía **no** es un cero: se deja vacía si el dato no ha llegado.
+  - Donde no hay personal temporal (hoy, Celta y La Estrella) se escribe **0** en sus
+    horas.
+  - El tablero publica el mes cuando están **las 27**. Mientras tanto, la pantalla de
+    captura dice cuántas van y cuáles faltan, y marca en gris las ya capturadas.
+- **Consultar y corregir**: para cambiar un número ya capturado. Pide el motivo, y el
+  valor anterior queda en el historial con quién lo cambió y cuándo.
+- **Descargar reporte**: el resumen para imprimir o guardar como PDF, y el detalle en
+  CSV.
 
-## Si algo falla en el primer intento
+El respaldo es automático: uno después de cada captura o corrección y uno diario, en
+`C:\EHS\ehs-datos\respaldo\` (se guardan los 14 más recientes), y una copia en la
+carpeta `EHS-respaldo` del OneDrive **corporativo** si está configurado en el equipo.
+La franja de arriba dice cuándo fue el último.
 
-| Qué se ve | Qué es | Qué hacer |
-|---|---|---|
-| "Este instalador necesita PowerShell como Administrador" | No se abrió como admin | Paso 7 |
-| "Ni docker ni podman están disponibles" | Modo contenedor sin Docker/Podman | Instalar Podman, o usar `-Motor nativo` |
-| "-RutaInstaladorSqlExpress no se dio o no existe" | Ruta mal escrita | Revisa la ruta del paso 8 |
-| "El motor no aceptó conexiones… tras 120 segundos" | El motor no arrancó | En nativo: revisa el servicio `MSSQL$EHSLOCAL` en *Servicios*. En contenedor: `docker logs ehs-motor` |
-| Cualquier otro error de `instalar.ps1` | Algo que esta sesión no pudo prever | El mensaje de error completo es lo que hace falta para diagnosticarlo |
+## 4. Al encender el equipo
 
-Correr `instalar.ps1` otra vez después de un error es seguro: es idempotente en todo
-lo que ya quedó hecho (el motor, los logins, las migraciones aplicadas).
+No hay que hacer nada. Docker Desktop y el tablero arrancan solos al iniciar sesión
+(el instalador dejó los dos configurados). El motor tarda uno o dos minutos en estar
+listo: si se abre EHS antes, sale "El motor de datos todavía no responde" y la página
+lo vuelve a intentar sola cada 15 segundos.
 
-## Después de instalar
+## 5. Si algo falla
 
-- **Reparar**: doble clic en *Reparar EHS* del escritorio cuando la franja de
-  estado se ponga roja.
-- **Respaldo**: automático, todos los días a las 20:00 y después de cada captura, a
-  `C:\EHS\datos\respaldo\` y a OneDrive si está configurado.
-- **Actualizar a una versión nueva**: copia la carpeta `app\` nueva encima de la
-  actual y corre `.\actualizar.ps1` (no hace falta admin: usa las credenciales que
-  ya están en `config\ehs.env`).
-- **Desinstalar**: `.\desinstalar.ps1` (conserva el dato por defecto;
-  `-BorrarDatoTambien` lo borra, pidiendo confirmación escrita).
+| Qué se ve | Qué hacer |
+|---|---|
+| "Ni docker ni podman estan disponibles" | Docker Desktop no está instalado: IT (sección 1) |
+| "docker esta instalado pero no responde" | Abrir Docker Desktop, esperar *Engine running* y volver a correr `INSTALAR-EHS.cmd` |
+| Docker dice "permission denied" o "acceso denegado" | La cuenta no está en `docker-users`: IT la agrega y se cierra sesión |
+| "Una directiva de IT (…) impide correr los scripts de EHS" | La política de ejecución del equipo es `AllSigned` o `Restricted`: IT |
+| "El puerto 14330 ya lo usa otro programa" | Otro programa ocupa el puerto: correr `DESINSTALAR-EHS.cmd` si es un EHS anterior, o avisar |
+| "El motor de un intento anterior no acepta las claves" | Quedó un intento anterior a medias sin dato real: `powershell -ExecutionPolicy Bypass -File C:\EHS\app\instalacion\desinstalar.ps1 -BorrarDatoTambien` y volver a instalar |
+| La franja se pone roja, o la página del motor no se va en 3 minutos | Doble clic en **Reparar EHS**: abre Docker Desktop si está cerrado, reinicia el motor y el tablero, y confirma que responden |
+| Reparar termina con un mensaje en rojo | Ese mensaje, tal cual, es lo que hay que reportar |
+
+## 6. Qué se probó, y dónde
+
+El 23 de septiembre de 2026, en el equipo de Samuel (Windows 11, Docker Desktop
+28.3.2), con el paquete final, **sin administrador**:
+
+| Prueba | Resultado |
+|---|---|
+| `INSTALAR-EHS.cmd` de principio a fin, cargando la imagen desde el paquete | ✅ 103 s, código 0 |
+| Motor y tablero escuchando **solo** en `127.0.0.1` (puertos 14330 y 3210) | ✅ |
+| Tablero sin ventana, arranque al iniciar sesión, íconos del escritorio | ✅ |
+| Histórico 2026 cargado (enero a julio) y los cinco indicadores | ✅ verificados contra el libro (p. ej. frequency rate 0,613 a julio) |
+| Captura de un mes completo desde la pantalla, en dos tandas (25 + 2 lecturas) | ✅ el tablero pasó solo a corte agosto |
+| Corrección con motivo e historial | ✅ |
+| Respaldo automático después de capturar | ✅ |
+| Motor detenido → página legible → vuelve sola cuando el motor arranca | ✅ |
+| **Reparar EHS** con el motor caído | ✅ 17 s |
+| `actualizar.ps1` (aplicar una versión nueva) | ✅ |
+| Desinstalar y reinstalar | ✅ |
+
+Lo que **no** se probó todavía: el modo nativo en un equipo real, y Podman o Rancher
+Desktop en lugar de Docker Desktop (el instalador los detecta, pero no se han corrido).
+
+## 7. Actualizar, desinstalar, dónde queda cada cosa
+
+**Actualizar a una versión nueva:** copiar la carpeta `app\` nueva encima de
+`C:\EHS\app` (se conserva `config\ehs.env`) y correr
+`powershell -ExecutionPolicy Bypass -File C:\EHS\app\instalacion\actualizar.ps1`.
+Aplica las migraciones que falten y reinicia el tablero. Sin administrador.
+
+**Desinstalar:** doble clic en `DESINSTALAR-EHS.cmd`. Toma un último respaldo y
+**conserva** el dato (el volumen del motor y `ehs-datos`), así que volver a instalar
+recupera todo. Devuelve Docker Desktop a su ajuste anterior de arranque.
+
+| Qué | Dónde |
+|---|---|
+| La aplicación | `C:\EHS\app` |
+| Claves de la base (no compartir) | `C:\EHS\app\config\ehs.env` |
+| Respaldos y registro del último | `C:\EHS\ehs-datos\respaldo\` |
+| El motor | Contenedor `ehs-motor` y volumen `ehs-motor-datos`, en Docker Desktop |
+| Arranque automático | `EHS Tablero.lnk` en la carpeta Inicio de la persona |
+| Íconos | `EHS` y `Reparar EHS` en su escritorio |

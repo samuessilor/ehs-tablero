@@ -1,14 +1,19 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    El atajo "Reparar EHS": reinicia el motor y el tablero, y confirma que
-    responden. Un doble clic, sin consola que leer.
+    El atajo "Reparar EHS": levanta el motor y el tablero, y confirma que
+    responden. Un doble clic, sin administrador.
 
 .DESCRIPTION
     Es lo unico que la franja de estado le pide a quien usa el tablero cuando el
     punto se pone rojo (ver public/js/franja_estado.js). No reinstala nada, no
-    toca el esquema ni el dato: solo reinicia lo que ya esta instalado y espera
-    a que vuelva a responder.
+    toca el esquema ni el dato: solo levanta lo que ya esta instalado y espera a
+    que vuelva a responder.
+
+    Modo contenedor: si Docker Desktop esta cerrado (despues de un reinicio, por
+    ejemplo), lo abre y espera a que su motor responda antes de arrancar el
+    contenedor. Modo nativo: reinicia el servicio de SQL Server, con el permiso
+    que instalar.ps1 le dejo a esta cuenta sobre ESE servicio.
 #>
 [CmdletBinding()]
 param()
@@ -20,6 +25,7 @@ Set-StrictMode -Version Latest
 
 $RaizApp = Split-Path -Parent $PSScriptRoot
 $ArchivoConfig = Join-Path $RaizApp 'config\ehs.env'
+. (Join-Path $PSScriptRoot 'tablero.ps1')
 
 function Leer-Config {
     if (-not (Test-Path $ArchivoConfig)) { throw "No existe $ArchivoConfig. ¿Se corrio instalar.ps1?" }
@@ -34,32 +40,62 @@ function Leer-Config {
     return $variables
 }
 
+function Fallar {
+    param([string]$Mensaje)
+    Write-Host ""
+    Write-Host $Mensaje -ForegroundColor Red
+    Write-Host "Esto ya no lo resuelve este atajo: hay que avisar con este mensaje tal cual." -ForegroundColor Red
+    Read-Host "Presiona Enter para cerrar"
+    exit 1
+}
+
 $cfg = Leer-Config
-$puertoMotor = $cfg['SQL_PUERTO']
-$puertoApp = $cfg['PUERTO']
+$puertoMotor = [int]$cfg['SQL_PUERTO']
+$puertoApp = [int]$cfg['PUERTO']
+$NodeExe = Buscar-NodeExe -RaizApp $RaizApp
 
 Write-Host "=== EHS · reparar ===" -ForegroundColor Cyan
 
 # --------------------------------------------------------------------- el motor
 
-Write-Host "Reiniciando el motor ($($cfg['EHS_MOTOR']))…"
 if ($cfg['EHS_MOTOR'] -eq 'contenedor') {
     $herramienta = @('docker', 'podman') | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
-    if (-not $herramienta) { throw "Ni docker ni podman estan disponibles." }
+    if (-not $herramienta) { Fallar "Ni docker ni podman estan instalados en este equipo." }
+
+    & $herramienta info *> $null
+    if ($LASTEXITCODE -ne 0 -and $herramienta -eq 'docker') {
+        $escritorio = Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'
+        if (-not (Test-Path $escritorio)) { Fallar "Docker no responde y no se encontro Docker Desktop en $escritorio." }
+        Write-Host "Docker Desktop esta cerrado: abriendolo (puede tardar un minuto)…"
+        Start-Process $escritorio
+        $limite = (Get-Date).AddSeconds(180)
+        do {
+            Start-Sleep -Seconds 5
+            & $herramienta info *> $null
+        } while ($LASTEXITCODE -ne 0 -and (Get-Date) -lt $limite)
+        if ($LASTEXITCODE -ne 0) { Fallar "Docker Desktop no quedo listo en 3 minutos." }
+    } elseif ($LASTEXITCODE -ne 0) {
+        & podman machine start *> $null
+    }
+
+    Write-Host "Reiniciando el motor (contenedor ehs-motor)…"
     & $herramienta restart ehs-motor | Out-Null
-    if ($LASTEXITCODE -ne 0) { Write-Host "No se pudo reiniciar el contenedor (codigo $LASTEXITCODE). ¿Esta abierto Docker Desktop / Podman?" -ForegroundColor Red }
+    if ($LASTEXITCODE -ne 0) { Fallar "No se pudo reiniciar el contenedor ehs-motor (codigo $LASTEXITCODE)." }
 } else {
-    # instalar.ps1 le dio a esta cuenta permiso de reiniciar SOLO este servicio: quien
-    # usa el equipo no es administrador, y este atajo corre sin elevar.
-    Restart-Service 'MSSQL$EHSLOCAL' -Force -ErrorAction Continue
+    Write-Host "Reiniciando el motor (servicio MSSQL`$EHSLOCAL)…"
+    # instalar.ps1 le dio a esta cuenta permiso de reiniciar SOLO este servicio.
+    Restart-Service 'MSSQL$EHSLOCAL' -Force -ErrorAction SilentlyContinue
+    if ((Get-Service 'MSSQL$EHSLOCAL' -ErrorAction SilentlyContinue).Status -ne 'Running') {
+        Fallar "El servicio de SQL Server (MSSQL`$EHSLOCAL) no quedo corriendo."
+    }
 }
 
-$limite = (Get-Date).AddSeconds(60)
+$limite = (Get-Date).AddSeconds(90)
 $listo = $false
 while ((Get-Date) -lt $limite) {
     try {
         $cliente = New-Object System.Net.Sockets.TcpClient
-        $cliente.Connect('127.0.0.1', [int]$puertoMotor)
+        $cliente.Connect('127.0.0.1', $puertoMotor)
         $cliente.Close()
         $listo = $true
         break
@@ -67,41 +103,20 @@ while ((Get-Date) -lt $limite) {
         Start-Sleep -Seconds 2
     }
 }
-if (-not $listo) {
-    Write-Host "El motor no volvio a responder en 60 segundos." -ForegroundColor Red
-    Write-Host "Esto ya no lo resuelve este atajo — hay que avisar con este mensaje tal cual." -ForegroundColor Red
-    Read-Host "Presiona Enter para cerrar"
-    exit 1
-}
+if (-not $listo) { Fallar "El motor no volvio a responder en 127.0.0.1:$puertoMotor." }
 Write-Host "Motor arriba." -ForegroundColor Green
 
-# --------------------------------------------------------------------- la app
+# ---------------------------------------------------------------------- el tablero
 
 Write-Host "Reiniciando el tablero…"
-Stop-ScheduledTask -TaskName 'EHS Tablero' -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
-Start-ScheduledTask -TaskName 'EHS Tablero'
-
-$limite = (Get-Date).AddSeconds(30)
-$appLista = $false
-while ((Get-Date) -lt $limite) {
-    try {
-        $r = Invoke-WebRequest -Uri "http://127.0.0.1:$puertoApp/api/ehs/salud" -UseBasicParsing -TimeoutSec 3
-        $cuerpo = $r.Content | ConvertFrom-Json
-        if ($cuerpo.disponible) { $appLista = $true; break }
-    } catch {
-        Start-Sleep -Seconds 2
-    }
-}
+Detener-Tablero -RaizApp $RaizApp
+Iniciar-Tablero -RaizApp $RaizApp -NodeExe $NodeExe
+# el motor recien reiniciado tarda unos segundos mas en aceptar logins que en abrir
+# el puerto: por eso aqui se espera la salud completa (tablero + motor), no solo HTTP
+$salud = Esperar-Tablero -Puerto $puertoApp -TimeoutSeg 90
+if (-not $salud) { Fallar "El motor esta arriba pero el tablero no responde en http://127.0.0.1:$puertoApp." }
 
 Write-Host ""
-if ($appLista) {
-    Write-Host "=== Listo ===" -ForegroundColor Green
-    Write-Host "El tablero responde en http://127.0.0.1:$puertoApp"
-    Start-Sleep -Seconds 3
-} else {
-    Write-Host "El motor reinicio pero el tablero todavia no responde." -ForegroundColor Red
-    Write-Host "Avisa con este mensaje: el motor esta arriba, la aplicacion no." -ForegroundColor Red
-    Read-Host "Presiona Enter para cerrar"
-    exit 1
-}
+Write-Host "=== Listo ===" -ForegroundColor Green
+Write-Host "El tablero responde en http://127.0.0.1:$puertoApp"
+Start-Sleep -Seconds 3

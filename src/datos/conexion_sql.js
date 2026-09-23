@@ -57,8 +57,9 @@ function configuracion(opciones = {}) {
     e.codigo = 'configuracion_incompleta';
     throw e;
   }
+  const servidor = obtener('SQL_SERVIDOR');
   return {
-    server: obtener('SQL_SERVIDOR'),
+    server: servidor,
     database: obtener('SQL_BASE'),
     user: obtener(claveUsuario),
     password: obtener(claveClave),
@@ -68,6 +69,11 @@ function configuracion(opciones = {}) {
       // En produccion esto lo decide IT, no este archivo.
       trustServerCertificate: obtener('SQL_CONFIAR_CERT') === '1',
       encrypt: obtener('SQL_CIFRAR') !== '0',
+      // Con el servidor escrito como IP, el driver usa esa IP como nombre TLS y Node
+      // avisa (DEP0123) en la consola del instalador, donde parece un error. Solo en
+      // la instalacion local (loopback): contra un servidor de la empresa el nombre
+      // TLS tiene que coincidir con su certificado, y ahi manda SQL_SERVIDOR.
+      ...(servidor === '127.0.0.1' || servidor === '::1' ? { serverName: 'localhost' } : {}),
     },
     pool: { max: 4, min: 0, idleTimeoutMillis: 30000 },
     /* Sin esto, un motor caido o inalcanzable tarda mas de 25 segundos en fallar

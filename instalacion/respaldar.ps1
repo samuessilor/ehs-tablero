@@ -8,8 +8,9 @@
     escribe el respaldo en su propio disco, y este script lo copia a OneDrive.
     El motor nunca habla con OneDrive directamente.
 
-    Lo corre la tarea programada diaria que crea instalar.ps1, lo dispara la
-    aplicacion despues de cada captura o correccion, y se puede correr a mano.
+    Lo dispara la aplicacion (src/respaldo.js): despues de cada captura o
+    correccion, y una vez al dia si el ultimo respaldo tiene mas de 20 horas. Se
+    puede correr a mano.
 #>
 [CmdletBinding()]
 param()
@@ -38,8 +39,8 @@ $sello = Get-Date -Format 'yyyyMMdd-HHmmss'
 $nombreArchivo = "ehs-analitica-$sello.bak"
 $rutaLocal = Join-Path $carpetaLocal $nombreArchivo
 
-# Cada corrida deja su propio registro junto a los respaldos: esto lo disparan una
-# tarea programada y la aplicacion en segundo plano, sin consola que mirar, asi que
+# Cada corrida deja su propio registro junto a los respaldos: esto lo dispara la
+# aplicacion en segundo plano, sin consola que mirar, asi que
 # sin este archivo un fallo seria invisible. /api/ehs/salud lee la fecha del .bak
 # mas reciente, y la franja de estado avisa si el respaldo se quedo atras.
 Start-Transcript -Path (Join-Path $carpetaLocal 'ultimo-respaldo.log') -Force | Out-Null
@@ -80,16 +81,19 @@ Write-Host "Respaldo local listo: $rutaLocal" -ForegroundColor Green
 
 # ------------------------------------------------------------------- a OneDrive
 
-# OneDriveCommercial es la variable que Windows fija cuando OneDrive para empresas
-# ya esta configurado con la cuenta corporativa.
-$carpetaOneDrive = if ($env:OneDriveCommercial) { $env:OneDriveCommercial } else { $env:OneDrive }
+# SOLO OneDriveCommercial: es la variable que Windows fija cuando OneDrive para
+# empresas esta configurado con la cuenta corporativa. $env:OneDrive a secas puede ser
+# una cuenta PERSONAL (asi paso en el equipo de prueba: el respaldo con el dato de la
+# empresa termino en un OneDrive personal). Sin cuenta corporativa, el respaldo se
+# queda solo en el equipo.
+$carpetaOneDrive = $env:OneDriveCommercial
 if ($carpetaOneDrive) {
     $destino = Join-Path $carpetaOneDrive 'EHS-respaldo'
     New-Item -ItemType Directory -Force -Path $destino | Out-Null
     Copy-Item $rutaLocal -Destination $destino -Force -ErrorAction Stop
     Write-Host "Copiado a OneDrive: $destino\$nombreArchivo" -ForegroundColor Green
 } else {
-    Write-Warning ("No se detecto OneDrive en este equipo (ni OneDriveCommercial ni OneDrive). " +
+    Write-Warning ("No hay OneDrive corporativo configurado en este equipo (OneDriveCommercial). " +
                    "El respaldo quedo solo en $rutaLocal.")
 }
 

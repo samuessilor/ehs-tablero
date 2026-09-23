@@ -115,8 +115,15 @@ async function atender(req, res, url) {
       errores.parametroInvalido(res, `Año invalido: ${crudo}.`);
       return true;
     }
+    // mes es opcional: con el, la respuesta trae ademas las celdas ya capturadas de ese mes
+    const crudoMes = url.searchParams.get('mes');
+    const mes = crudoMes ? Number(crudoMes) : undefined;
+    if (crudoMes && (!Number.isInteger(mes) || mes < 1 || mes > 12)) {
+      errores.parametroInvalido(res, `Mes invalido: ${crudoMes}.`);
+      return true;
+    }
     try {
-      json(res, 200, await escritura.estadoCaptura({ anio }));
+      json(res, 200, await escritura.estadoCaptura({ anio, mes }));
     } catch (err) {
       errores.interno(res, err);
     }

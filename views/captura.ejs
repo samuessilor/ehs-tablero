@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex,nofollow" />
 <title><%= titulo %></title>
 <link rel="stylesheet" href="/css/ehs.css" />
+<link rel="icon" href="data:," />
 </head>
 <body>
 <p class="sr" id="viva" role="status" aria-live="polite"></p>
@@ -22,6 +23,7 @@
     </div>
     <div class="ctl rail-derecha">
       <a class="volver" href="/">← Volver al tablero</a>
+      <a class="volver" href="/corregir">Consultar y corregir</a>
     </div>
   </div>
 </header>
@@ -75,6 +77,9 @@
         nadie pudo saber quién lo había escrito.
       </div>
     </div>
+    <!-- Lo llena captura.js: cuantas de las 27 ya estan, cuales faltan, y si el mes ya
+         se publico. Solo con base de datos: en el interinato no hay estado que mostrar. -->
+    <div class="cuerpo cap-estado-mes" id="estadoMes" aria-live="polite" hidden></div>
   </section>
 
   <!-- ============================================================== 02 · la rejilla -->
@@ -119,6 +124,9 @@
       <p><strong>Una celda vacía no es un cero.</strong> Si un dato todavía no llegó, se
       deja en blanco y no se captura. Escribir <code>0</code> significa que el valor
       medido fue cero, que es otra cosa (R.5.3.6).</p>
+      <p>El tablero publica un mes cuando están <strong>las 27</strong>. Donde no hay
+      personal temporal (hoy, Celta y La Estrella) se escribe <code>0</code> en sus horas,
+      no se deja en blanco: si no, el mes queda esperando ese dato.</p>
     </div>
   </section>
 
@@ -139,7 +147,7 @@
   <div class="pie-in">
     <span>Stack del estándar de integración · Node 22 + EJS + CSS + JavaScript</span>
     <span class="pie-sep">·</span>
-    <span>La validación vive en <code>src/validacion.js</code> y en <code>sql/04-ingesta.sql</code>, y una compuerta comprueba que digan lo mismo</span>
+    <span>La validación vive en <code>src/validacion.js</code> y en <code>migraciones/0007_ehs_ingesta.sql</code>, y una compuerta comprueba que digan lo mismo</span>
   </div>
 </footer>
 

@@ -98,7 +98,12 @@ async function reporte(_req, res, url) {
       titulo: 'Reporte EHS · Servióptica',
       ambito,
       pan,
-      generadoEn: new Date().toISOString(),
+      // hora de Colombia y legible: es lo que queda impreso en el papel que se reparte
+      generadoEn: new Date().toLocaleString('es-CO', {
+        timeZone: 'America/Bogota',
+        dateStyle: 'long',
+        timeStyle: 'short',
+      }),
     },
     { rmWhitespace: false }
   );

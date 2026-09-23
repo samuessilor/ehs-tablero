@@ -110,15 +110,21 @@ var Tablero = (function () {
 
   /* ------------------------------------------------------------------ controles --- */
   function construirControles() {
+    // class="tab" y los dos span: ehs.css estiliza '.nav-in .tab', con el numero (.n)
+    // y el rotulo (.l) por separado. Sin ellos las pestañas salian como botones
+    // blancos del navegador sobre el rail oscuro.
     $('#navVistas').innerHTML = VISTAS.map(function (v) {
+      var i = v.rotulo.indexOf(' ');
       return (
-        '<button type="button" id="tab-' +
+        '<button type="button" class="tab" id="tab-' +
         v.id +
         '" role="tab" data-vista="' +
         v.id +
-        '">' +
-        v.rotulo +
-        '</button>'
+        '"><span class="n">' +
+        v.rotulo.slice(0, i) +
+        '</span><span class="l">' +
+        v.rotulo.slice(i + 1) +
+        '</span></button>'
       );
     }).join('');
     $('#segSitio').innerHTML = AMBITOS.map(function (a) {

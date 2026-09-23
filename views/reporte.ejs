@@ -6,6 +6,7 @@
 <meta name="robots" content="noindex,nofollow" />
 <title><%= titulo %></title>
 <link rel="stylesheet" href="/css/ehs.css" />
+<link rel="icon" href="data:," />
 <style>
   /* La pantalla se ve como el resto del tablero; el papel no. @media print apaga
      todo lo que solo tiene sentido en una pantalla (navegación, botones, la franja
@@ -79,15 +80,19 @@
                             sin_meta: 'sinmeta', sin_dato: 'pend' }; %>
           <% var ETIQUETA = { cumple: 'Cumple', riesgo: 'En riesgo', incumple: 'Incumple',
                                sin_meta: 'Sin meta', sin_dato: 'Sin dato' }; %>
+          <%# Coma decimal, como el tablero: con toFixed el reporte impreso decia "5.108",
+              que en Colombia se lee cinco mil ciento ocho. %>
+          <% var n = function (v, d) { return v == null ? '—' : Number(v).toLocaleString('es-CO',
+               { minimumFractionDigits: d, maximumFractionDigits: d }); }; %>
           <% pan.kpi.forEach(function (k) { %>
           <tr>
             <td>
               <%= k.kpi %> <span class="rep-referencia">(<%= k.unidad %>)</span>
               <% if (k.es_referencia) { %><br /><span class="rep-referencia">meta de referencia, no propia del ámbito</span><% } %>
             </td>
-            <td class="num"><%= k.valor == null ? '—' : k.valor.toFixed(k.dec) %></td>
-            <td class="num"><%= k.meta == null ? '—' : k.meta.toFixed(k.dec) %></td>
-            <td class="num"><%= k.brecha_pct == null ? '—' : (k.brecha_pct >= 0 ? '+' : '') + (k.brecha_pct * 100).toFixed(1) + '%' %></td>
+            <td class="num"><%= n(k.valor, k.dec) %></td>
+            <td class="num"><%= n(k.meta, k.dec) %></td>
+            <td class="num"><%= k.brecha_pct == null ? '—' : (k.brecha_pct > 0 ? '+' : '') + n(k.brecha_pct * 100, 1) + ' %' %></td>
             <td><span class="chip <%= CLASE[k.estado] || 'sinmeta' %>"><%= ETIQUETA[k.estado] || k.estado %></span></td>
           </tr>
           <% }); %>

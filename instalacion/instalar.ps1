@@ -7,21 +7,22 @@
 .DESCRIPTION
     Dos condiciones gobiernan este script, tal como las fija el encargo de Fase D:
 
-      1. Quien instala necesita exactamente UN permiso a IT (administrador local,
-         solo durante esta instalacion) y UN comando.
+      1. Quien instala necesita UN comando (el doble clic en INSTALAR-EHS.cmd).
       2. Quien USA el tablero despues ve un icono, cuatro pantallas y cero
          configuracion — nunca una consola, un puerto, ni el motor.
 
-    Con -Motor nativo instala SQL Server 2022 Express de verdad en el equipo, via
-    su instalador oficial. Con -Motor contenedor levanta el MISMO motor
-    containerizado (Docker o Podman). Todo lo demas — migraciones, logins,
-    configuracion, tarea programada, accesos directos — es IDENTICO entre los dos
-    modos: la unica diferencia es como aparece el motor.
+    Con -Motor contenedor (el modo por defecto del paquete) levanta SQL Server 2022
+    en Docker Desktop o Podman, SIN administrador: el arranque automatico es un
+    acceso directo en la carpeta Inicio y el respaldo diario lo programa la propia
+    aplicacion. Con -Motor nativo instala SQL Server 2022 Express como servicio de
+    Windows via su instalador oficial, y ese modo SI necesita administrador. Todo lo
+    demas — migraciones, logins, configuracion, accesos directos — es IDENTICO entre
+    los dos modos: la unica diferencia es como aparece el motor.
 
-    Se corre en un PowerShell elevado ("Ejecutar como administrador") COMO LA
-    CUENTA DE QUIEN VA A USAR EL EQUIPO, no con otra cuenta de administrador: la
-    tarea programada, los accesos directos y el permiso para "Reparar" quedan a
-    nombre de la cuenta que corre este script.
+    Se corre COMO LA CUENTA DE QUIEN VA A USAR EL EQUIPO. En modo nativo, si el
+    aviso de UAC lo eleva otra cuenta (la de IT), el arranque automatico, los
+    accesos directos y el permiso para "Reparar" igual quedan a nombre de la
+    persona con la sesion abierta en la consola.
 
     Se puede volver a correr despues de un error, y se puede cambiar de modo si
     uno falla: reutiliza las claves de un intento anterior (config\ehs.env) y el
@@ -44,8 +45,10 @@
     Puerto HTTP del tablero, solo en 127.0.0.1. Por defecto 3210.
 
 .PARAMETER ConDatosSemilla
-    Incluye la migracion 0008 (datos de ejemplo). NO usar en una instalacion
-    real del area: un sitio real no debe arrancar con datos de otro ya cargados.
+    Incluye la migracion 0008: el historico 2026 del area (enero a julio) tomado del
+    libro 'KPI's EHS 2026', la hoja cruda. Es lo que pasa INSTALAR-EHS.cmd: sin ella el
+    tablero arrancaria vacio. No viaja en git (son cifras de la empresa); la arma
+    analisis\generar_sql_carga.py y la mete empaquetar.ps1.
 
 .EXAMPLE
     .\instalar.ps1 -Motor nativo -RutaInstaladorSqlExpress 'D:\SQLEXPR_x64_ENU.exe'
@@ -134,17 +137,18 @@ Write-Host ""
 
 # ------------------------------------------------------ administrador, lo primero
 
-# En LOS DOS MODOS, no solo en nativo: registrar la tarea programada necesita un
-# proceso elevado aunque la tarea misma corra despues sin privilegios — probado en
-# vivo, Register-ScheduledTask y schtasks.exe responden "Acceso denegado" con un
-# token filtrado por UAC aunque la cuenta sea administradora. Se comprueba antes de
-# tocar nada, para no dejar una instalacion a medias.
+# Solo el modo NATIVO necesita administrador: instalar SQL Server, restringir su TCP
+# en el registro y dar permiso sobre su servicio. El modo contenedor se instala sin
+# elevar: el arranque automatico es un acceso directo en la carpeta Inicio de la
+# persona (no una tarea programada, que si exige elevar: probado en vivo con
+# Register-ScheduledTask y schtasks.exe), y el respaldo diario lo programa la propia
+# aplicacion (src/respaldo.js). Se comprueba antes de tocar nada.
 $esAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltinRole]::Administrator)
-if (-not $esAdmin) {
-    throw ("Este instalador necesita PowerShell como Administrador — una sola vez, solo " +
-           "durante la instalacion (ni el motor ni el tablero corren despues con privilegios " +
-           "de sistema). Es el UNICO permiso que pide instalacion/requisitos-it.md.")
+if ($Motor -eq 'nativo' -and -not $esAdmin) {
+    throw ("El modo nativo necesita PowerShell como Administrador (instala SQL Server como " +
+           "servicio de Windows). El modo contenedor no: .\instalar.ps1 -Motor contenedor")
 }
+. (Join-Path $PSScriptRoot 'tablero.ps1')
 
 # ------------------------------------------------------------------ utilidades
 
@@ -433,34 +437,46 @@ function Confirmar-SinBrowser {
     }
 }
 
-# El escritorio de la persona del area, aunque este proceso corra con otra cuenta.
-# GetValue sin expandir: expandir %USERPROFILE% en ESTE proceso daria el perfil de
-# quien eleva, no el de ella. El escritorio puede estar redirigido a OneDrive.
-function Escritorio-DeUsuario {
+# Una carpeta especial de la persona del area (Desktop, Startup), aunque este proceso
+# corra con otra cuenta. GetValue sin expandir: expandir %USERPROFILE% o %APPDATA% en
+# ESTE proceso daria el perfil de quien eleva, no el de ella. Puede estar redirigida
+# a OneDrive.
+function Carpeta-DeUsuario {
+    param([string]$Nombre, [string]$Defecto)
     $perfil = (Get-CimInstance Win32_UserProfile -Filter "SID='$SidUsuario'" -ErrorAction SilentlyContinue).LocalPath
     $clave = Get-Item "Registry::HKEY_USERS\$SidUsuario\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -ErrorAction SilentlyContinue
     if ($clave -and $perfil) {
-        $valor = $clave.GetValue('Desktop', $null, 'DoNotExpandEnvironmentNames')
-        if ($valor) { return $valor.Replace('%USERPROFILE%', $perfil) }
+        $valor = $clave.GetValue($Nombre, $null, 'DoNotExpandEnvironmentNames')
+        if ($valor) { return $valor.Replace('%USERPROFILE%', $perfil).Replace('%APPDATA%', (Join-Path $perfil 'AppData\Roaming')) }
     }
-    if ($perfil) { return Join-Path $perfil 'Desktop' }
-    return [Environment]::GetFolderPath('Desktop')
+    if ($perfil) { return Join-Path $perfil $Defecto }
+    return $null
 }
 
-# "Reparar EHS" y actualizar.ps1 detienen y arrancan la tarea del tablero sin elevar.
-# Se le da a la persona del area permiso explicito de leer y ejecutar ESA tarea.
-function Permitir-UsarTarea {
-    param([string]$Nombre)
-    $planificador = New-Object -ComObject Schedule.Service
-    $planificador.Connect()
-    $tarea = $planificador.GetFolder('\').GetTask($Nombre)
-    $sddl = $tarea.GetSecurityDescriptor(0xF)
-    if ($sddl -notlike "*;;;$SidUsuario)*") {
-        $ace = "(A;;FRFX;;;$SidUsuario)"
-        $i = $sddl.IndexOf('S:')
-        $nuevo = if ($i -ge 0) { $sddl.Substring(0, $i) + $ace + $sddl.Substring($i) } else { $sddl + $ace }
-        $tarea.SetSecurityDescriptor($nuevo, 0)
+# Docker Desktop viene con "Start Docker Desktop when you sign in" APAGADO: sin
+# encenderlo, despues de cada reinicio el motor no existe hasta que alguien abre
+# Docker a mano, y el tablero queda en rojo. Es un ajuste del usuario, en su propio
+# settings-store.json: no pide administrador. Se guarda copia antes de tocarlo.
+function Activar-ArranqueDocker {
+    $perfil = (Get-CimInstance Win32_UserProfile -Filter "SID='$SidUsuario'" -ErrorAction SilentlyContinue).LocalPath
+    if (-not $perfil) { return }
+    foreach ($nombre in 'settings-store.json', 'settings.json') {
+        $ruta = Join-Path $perfil "AppData\Roaming\Docker\$nombre"
+        if (-not (Test-Path $ruta)) { continue }
+        $ajustes = Get-Content $ruta -Raw | ConvertFrom-Json
+        if ($ajustes.PSObject.Properties.Name -contains 'AutoStart') {
+            if ($ajustes.AutoStart -eq $true) { Write-Host "Docker Desktop ya arranca al iniciar sesion."; return }
+            $ajustes.AutoStart = $true
+        } else {
+            $ajustes | Add-Member -NotePropertyName AutoStart -NotePropertyValue $true
+        }
+        Copy-Item $ruta "$ruta.ehs-antes" -Force
+        [IO.File]::WriteAllText($ruta, ($ajustes | ConvertTo-Json -Depth 50), [Text.UTF8Encoding]::new($false))
+        Write-Host "Docker Desktop queda arrancando al iniciar sesion ($nombre)." -ForegroundColor Green
+        return
     }
+    Write-Warning ("No se encontro la configuracion de Docker Desktop del usuario: activa a mano " +
+                   "'Start Docker Desktop when you sign in' (Settings > General).")
 }
 
 # ------------------------------------------ credenciales: nuevas o del intento previo
@@ -473,8 +489,14 @@ $script:Sqlcmd = $null
 $script:Herramienta = $null
 
 # Un tablero de un intento anterior seguiria ocupando el puerto de la app.
-Stop-ScheduledTask -TaskName $NombreTarea -ErrorAction SilentlyContinue
-Start-Sleep -Seconds 1
+Detener-Tablero -RaizApp $RaizApp
+# Versiones anteriores de este instalador arrancaban con tareas programadas.
+foreach ($t in $NombreTarea, $NombreTareaRespaldo) {
+    if ($esAdmin -and (Get-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue)) {
+        Stop-ScheduledTask -TaskName $t -ErrorAction SilentlyContinue
+        Unregister-ScheduledTask -TaskName $t -Confirm:$false -ErrorAction SilentlyContinue
+    }
+}
 
 # ------------------------------------------------------------------- el motor
 
@@ -538,8 +560,19 @@ if ($Motor -eq 'contenedor') {
         }
         & $script:Herramienta image inspect $ImagenLocal *> $null
         if ($LASTEXITCODE -ne 0) {
-            throw ("No esta la imagen $ImagenLocal. Pasa -RutaImagen con el .tar que arma empaquetar.ps1 " +
-                   "-ConImagenContenedor (sin internet no se puede descargar).")
+            # Sin .tar: la imagen oficial si ya esta en el equipo, y si no, descargarla —
+            # esto ultimo solo funciona con internet, y se dice asi si falla.
+            $oficial = 'mcr.microsoft.com/mssql/server:2022-latest'
+            & $script:Herramienta image inspect $oficial *> $null
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "Descargando la imagen $oficial (necesita internet, ~600 MB)…"
+                & $script:Herramienta pull $oficial
+                if ($LASTEXITCODE -ne 0) {
+                    throw ("No se pudo descargar $oficial. Sin internet, pasa -RutaImagen con el .tar que arma " +
+                           "empaquetar.ps1 -ConImagenContenedor.")
+                }
+            }
+            & $script:Herramienta tag $oficial $ImagenLocal | Out-Null
         }
         Write-Host "Creando el contenedor del motor…"
         # TZ: sin ella el contenedor corre en UTC, y sysdatetime() — la hora de cada
@@ -640,62 +673,49 @@ Correr-CrearLogins -UsuarioSql 'ehs_migrador' -ClaveSql $ClaveMigrador
 
 # ------------------------------------------------------- arranque automatico
 
-# La tarea corre con la sesion de la persona del area (Interactive), no como S4U: una
-# tarea S4U necesita el derecho "Iniciar sesion como proceso por lotes", que en
-# Windows cliente solo tienen los administradores — con una usuaria estandar no
-# arrancaria nunca. Y conhost --headless lanza node SIN ventana de consola (probado:
-# MainWindowHandle = 0); -Hidden solo oculta la tarea en el Programador, no la
-# ventana. Sin limite de tiempo: el defecto de 72 horas mataria el tablero.
-Write-Host "Registrando el arranque automatico…"
-$principal = New-ScheduledTaskPrincipal -UserId $Usuario -LogonType Interactive -RunLevel Limited
-$alIniciar = New-ScheduledTaskTrigger -AtLogOn -User $Usuario
-$ajustesTablero = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-    -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
-    -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-$accion = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" `
-    -Argument "--headless `"$NodeExe`" servidor.js" -WorkingDirectory $RaizApp
-Register-ScheduledTask -TaskName $NombreTarea -Action $accion -Trigger $alIniciar -Principal $principal `
-    -Settings $ajustesTablero -Force -ErrorAction Stop `
-    -Description 'Arranca el tablero EHS al iniciar sesion. Sin privilegios de sistema, sin ventana.' | Out-Null
+# Un acceso directo en la carpeta Inicio de la persona del area: Windows lo abre al
+# iniciar sesion, sin administrador y sin tarea programada. Apunta a conhost
+# --headless para que node corra SIN ventana de consola.
+$carpetaInicio = Carpeta-DeUsuario -Nombre 'Startup' -Defecto 'AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup'
+if (-not $carpetaInicio) { throw "No se pudo ubicar la carpeta Inicio de $Usuario." }
+New-Item -ItemType Directory -Force -Path $carpetaInicio | Out-Null
+$shell = New-Object -ComObject WScript.Shell
+$accesoInicio = $shell.CreateShortcut((Ruta-AccesoInicio -CarpetaInicio $carpetaInicio))
+$accesoInicio.TargetPath = "$env:SystemRoot\System32\conhost.exe"
+$accesoInicio.Arguments = "--headless `"$NodeExe`" `"$(Join-Path $RaizApp 'servidor.js')`""
+$accesoInicio.WorkingDirectory = $RaizApp
+$accesoInicio.WindowStyle = 7
+$accesoInicio.Description = 'Arranca el tablero EHS al iniciar sesion, sin ventana.'
+$accesoInicio.Save()
+Write-Host "Arranque automatico: $(Ruta-AccesoInicio -CarpetaInicio $carpetaInicio)"
 
-# SQL Server Express no trae SQL Server Agent (es Standard+): el respaldo diario se
-# programa por fuera del motor.
-$ajustesRespaldo = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
-    -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
-$accionRespaldo = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" `
-    -Argument "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\respaldar.ps1`""
-Register-ScheduledTask -TaskName $NombreTareaRespaldo -Action $accionRespaldo `
-    -Trigger (New-ScheduledTaskTrigger -Daily -At '20:00') -Principal $principal `
-    -Settings $ajustesRespaldo -Force -ErrorAction Stop `
-    -Description 'Respaldo diario de la base EHS a la carpeta local que sincroniza OneDrive.' | Out-Null
+if ($Motor -eq 'contenedor') { Activar-ArranqueDocker }
 
-Permitir-UsarTarea -Nombre $NombreTarea
-Permitir-UsarTarea -Nombre $NombreTareaRespaldo
-Start-ScheduledTask -TaskName $NombreTarea -ErrorAction Stop
+# ------------------------------------------------ arrancarlo ya, y comprobarlo
 
-# ------------------------------------------------ comprobar que de verdad responde
-
-Write-Host "Comprobando que el tablero responde…"
-$limite = (Get-Date).AddSeconds(60)
+# Si este proceso corre con la cuenta de IT (UAC con otras credenciales), arrancar
+# node aqui lo dejaria corriendo como IT: no se arranca, y lo levanta el acceso
+# directo de Inicio en el proximo inicio de sesion de la persona.
 $salud = $null
-while ((Get-Date) -lt $limite) {
-    try {
-        $salud = Invoke-RestMethod -Uri "http://127.0.0.1:$PuertoApp/api/ehs/salud" -TimeoutSec 5
-        if ($salud.disponible) { break }
-    } catch { }
-    Start-Sleep -Seconds 2
+if ($Usuario -eq $UsuarioElevado) {
+    Iniciar-Tablero -RaizApp $RaizApp -NodeExe $NodeExe
+    Write-Host "Comprobando que el tablero responde…"
+    $salud = Esperar-Tablero -Puerto $PuertoApp -TimeoutSeg 60
+    if (-not $salud) {
+        throw ("El tablero no responde en http://127.0.0.1:$PuertoApp (o no llega al motor). " +
+               "Prueba a mano: `"$NodeExe`" `"$(Join-Path $RaizApp 'servidor.js')`" y lee el error.")
+    }
+    if ($salud.modo -ne 'sql') { throw "El tablero respondio en modo '$($salud.modo)', no 'sql': no esta leyendo config\ehs.env." }
+    Confirmar-SoloLoopback -Puerto $PuertoApp -Que 'El tablero'
+} else {
+    Write-Host "Instalado para ${Usuario}: el tablero arranca en su proximo inicio de sesion." -ForegroundColor Yellow
 }
-if (-not $salud -or -not $salud.disponible) {
-    throw ("La tarea '$NombreTarea' arranco pero el tablero no responde en http://127.0.0.1:$PuertoApp " +
-           "(o no llega al motor). Revisa en el Programador de tareas el ultimo resultado de esa tarea.")
-}
-if ($salud.modo -ne 'sql') { throw "El tablero respondio en modo '$($salud.modo)', no 'sql': no esta leyendo config\ehs.env." }
-Confirmar-SoloLoopback -Puerto $PuertoApp -Que 'El tablero'
 
 # ------------------------------------------------------------- accesos directos
 
 Write-Host "Creando accesos directos en el escritorio…"
-$escritorio = Escritorio-DeUsuario
+$escritorio = Carpeta-DeUsuario -Nombre 'Desktop' -Defecto 'Desktop'
+if (-not $escritorio) { $escritorio = [Environment]::GetFolderPath('Desktop') }
 # .url y no .lnk: un .lnk apuntando a una URL no es un acceso directo valido de
 # Windows; el formato para abrir una direccion en el navegador es el .url.
 @(
@@ -705,7 +725,6 @@ $escritorio = Escritorio-DeUsuario
     'IconIndex=13'
 ) | Set-Content -Path (Join-Path $escritorio 'EHS.url') -Encoding ASCII
 
-$shell = New-Object -ComObject WScript.Shell
 $accesoReparar = $shell.CreateShortcut((Join-Path $escritorio 'Reparar EHS.lnk'))
 $accesoReparar.TargetPath = 'powershell.exe'
 $accesoReparar.Arguments = "-NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\reparar.ps1`""
@@ -716,11 +735,33 @@ $accesoReparar.Save()
 # ------------------------------------------------------------------------ fin
 
 # La instalacion termino entera: la clave de sa ya no hace falta y no se deja escrita.
+# Borrarla de config\ehs.env no alcanza: en modo contenedor tambien queda en la
+# variable MSSQL_SA_PASSWORD del contenedor, que 'docker inspect' le muestra a
+# cualquiera con acceso a Docker en el equipo. Por eso sa pasa a una clave nueva que
+# no se guarda en ningun lado: despues de instalar nadie la necesita (ehs_migrador es
+# db_owner y actualizar.ps1 trabaja con el). Si algun dia hiciera falta, en modo
+# contenedor se restablece con '/opt/mssql/bin/mssql-conf set-sa-password'.
+# Es lo ultimo antes de reescribir la configuracion: si fallara algo antes, un segundo
+# intento todavia entra con la clave temporal.
+if ($usuarioAdmin -eq 'sa') {
+    Invocar-Sqlcmd -UsuarioSql 'sa' -ClaveSql $claveAdmin -Silencioso `
+        -Consulta "alter login sa with password = N'$(Nueva-Clave)';" | Out-Null
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "La clave de sa quedo cambiada por una que no se guarda en ningun lado." -ForegroundColor Green
+    } else {
+        Write-Warning ("No se pudo cambiar la clave de sa (codigo $LASTEXITCODE). EHS funciona igual, pero la " +
+                       "clave usada al instalar sigue siendo valida.")
+    }
+}
 Escribir-Config -ClaveSaTemporal $null
 
 Write-Host ""
 Write-Host "=== Listo ===" -ForegroundColor Green
 Write-Host "Motor      : $Motor, solo en 127.0.0.1:$PuertoMotor"
-Write-Host "Tablero    : http://127.0.0.1:$PuertoApp  (motor $($salud.motor), corte $($salud.corte.mes)/$($salud.corte.anio))"
+if ($salud) {
+    Write-Host "Tablero    : http://127.0.0.1:$PuertoApp  (motor $($salud.motor), corte $($salud.corte.mes)/$($salud.corte.anio))"
+} else {
+    Write-Host "Tablero    : http://127.0.0.1:$PuertoApp  (arranca al iniciar sesion $Usuario)"
+}
 Write-Host "Escritorio : EHS, Reparar EHS"
-if (-not $NoAbrirNavegador) { Start-Process "http://127.0.0.1:$PuertoApp" }
+if ($salud -and -not $NoAbrirNavegador) { Start-Process "http://127.0.0.1:$PuertoApp" }
