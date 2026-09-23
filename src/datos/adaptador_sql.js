@@ -148,7 +148,7 @@ const ESTADO = `case when mt.valor is null then 'sin_meta'
 /** El nombre largo del ambito: el del sitio si lo es, y el del agregado si no. */
 const NOMBRE_AMBITO = `(select top 1 case when a.ambito_id = a.sitio_id then s.sitio else a.ambito end
                           from ehs.v_ambito a
-                          join ehs.dim_sitio s on s.sitio_id = a.sitio_id
+                          join ref.dim_sitio s on s.sitio_id = a.sitio_id
                          where a.ambito_id = @ambito
                          order by a.sitio_id)`;
 
@@ -169,13 +169,13 @@ const VALORES_DEL_AMBITO = `
     insert @ytd (kpi_id, num_mes, valor)
     select v.kpi_id, v.num_mes_corte, ${VALOR_RECUPERADO}
       from ehs.v_kpi_ytd v
-      join ehs.dim_kpi k on k.kpi_id = v.kpi_id
+      join ref.dim_kpi k on k.kpi_id = v.kpi_id
      where v.anio = @anio and v.ambito_id = @ambito and v.num_mes_corte <= @corte;
 
     insert @mensual (kpi_id, num_mes, valor)
     select v.kpi_id, v.num_mes, ${VALOR_RECUPERADO}
       from ehs.v_kpi_mensual v
-      join ehs.dim_kpi k on k.kpi_id = v.kpi_id
+      join ref.dim_kpi k on k.kpi_id = v.kpi_id
      where v.anio = @anio and v.ambito_id = @ambito and v.num_mes <= @corte;
 `;
 
@@ -217,7 +217,7 @@ async function contexto() {
     declare @corte tinyint = (select corte from ehs.v_corte_publicado where anio = @anio);
     select anio = @anio,
            corte = @corte,
-           corte_nombre = (select top 1 mes from ehs.dim_fecha
+           corte_nombre = (select top 1 mes from ref.dim_fecha
                             where anio = @anio and num_mes = @corte),
            meta_vigente = (select max(fuente) from ehs.meta
                             where anio = @anio and vigente = 1),
@@ -229,11 +229,11 @@ async function contexto() {
               vez, con una fecha ANTERIOR a la captura que acababa de moverlo. */
            actualizado_en = (select max(coalesce(l.modificado_en, l.capturado_en))
                                from ehs.hecho_lectura_mensual l
-                               join ehs.dim_fecha f on f.fecha = l.fecha
+                               join ref.dim_fecha f on f.fecha = l.fecha
                               where f.anio = @anio and f.num_mes <= @corte);
     select num_mes = f.num_mes
       from ehs.hecho_lectura_mensual l
-      join ehs.dim_fecha f on f.fecha = l.fecha
+      join ref.dim_fecha f on f.fecha = l.fecha
      where f.anio = @anio and f.num_mes <= @corte
      group by f.num_mes
      order by f.num_mes;
@@ -300,7 +300,7 @@ module.exports = {
                                     then 1 else 0 end,
                brecha_pct = ${BRECHA},
                estado = ${ESTADO}
-          from ehs.dim_kpi k
+          from ref.dim_kpi k
           left join @ytd y on y.kpi_id = k.kpi_id and y.num_mes = @mes
           left join @mensual m on m.kpi_id = k.kpi_id and m.num_mes = @mes
           left join ehs.meta mt
@@ -373,18 +373,18 @@ module.exports = {
         insert @ytd (ambito_id, valor)
         select v.ambito_id, ${VALOR_RECUPERADO}
           from ehs.v_kpi_ytd v
-          join ehs.dim_kpi k on k.kpi_id = v.kpi_id
-          join ehs.dim_sitio s on s.sitio_id = v.ambito_id and s.activo = 1 and s.en_nacional = 1
+          join ref.dim_kpi k on k.kpi_id = v.kpi_id
+          join ref.dim_sitio s on s.sitio_id = v.ambito_id and s.activo = 1 and s.en_nacional = 1
          where v.anio = @anio and v.num_mes_corte = @mes and v.kpi_id = @kpi;
 
-        select k.kpi, k.unidad from ehs.dim_kpi k where k.kpi_id = @kpi and k.area = 'ehs';
+        select k.kpi, k.unidad from ref.dim_kpi k where k.kpi_id = @kpi and k.area = 'ehs';
 
         select s.sitio_id, s.sitio, corporativo = s.nombre_corporativo,
                valor = y.valor,
                meta = mt.valor,
                brecha_pct = ${BRECHA},
                estado = ${ESTADO}
-          from ehs.dim_sitio s
+          from ref.dim_sitio s
           left join @ytd y on y.ambito_id = s.sitio_id
           left join ehs.meta mt
                  on mt.anio = @anio and mt.vigente = 1
@@ -435,7 +435,7 @@ module.exports = {
                meta = mt.valor,
                es_referencia = case when @ambito_meta is not null and @ambito_meta <> @ambito
                                     then 1 else 0 end
-          from ehs.dim_kpi k
+          from ref.dim_kpi k
           left join ehs.meta mt
                  on mt.anio = @anio and mt.vigente = 1
                 and mt.ambito_id = @ambito_meta and mt.kpi_id = k.kpi_id
@@ -447,7 +447,7 @@ module.exports = {
                -- v_kpi_ytd repite el ultimo y eso no es un dato del mes
                valor_ytd = case when exists (select 1 from @mensual d where d.num_mes = f.num_mes)
                                 then y.valor end
-          from ehs.dim_fecha f
+          from ref.dim_fecha f
           left join @mensual m on m.num_mes = f.num_mes and m.kpi_id = @kpi
           left join @ytd y on y.num_mes = f.num_mes and y.kpi_id = @kpi
          where f.anio = @anio
@@ -487,7 +487,7 @@ module.exports = {
       .input('ambito', sql.VarChar(20), ambito).query(`
         select nombre = ${NOMBRE_AMBITO};
 
-        -- que magnitud es el consumo y cual el denominador lo dice ehs.kpi_magnitud, que
+        -- que magnitud es el consumo y cual el denominador lo dice ref.kpi_magnitud, que
         -- ya guarda la formula del agua como dato: repetir 'agua_m3' aqui seria una
         -- segunda copia de la misma definicion
         with mensual as (
@@ -495,8 +495,8 @@ module.exports = {
                    agua = sum(case when km.rol = 'numerador' then cast(la.valor as float) end),
                    lbp  = sum(case when km.rol = 'denominador' then cast(la.valor as float) end)
               from ehs.v_lectura_ambito la
-              join ehs.dim_fecha f on f.fecha = la.fecha
-              join ehs.kpi_magnitud km
+              join ref.dim_fecha f on f.fecha = la.fecha
+              join ref.kpi_magnitud km
                 on km.magnitud_id = la.magnitud_id and km.kpi_id = 'agua_por_lente'
              where la.anio = @anio and la.ambito_id = @ambito and f.num_mes <= @corte
              group by f.num_mes, f.mes
@@ -620,13 +620,13 @@ module.exports = {
         declare @lentes table (num_mes tinyint primary key, lbp float);
 
         -- cuales son las tres magnitudes de residuo y cual el denominador no se teclea:
-        -- lo dice ehs.kpi_magnitud, que guarda la formula del KPI como dato
+        -- lo dice ref.kpi_magnitud, que guarda la formula del KPI como dato
         insert @kg (num_mes, nombre_mes, magnitud_id, orden, kg)
         select f.num_mes, f.mes, la.magnitud_id, g.orden, sum(cast(la.valor as float))
           from ehs.v_lectura_ambito la
-          join ehs.dim_fecha f on f.fecha = la.fecha
-          join ehs.dim_magnitud g on g.magnitud_id = la.magnitud_id
-          join ehs.kpi_magnitud km
+          join ref.dim_fecha f on f.fecha = la.fecha
+          join ref.dim_magnitud g on g.magnitud_id = la.magnitud_id
+          join ref.kpi_magnitud km
             on km.magnitud_id = la.magnitud_id
            and km.kpi_id = 'residuos_por_lente' and km.rol = 'numerador'
          where la.anio = @anio and la.ambito_id = @ambito and f.num_mes <= @corte
@@ -637,8 +637,8 @@ module.exports = {
         insert @lentes (num_mes, lbp)
         select f.num_mes, sum(cast(la.valor as float))
           from ehs.v_lectura_ambito la
-          join ehs.dim_fecha f on f.fecha = la.fecha
-          join ehs.kpi_magnitud km
+          join ref.dim_fecha f on f.fecha = la.fecha
+          join ref.kpi_magnitud km
             on km.magnitud_id = la.magnitud_id
            and km.kpi_id = 'residuos_por_lente' and km.rol = 'denominador'
          where la.anio = @anio and la.ambito_id = @ambito and f.num_mes <= @corte
@@ -672,8 +672,8 @@ module.exports = {
                               else coalesce(sum(k.kg), 0) * 1000 / @lbp_anio end,
                part = case when coalesce(@kg_anio, 0) = 0 then null
                            else coalesce(sum(k.kg), 0) / @kg_anio end
-          from ehs.kpi_magnitud km
-          join ehs.dim_magnitud g on g.magnitud_id = km.magnitud_id
+          from ref.kpi_magnitud km
+          join ref.dim_magnitud g on g.magnitud_id = km.magnitud_id
           left join @kg k on k.magnitud_id = km.magnitud_id
          where km.kpi_id = 'residuos_por_lente' and km.rol = 'numerador'
          group by km.magnitud_id, g.orden
@@ -733,21 +733,21 @@ module.exports = {
       .input('kpi', sql.VarChar(40), kpi).query(`
         -- el perimetro del scorecard es el sitio de tipo Consolidado (COLOMBIA y PERU):
         -- no es un laboratorio ni una agencia, es la suma que reporta corporativo
-        declare @perimetro varchar(20) = (select top 1 sitio_id from ehs.dim_sitio
+        declare @perimetro varchar(20) = (select top 1 sitio_id from ref.dim_sitio
                                            where tipo = 'Consolidado' order by sitio_id);
 
         declare @ytd table (kpi_id varchar(40) not null primary key, valor decimal(38,6) null);
         insert @ytd (kpi_id, valor)
         select v.kpi_id, ${VALOR_RECUPERADO}
           from ehs.v_kpi_ytd v
-          join ehs.dim_kpi k on k.kpi_id = v.kpi_id
+          join ref.dim_kpi k on k.kpi_id = v.kpi_id
          where v.anio = @anio and v.ambito_id = @ambito
            and v.num_mes_corte = @mes and v.kpi_id = @kpi;
 
         select k.kpi, k.unidad, k.formato,
-               perimetro = (select nombre_corporativo from ehs.dim_sitio
+               perimetro = (select nombre_corporativo from ref.dim_sitio
                              where sitio_id = @perimetro)
-          from ehs.dim_kpi k where k.kpi_id = @kpi and k.area = 'ehs';
+          from ref.dim_kpi k where k.kpi_id = @kpi and k.area = 'ehs';
 
         select sc.anio, sc.meta, sc.real_ytd
           from ehs.scorecard_anual sc
@@ -803,7 +803,7 @@ module.exports = {
     const { sql, req } = await peticion();
     const r = await req.input('anio', sql.SmallInt, anio).input('corte', sql.TinyInt, ctx.corte)
       .query(`
-        declare @magnitudes int = (select count(*) from ehs.dim_magnitud where area = 'ehs');
+        declare @magnitudes int = (select count(*) from ref.dim_magnitud where area = 'ehs');
 
         -- todo cuenta hasta el corte publicado. Un mes que se este capturando ahora mismo
         -- no es un defecto de calidad, es un mes a medias, y quien lo dice es
@@ -812,7 +812,7 @@ module.exports = {
                estado = case when count(distinct l.estado) = 1 then min(l.estado)
                              else 'mixto' end
           from ehs.hecho_lectura_mensual l
-          join ehs.dim_fecha f on f.fecha = l.fecha
+          join ref.dim_fecha f on f.fecha = l.fecha
          where f.anio = @anio and f.num_mes <= @corte;
 
         select mes = f.num_mes,
@@ -820,7 +820,7 @@ module.exports = {
                magnitudes = @magnitudes,
                lecturas = count(distinct l.sitio_id) * @magnitudes
           from ehs.hecho_lectura_mensual l
-          join ehs.dim_fecha f on f.fecha = l.fecha
+          join ref.dim_fecha f on f.fecha = l.fecha
          where f.anio = @anio and f.num_mes <= @corte
          group by f.num_mes
          order by f.num_mes;
@@ -839,10 +839,10 @@ module.exports = {
                    mes_anterior = lag(f.num_mes) over (partition by l.sitio_id, l.magnitud_id
                                                            order by f.num_mes)
               from ehs.hecho_lectura_mensual l
-              join ehs.dim_fecha f on f.fecha = l.fecha
-              join ehs.dim_sitio s
+              join ref.dim_fecha f on f.fecha = l.fecha
+              join ref.dim_sitio s
                 on s.sitio_id = l.sitio_id and s.activo = 1 and s.en_nacional = 1
-              join ehs.dim_magnitud g on g.magnitud_id = l.magnitud_id and g.area = 'ehs'
+              join ref.dim_magnitud g on g.magnitud_id = l.magnitud_id and g.area = 'ehs'
              where f.anio = @anio and f.num_mes <= @corte
         ),
         avisos as (
@@ -868,8 +868,8 @@ module.exports = {
                    concat(upper(left(s.sitio_id, 1)) + substring(s.sitio_id, 2, 40),
                           ' no reporto el mes ', f.num_mes,
                           ', pero otros sitios si. El consolidado de ese mes queda sesgado.')
-              from ehs.dim_fecha f
-             cross join ehs.dim_sitio s
+              from ref.dim_fecha f
+             cross join ref.dim_sitio s
              where f.anio = @anio and f.num_mes <= @corte
                and s.activo = 1 and s.en_nacional = 1
                and exists (select 1 from valores v where v.mes = f.num_mes)
@@ -938,7 +938,7 @@ module.exports = {
     const { sql, req } = await peticion();
     const r = await req.input('anio', sql.SmallInt, anio).input('corte', sql.TinyInt, ctx.corte)
       .query(`
-        select magnitud_id from ehs.dim_magnitud where area = 'ehs' order by orden;
+        select magnitud_id from ref.dim_magnitud where area = 'ehs' order by orden;
 
         select sitio = l.sitio_id,
                anio = cast(f.anio as varchar(4)),
@@ -947,8 +947,8 @@ module.exports = {
                l.magnitud_id,
                valor = cast(l.valor as float)
           from ehs.hecho_lectura_mensual l
-          join ehs.dim_fecha f on f.fecha = l.fecha
-          join ehs.dim_magnitud g on g.magnitud_id = l.magnitud_id and g.area = 'ehs'
+          join ref.dim_fecha f on f.fecha = l.fecha
+          join ref.dim_magnitud g on g.magnitud_id = l.magnitud_id and g.area = 'ehs'
          where f.anio = @anio and f.num_mes <= @corte
          order by l.sitio_id, f.num_mes, g.orden;
       `);
