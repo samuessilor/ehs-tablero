@@ -195,7 +195,11 @@ function examinarCorreccion({ magnitud, valor, motivo }) {
 
   const n = aNumero(valor);
   if (n === null) {
-    return { motivoInvalido: null, error: `El valor no es un número: ${valor}.`, advertencia: null };
+    return {
+      motivoInvalido: null,
+      error: `El valor no es un número: ${valor}.`,
+      advertencia: null,
+    };
   }
   if (n < 0) {
     return {

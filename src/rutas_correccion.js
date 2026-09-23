@@ -50,7 +50,10 @@ function normalizarCorreccion(cuerpo) {
     return { error: `Magnitud desconocida: ${d.magnitud}.` };
   }
   if (d.valor === null || d.valor === undefined || String(d.valor).trim() === '') {
-    return { error: 'Falta el valor nuevo. Para borrar una lectura, pide a IT que la borre — esta puerta corrige, no elimina.' };
+    return {
+      error:
+        'Falta el valor nuevo. Para borrar una lectura, pide a IT que la borre — esta puerta corrige, no elimina.',
+    };
   }
 
   const corregidoPor = typeof d.corregidoPor === 'string' ? d.corregidoPor.trim() : '';

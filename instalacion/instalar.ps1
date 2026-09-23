@@ -67,6 +67,10 @@ param(
 
     [switch]$ConDatosSemilla,
 
+    # Solo -Motor contenedor, sin internet: el .tar de 'docker save' de la imagen de
+    # SQL Server 2022. Sin esto, 'docker run' intentaria descargarla y fallaria.
+    [string]$RutaImagen,
+
     # Para una instalacion desatendida (o de prueba): no abre el navegador al final.
     [switch]$NoAbrirNavegador
 )
@@ -104,12 +108,28 @@ $NombreContenedor = 'ehs-motor'
 $NombreServicio = 'MSSQL$EHSLOCAL'
 $NombreTarea = 'EHS Tablero'
 $NombreTareaRespaldo = 'EHS Respaldo diario'
-$Usuario = "$env:USERDOMAIN\$env:USERNAME"
+$ImagenLocal = 'ehs/mssql-server:2022'
+
+# Para QUIEN se instala. Si la persona del area es usuaria estandar, el aviso de UAC
+# le pide a IT sus credenciales y este proceso corre con la cuenta de IT: tomar
+# $env:USERNAME dejaria la tarea, los accesos directos y el permiso de "Reparar" a
+# nombre de IT. Win32_ComputerSystem.UserName es la sesion abierta en la consola,
+# la de la persona sentada frente al equipo, aunque este proceso este elevado con
+# otra cuenta.
+$UsuarioElevado = "$env:USERDOMAIN\$env:USERNAME"
+$UsuarioConsola = (Get-CimInstance Win32_ComputerSystem).UserName
+$Usuario = if ($UsuarioConsola) { $UsuarioConsola } else { $UsuarioElevado }
+try {
+    $SidUsuario = ([Security.Principal.NTAccount]$Usuario).Translate([Security.Principal.SecurityIdentifier]).Value
+} catch {
+    throw "No se pudo resolver la cuenta '$Usuario' a un SID: $($_.Exception.Message)"
+}
 
 Write-Host "=== EHS · instalar ($Motor) ===" -ForegroundColor Cyan
 Write-Host "Carpeta de la aplicacion : $RaizApp"
 Write-Host "node.exe                : $NodeExe"
-Write-Host "Cuenta                  : $Usuario"
+Write-Host "Se instala para         : $Usuario"
+if ($Usuario -ne $UsuarioElevado) { Write-Host "Elevado con              : $UsuarioElevado" -ForegroundColor Yellow }
 Write-Host ""
 
 # ------------------------------------------------------ administrador, lo primero
@@ -348,15 +368,98 @@ function Confirmar-SoloLoopback {
 # reiniciar un servicio de Windows necesita permiso explicito. Se le da a esta
 # cuenta — y solo sobre este servicio — iniciar, detener y consultar su estado.
 function Permitir-ReiniciarServicio {
-    $sid = ([Security.Principal.WindowsIdentity]::GetCurrent()).User.Value
+    $sid = $SidUsuario
     $sddl = ((& sc.exe sdshow $NombreServicio) | Where-Object { $_ -match '^D:' } | Select-Object -First 1)
     if (-not $sddl) { throw "No se pudo leer el descriptor de seguridad de $NombreServicio." }
-    $ace = "(A;;RPWPDTLOCRRC;;;$sid)"
+    # CC/LC/SW (consultar configuracion, estado, dependientes) ademas de iniciar/detener:
+    # sin LC, Restart-Service no puede ver cuando el servicio termino de detenerse.
+    $ace = "(A;;CCLCSWRPWPDTLOCRRC;;;$sid)"
     if ($sddl -notlike "*;;;$sid)*") {
         $i = $sddl.IndexOf('S:')
         $nuevo = if ($i -ge 0) { $sddl.Substring(0, $i) + $ace + $sddl.Substring($i) } else { $sddl + $ace }
         & sc.exe sdset $NombreServicio $nuevo | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "sc.exe sdset termino con codigo $LASTEXITCODE." }
+    }
+}
+
+# SQL Server no soporta discos que reporten un sector fisico de mas de 4 KB: en
+# Windows 11 algunos NVMe (driver stornvme) reportan 8 o 16 KB, y el setup falla o el
+# servicio no arranca (0x851A001A). La solucion oficial de Microsoft es la clave
+# ForcedPhysicalSectorSizeInBytes = '* 4095' y reiniciar. Se detecta ANTES de
+# instalar: descubrirlo a mitad de setup deja una instalacion rota.
+function Revisar-SectorDeDisco {
+    $unidad = (Split-Path -Qualifier $CarpetaMotorNativo)
+    $info = & fsutil.exe fsinfo sectorinfo $unidad 2>$null
+    $fisico = 0
+    foreach ($linea in $info) {
+        if ($linea -match 'PhysicalBytesPerSectorForAtomicity\s*:\s*(\d+)') { $fisico = [math]::Max($fisico, [int]$Matches[1]) }
+        if ($linea -match 'PhysicalBytesPerSectorForPerformance\s*:\s*(\d+)') { $fisico = [math]::Max($fisico, [int]$Matches[1]) }
+    }
+    Write-Host "Sector fisico de $($unidad): $fisico bytes"
+    if ($fisico -le 4096) { return }
+    $clave = 'HKLM:\SYSTEM\CurrentControlSet\Services\stornvme\Parameters\Device'
+    $actual = (Get-ItemProperty $clave -Name ForcedPhysicalSectorSizeInBytes -ErrorAction SilentlyContinue).ForcedPhysicalSectorSizeInBytes
+    if ($actual -contains '* 4095') {
+        throw ("El disco sigue reportando $fisico bytes aunque la correccion ya esta aplicada: falta reiniciar " +
+               "Windows. Reinicia y vuelve a correr este mismo instalador.")
+    }
+    New-Item -Path $clave -Force | Out-Null
+    New-ItemProperty -Path $clave -Name ForcedPhysicalSectorSizeInBytes -PropertyType MultiString -Value @('* 4095') -Force | Out-Null
+    throw ("El disco reporta sectores de $fisico bytes, que SQL Server no soporta. Se aplico la correccion " +
+           "oficial de Microsoft (ForcedPhysicalSectorSizeInBytes). REINICIA Windows y vuelve a correr este " +
+           "mismo instalador: continua desde aqui.")
+}
+
+# Con un reinicio pendiente, setup.exe se niega a instalar (regla RebootRequiredCheck)
+# con un mensaje que no dice que hacer.
+function Revisar-ReinicioPendiente {
+    $pendiente = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or
+                 (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired')
+    if ($pendiente) {
+        throw "Windows tiene un reinicio pendiente (actualizaciones). Reinicia y vuelve a correr este instalador."
+    }
+}
+
+# SQL Server Browser escucha UDP 1434 en TODAS las interfaces. Con puerto fijo no hace
+# falta, y el .ini lo deja deshabilitado; esto lo confirma.
+function Confirmar-SinBrowser {
+    $browser = Get-Service SQLBrowser -ErrorAction SilentlyContinue
+    if ($browser -and $browser.Status -eq 'Running') {
+        Stop-Service SQLBrowser -Force -ErrorAction SilentlyContinue
+        Set-Service SQLBrowser -StartupType Disabled -ErrorAction SilentlyContinue
+    }
+    if (Get-NetUDPEndpoint -LocalPort 1434 -ErrorAction SilentlyContinue) {
+        throw "Algo sigue escuchando en UDP 1434 (SQL Server Browser): rompe 'nada escucha fuera de 127.0.0.1'."
+    }
+}
+
+# El escritorio de la persona del area, aunque este proceso corra con otra cuenta.
+# GetValue sin expandir: expandir %USERPROFILE% en ESTE proceso daria el perfil de
+# quien eleva, no el de ella. El escritorio puede estar redirigido a OneDrive.
+function Escritorio-DeUsuario {
+    $perfil = (Get-CimInstance Win32_UserProfile -Filter "SID='$SidUsuario'" -ErrorAction SilentlyContinue).LocalPath
+    $clave = Get-Item "Registry::HKEY_USERS\$SidUsuario\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -ErrorAction SilentlyContinue
+    if ($clave -and $perfil) {
+        $valor = $clave.GetValue('Desktop', $null, 'DoNotExpandEnvironmentNames')
+        if ($valor) { return $valor.Replace('%USERPROFILE%', $perfil) }
+    }
+    if ($perfil) { return Join-Path $perfil 'Desktop' }
+    return [Environment]::GetFolderPath('Desktop')
+}
+
+# "Reparar EHS" y actualizar.ps1 detienen y arrancan la tarea del tablero sin elevar.
+# Se le da a la persona del area permiso explicito de leer y ejecutar ESA tarea.
+function Permitir-UsarTarea {
+    param([string]$Nombre)
+    $planificador = New-Object -ComObject Schedule.Service
+    $planificador.Connect()
+    $tarea = $planificador.GetFolder('\').GetTask($Nombre)
+    $sddl = $tarea.GetSecurityDescriptor(0xF)
+    if ($sddl -notlike "*;;;$SidUsuario)*") {
+        $ace = "(A;;FRFX;;;$SidUsuario)"
+        $i = $sddl.IndexOf('S:')
+        $nuevo = if ($i -ge 0) { $sddl.Substring(0, $i) + $ace + $sddl.Substring($i) } else { $sddl + $ace }
+        $tarea.SetSecurityDescriptor($nuevo, 0)
     }
 }
 
@@ -420,15 +523,36 @@ Escribir-Config -ClaveSaTemporal $(if ($usuarioAdmin -eq 'sa') { $claveAdmin } e
 
 if ($Motor -eq 'contenedor') {
     if (-not $procesoPrevio) {
+        # Sin internet no hay 'pull': la imagen tiene que venir en el paquete (.tar de
+        # docker save) o ya estar cargada. Se retagea a un nombre local propio y se
+        # corre con --pull never, para que ni Docker ni Podman intenten salir a la red
+        # a buscar una 'latest' que ademas ya no seria la version probada.
+        if ($RutaImagen) {
+            if (-not (Test-Path $RutaImagen)) { throw "-RutaImagen no existe: $RutaImagen" }
+            Write-Host "Cargando la imagen del motor desde $RutaImagen…"
+            $cargada = & $script:Herramienta load -i $RutaImagen 2>&1 | Out-String
+            if ($LASTEXITCODE -ne 0) { throw "$($script:Herramienta) load termino con codigo $LASTEXITCODE`n$cargada" }
+            $ref = [regex]::Match($cargada, 'Loaded image(?: ID)?:\s*(\S+)').Groups[1].Value
+            if (-not $ref) { throw "No se pudo leer que imagen cargo '$($script:Herramienta) load':`n$cargada" }
+            & $script:Herramienta tag $ref $ImagenLocal | Out-Null
+        }
+        & $script:Herramienta image inspect $ImagenLocal *> $null
+        if ($LASTEXITCODE -ne 0) {
+            throw ("No esta la imagen $ImagenLocal. Pasa -RutaImagen con el .tar que arma empaquetar.ps1 " +
+                   "-ConImagenContenedor (sin internet no se puede descargar).")
+        }
         Write-Host "Creando el contenedor del motor…"
+        # TZ: sin ella el contenedor corre en UTC, y sysdatetime() — la hora de cada
+        # captura, correccion y rechazo en la bitacora — quedaria 5 horas adelantada.
         & $script:Herramienta run -d --name $NombreContenedor `
-            --restart unless-stopped `
+            --restart unless-stopped --pull never `
             -e "ACCEPT_EULA=Y" `
             -e "MSSQL_SA_PASSWORD=$ClaveSa" `
             -e "MSSQL_PID=Express" `
+            -e "TZ=America/Bogota" `
             -p "127.0.0.1:${PuertoMotor}:1433" `
             -v "ehs-motor-datos:/var/opt/mssql" `
-            mcr.microsoft.com/mssql/server:2022-latest | Out-Null
+            $ImagenLocal | Out-Null
         if ($LASTEXITCODE -ne 0) { throw "$($script:Herramienta) run termino con codigo $LASTEXITCODE." }
     } else {
         & $script:Herramienta start $NombreContenedor | Out-Null
@@ -438,21 +562,35 @@ if ($Motor -eq 'contenedor') {
         if (-not $RutaInstaladorSqlExpress -or -not (Test-Path $RutaInstaladorSqlExpress)) {
             throw "-RutaInstaladorSqlExpress no se dio o no existe. Ver instalacion/guia-instalacion.md."
         }
+        # Sin internet no se puede consultar la revocacion del certificado: se exige
+        # que la firma no este alterada y que sea de Microsoft, y cualquier otro estado
+        # queda solo como aviso.
         $firma = Get-AuthenticodeSignature $RutaInstaladorSqlExpress
-        if ($firma.Status -ne 'Valid' -or $firma.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
-            throw "El instalador $RutaInstaladorSqlExpress no trae una firma valida de Microsoft ($($firma.Status))."
+        if ($firma.Status -in @('HashMismatch', 'NotSigned') -or
+            -not $firma.SignerCertificate -or $firma.SignerCertificate.Subject -notmatch 'O=Microsoft Corporation') {
+            throw "El instalador $RutaInstaladorSqlExpress no trae una firma intacta de Microsoft ($($firma.Status))."
         }
+        if ($firma.Status -ne 'Valid') { Write-Warning "Firma de Microsoft sin poder validarla en linea ($($firma.Status)); se continua." }
+        Revisar-ReinicioPendiente
+        Revisar-SectorDeDisco
         $setup = Preparar-MedioSqlExpress $RutaInstaladorSqlExpress
 
         New-Item -ItemType Directory -Force -Path $CarpetaMotorNativo | Out-Null
         $iniTemporal = Join-Path $env:TEMP 'ehs-configuracion-nativo.ini'
-        $ini = Get-Content (Join-Path $PSScriptRoot 'configuracion-nativo.ini') -Raw
-        $ini = $ini.Replace('__CUENTA_ADMINISTRADORA__', $Usuario).Replace('__CARPETA_DATOS__', $CarpetaMotorNativo)
-        Set-Content -Path $iniTemporal -Value $ini -Encoding ASCII
+        # El .ini solo lleva constantes ASCII. Lo que depende del equipo (la carpeta de
+        # datos, el grupo de administradores) va por linea de comandos, que es Unicode:
+        # un .ini en ASCII convertia en '?' una ñ o una tilde en la ruta o en el nombre.
+        Copy-Item (Join-Path $PSScriptRoot 'configuracion-nativo.ini') $iniTemporal -Force
+        # El grupo local de Administradores por su SID: el nombre esta traducido
+        # ('Administradores' en Windows en espanol) y una cuenta de Entra ID puede no
+        # resolverse desde setup.exe. Quien pueda elevar en el equipo administra la
+        # instancia; ni la app ni quien usa el equipo la necesitan.
+        $admins = ([Security.Principal.SecurityIdentifier]'S-1-5-32-544').Translate([Security.Principal.NTAccount]).Value
 
         Write-Host "Instalando SQL Server 2022 Express (instancia EHSLOCAL)… tarda varios minutos."
         $p = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList (
-            "/ConfigurationFile=`"$iniTemporal`" /SAPWD=`"$ClaveSa`" /IACCEPTSQLSERVERLICENSETERMS")
+            "/ConfigurationFile=`"$iniTemporal`" /SAPWD=`"$ClaveSa`" /SQLSYSADMINACCOUNTS=`"$admins`" " +
+            "/INSTALLSQLDATADIR=`"$CarpetaMotorNativo`" /IACCEPTSQLSERVERLICENSETERMS /SUPPRESSPRIVACYSTATEMENTNOTICE")
         Remove-Item $iniTemporal -Force -ErrorAction SilentlyContinue
         # 3010 = instalado, pide reiniciar Windows en algun momento (no ahora).
         if ($p.ExitCode -notin @(0, 3010)) {
@@ -466,8 +604,12 @@ if ($Motor -eq 'contenedor') {
     # La cuenta virtual del servicio es quien escribe el .bak de respaldar.ps1.
     icacls $CarpetaRespaldo /grant 'NT SERVICE\MSSQL$EHSLOCAL:(OI)(CI)M' | Out-Null
     $script:Sqlcmd = Buscar-Sqlcmd
+    # setup deja el servicio en 'Automatico (inicio retrasado)': unos dos minutos
+    # despues de encender, el tablero se abriria con la franja en rojo.
+    & sc.exe config $NombreServicio start= auto | Out-Null
     Restringir-Loopback
     Permitir-ReiniciarServicio
+    Confirmar-SinBrowser
     Escribir-Config -ClaveSaTemporal $(if ($usuarioAdmin -eq 'sa') { $claveAdmin } else { $null })
 }
 
@@ -498,18 +640,20 @@ Correr-CrearLogins -UsuarioSql 'ehs_migrador' -ClaveSql $ClaveMigrador
 
 # ------------------------------------------------------- arranque automatico
 
-# S4U ("ejecutar tanto si el usuario inicio sesion como si no", sin guardar su
-# clave): la tarea corre fuera del escritorio, asi que node no abre ninguna ventana
-# de consola. -Hidden solo la oculta en el Programador de tareas; no esconde la
-# ventana del programa. Y sin limite de tiempo: el defecto es 72 horas, y el
-# Programador de tareas mataria el tablero al tercer dia sin cerrar sesion.
+# La tarea corre con la sesion de la persona del area (Interactive), no como S4U: una
+# tarea S4U necesita el derecho "Iniciar sesion como proceso por lotes", que en
+# Windows cliente solo tienen los administradores — con una usuaria estandar no
+# arrancaria nunca. Y conhost --headless lanza node SIN ventana de consola (probado:
+# MainWindowHandle = 0); -Hidden solo oculta la tarea en el Programador, no la
+# ventana. Sin limite de tiempo: el defecto de 72 horas mataria el tablero.
 Write-Host "Registrando el arranque automatico…"
-$principal = New-ScheduledTaskPrincipal -UserId $Usuario -LogonType S4U -RunLevel Limited
+$principal = New-ScheduledTaskPrincipal -UserId $Usuario -LogonType Interactive -RunLevel Limited
 $alIniciar = New-ScheduledTaskTrigger -AtLogOn -User $Usuario
 $ajustesTablero = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
     -StartWhenAvailable -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew `
     -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-$accion = New-ScheduledTaskAction -Execute $NodeExe -Argument '"servidor.js"' -WorkingDirectory $RaizApp
+$accion = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" `
+    -Argument "--headless `"$NodeExe`" servidor.js" -WorkingDirectory $RaizApp
 Register-ScheduledTask -TaskName $NombreTarea -Action $accion -Trigger $alIniciar -Principal $principal `
     -Settings $ajustesTablero -Force -ErrorAction Stop `
     -Description 'Arranca el tablero EHS al iniciar sesion. Sin privilegios de sistema, sin ventana.' | Out-Null
@@ -518,13 +662,15 @@ Register-ScheduledTask -TaskName $NombreTarea -Action $accion -Trigger $alInicia
 # programa por fuera del motor.
 $ajustesRespaldo = New-ScheduledTaskSettingsSet -Hidden -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
     -StartWhenAvailable -ExecutionTimeLimit (New-TimeSpan -Hours 1)
-$accionRespaldo = New-ScheduledTaskAction -Execute 'powershell.exe' `
-    -Argument "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$PSScriptRoot\respaldar.ps1`""
+$accionRespaldo = New-ScheduledTaskAction -Execute "$env:SystemRoot\System32\conhost.exe" `
+    -Argument "--headless powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$PSScriptRoot\respaldar.ps1`""
 Register-ScheduledTask -TaskName $NombreTareaRespaldo -Action $accionRespaldo `
     -Trigger (New-ScheduledTaskTrigger -Daily -At '20:00') -Principal $principal `
     -Settings $ajustesRespaldo -Force -ErrorAction Stop `
     -Description 'Respaldo diario de la base EHS a la carpeta local que sincroniza OneDrive.' | Out-Null
 
+Permitir-UsarTarea -Nombre $NombreTarea
+Permitir-UsarTarea -Nombre $NombreTareaRespaldo
 Start-ScheduledTask -TaskName $NombreTarea -ErrorAction Stop
 
 # ------------------------------------------------ comprobar que de verdad responde
@@ -549,7 +695,7 @@ Confirmar-SoloLoopback -Puerto $PuertoApp -Que 'El tablero'
 # ------------------------------------------------------------- accesos directos
 
 Write-Host "Creando accesos directos en el escritorio…"
-$escritorio = [Environment]::GetFolderPath('Desktop')
+$escritorio = Escritorio-DeUsuario
 # .url y no .lnk: un .lnk apuntando a una URL no es un acceso directo valido de
 # Windows; el formato para abrir una direccion en el navegador es el .url.
 @(

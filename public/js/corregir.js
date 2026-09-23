@@ -11,9 +11,6 @@
   var $ = function (s, raiz) {
     return (raiz || document).querySelector(s);
   };
-  var $$ = function (s, raiz) {
-    return Array.prototype.slice.call((raiz || document).querySelectorAll(s));
-  };
 
   var MAGNITUDES = window.EHS_MAGNITUDES || [];
   var porId = {};
@@ -70,7 +67,8 @@
       var boton = document.createElement('button');
       boton.type = 'button';
       boton.className = 'cap-boton cap-boton-suave';
-      boton.textContent = valor === null || valor === undefined ? 'sin valor que corregir' : 'Corregir';
+      boton.textContent =
+        valor === null || valor === undefined ? 'sin valor que corregir' : 'Corregir';
       boton.disabled = valor === null || valor === undefined;
       boton.addEventListener('click', function () {
         abrirCorreccion(m, valor);
@@ -90,8 +88,7 @@
     estado.magnitud = magnitud.id;
     estado.valorActual = valorActual;
     $('#magACorregir').textContent = magnitud.etiqueta;
-    $('#subCorregir').textContent =
-      'Valor actual: ' + Fmt.esc(valorActual) + ' ' + magnitud.unidad;
+    $('#subCorregir').textContent = 'Valor actual: ' + Fmt.esc(valorActual) + ' ' + magnitud.unidad;
     $('#corValor').value = valorActual;
     $('#corMotivo').value = '';
     $('#resultadoCorreccion').innerHTML = '';
@@ -155,7 +152,9 @@
     var partes = [];
     var simulado = r.persistido === false;
     if (simulado) {
-      partes.push('<div class="cap-res cap-res-parcial"><p class="cap-res-titular">Corrección validada, no guardada</p>');
+      partes.push(
+        '<div class="cap-res cap-res-parcial"><p class="cap-res-titular">Corrección validada, no guardada</p>'
+      );
       if (r.aviso) partes.push('<p class="cap-res-aviso">' + Fmt.esc(r.aviso) + '</p>');
       partes.push('</div>');
       if (r.sentencia) {
@@ -163,7 +162,9 @@
         partes.push('<pre class="cap-sql">' + Fmt.esc(r.sentencia) + '</pre>');
       }
     } else if (r.corregida) {
-      partes.push('<div class="cap-res cap-res-bien"><p class="cap-res-titular">Corrección grabada.</p></div>');
+      partes.push(
+        '<div class="cap-res cap-res-bien"><p class="cap-res-titular">Corrección grabada.</p></div>'
+      );
     } else {
       partes.push(
         '<div class="cap-res cap-res-parcial"><p class="cap-res-titular">El valor nuevo es igual al que ya había: no se archivó nada.</p></div>'
@@ -225,7 +226,8 @@
         );
       })
       .join('');
-    $('#subHistorial').textContent = lista.length + (lista.length === 1 ? ' corrección' : ' correcciones');
+    $('#subHistorial').textContent =
+      lista.length + (lista.length === 1 ? ' corrección' : ' correcciones');
   }
 
   /* ----------------------------------------------------------------------- inicio */

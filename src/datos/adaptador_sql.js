@@ -195,6 +195,33 @@ async function peticion() {
 }
 
 /**
+ * Cuando se tomo el ultimo respaldo (.bak) que dejo instalacion/respaldar.ps1, o null.
+ * El respaldo lo disparan una tarea programada y la propia app en segundo plano, sin
+ * consola que mirar: sin esto, un respaldo que deja de salir no lo nota nadie hasta el
+ * dia que hace falta. La carpeta la escribe instalar.ps1 en config\ehs.env; en
+ * desarrollo no existe y la respuesta es null, no un error.
+ */
+function fechaUltimoRespaldo() {
+  const carpeta = require('./configuracion').obtener('EHS_CARPETA_RESPALDO');
+  // undefined (y no null) sin carpeta configurada: JSON.stringify omite la clave, y
+  // la franja distingue "no aplica aqui" de "aplica y no hay ningun respaldo".
+  if (!carpeta) return undefined;
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    let ultima = 0;
+    for (const nombre of fs.readdirSync(carpeta)) {
+      if (!/^ehs-analitica-.*\.bak$/.test(nombre)) continue;
+      const t = fs.statSync(path.join(carpeta, nombre)).mtimeMs;
+      if (t > ultima) ultima = t;
+    }
+    return ultima ? new Date(ultima).toISOString() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * El corte publicado: que anio y hasta que mes hay dato COMPLETO, y que juego de metas
  * esta marcado vigente. No se fija en el codigo porque el dato ya sabe cual es, y
  * fijarlo obligaria a editar el modulo cada vez que avanza el mes.
@@ -986,6 +1013,7 @@ module.exports = {
    */
   async salud() {
     const inicio = Date.now();
+    const ultimoRespaldo = fechaUltimoRespaldo();
     try {
       const { req } = await peticion();
       await req.query('select 1 as ok');
@@ -996,6 +1024,7 @@ module.exports = {
         disponible: true,
         tardoMs: Date.now() - inicio,
         corte: { mes: ctx.corte, anio: ctx.anio },
+        ultimoRespaldo,
       };
     } catch (err) {
       return {
@@ -1003,6 +1032,7 @@ module.exports = {
         motor: 'abajo',
         disponible: false,
         tardoMs: Date.now() - inicio,
+        ultimoRespaldo,
         mensaje:
           err && err.name === 'ConnectionError'
             ? 'No se pudo conectar al motor de base de datos.'

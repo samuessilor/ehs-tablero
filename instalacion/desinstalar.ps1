@@ -77,7 +77,20 @@ foreach ($tarea in @('EHS Tablero', 'EHS Respaldo diario')) {
     }
 }
 
+# El escritorio de la sesion abierta en el equipo (la persona del area), no el de la
+# cuenta que elevo: instalar.ps1 dejo los accesos directos alli.
 $escritorio = [Environment]::GetFolderPath('Desktop')
+$consola = (Get-CimInstance Win32_ComputerSystem).UserName
+if ($consola) {
+    try {
+        $sid = ([Security.Principal.NTAccount]$consola).Translate([Security.Principal.SecurityIdentifier]).Value
+        $perfil = (Get-CimInstance Win32_UserProfile -Filter "SID='$sid'").LocalPath
+        $clave = Get-Item "Registry::HKEY_USERS\$sid\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders" -ErrorAction SilentlyContinue
+        $valor = if ($clave) { $clave.GetValue('Desktop', $null, 'DoNotExpandEnvironmentNames') } else { $null }
+        if ($valor -and $perfil) { $escritorio = $valor.Replace('%USERPROFILE%', $perfil) }
+        elseif ($perfil) { $escritorio = Join-Path $perfil 'Desktop' }
+    } catch { }
+}
 foreach ($acceso in @('EHS.url', 'EHS.lnk', 'Reparar EHS.lnk')) {
     $ruta = Join-Path $escritorio $acceso
     if (Test-Path $ruta) {

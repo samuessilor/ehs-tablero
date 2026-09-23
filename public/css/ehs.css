@@ -2617,6 +2617,10 @@ body.cargando .body {
 .franja-estado-punto.gris {
   background: var(--metac);
 }
+.franja-estado-punto.ambar {
+  background: var(--riesgo);
+  box-shadow: 0 0 0 3px rgba(217, 131, 36, 0.15);
+}
 .franja-estado-reparar {
   margin-left: auto;
   font-weight: 700;

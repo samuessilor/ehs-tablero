@@ -38,9 +38,19 @@ $sello = Get-Date -Format 'yyyyMMdd-HHmmss'
 $nombreArchivo = "ehs-analitica-$sello.bak"
 $rutaLocal = Join-Path $carpetaLocal $nombreArchivo
 
+# Cada corrida deja su propio registro junto a los respaldos: esto lo disparan una
+# tarea programada y la aplicacion en segundo plano, sin consola que mirar, asi que
+# sin este archivo un fallo seria invisible. /api/ehs/salud lee la fecha del .bak
+# mas reciente, y la franja de estado avisa si el respaldo se quedo atras.
+Start-Transcript -Path (Join-Path $carpetaLocal 'ultimo-respaldo.log') -Force | Out-Null
 Write-Host "=== EHS · respaldar ($sello) ==="
 
 # ------------------------------------------------------------------- el respaldo
+
+# Sin 'compression': SQL Server Express la rechaza (Msg 1844, "not supported on
+# Express Edition"), y la primera version de este script la pedia — ningun
+# respaldo habria salido nunca, ni el diario ni el de despues de cada captura.
+# 'checksum' si esta en Express y hace que un .bak corrupto se note al restaurar.
 
 if ($cfg['EHS_MOTOR'] -eq 'contenedor') {
     $herramienta = @('docker', 'podman') | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
@@ -53,7 +63,7 @@ if ($cfg['EHS_MOTOR'] -eq 'contenedor') {
     & $herramienta exec ehs-motor mkdir -p /var/opt/mssql/respaldo
     & $herramienta exec ehs-motor /opt/mssql-tools18/bin/sqlcmd -C -b -S localhost `
         -U $cfg['SQL_MIGRADOR_USUARIO'] -P $cfg['SQL_MIGRADOR_CLAVE'] `
-        -Q "backup database analitica to disk = N'$rutaEnContenedor' with format, init, compression;"
+        -Q "backup database analitica to disk = N'$rutaEnContenedor' with format, init, checksum;"
     if ($LASTEXITCODE -ne 0) { throw "BACKUP DATABASE termino con codigo $LASTEXITCODE." }
     & $herramienta cp "ehs-motor:$rutaEnContenedor" $rutaLocal
     if ($LASTEXITCODE -ne 0) { throw "No se pudo copiar el respaldo fuera del contenedor (codigo $LASTEXITCODE)." }
@@ -61,7 +71,7 @@ if ($cfg['EHS_MOTOR'] -eq 'contenedor') {
 } else {
     & $cfg['EHS_SQLCMD'] -C -b -S "$($cfg['SQL_SERVIDOR']),$($cfg['SQL_PUERTO'])" `
         -U $cfg['SQL_MIGRADOR_USUARIO'] -P $cfg['SQL_MIGRADOR_CLAVE'] `
-        -Q "backup database analitica to disk = N'$rutaLocal' with format, init, compression;"
+        -Q "backup database analitica to disk = N'$rutaLocal' with format, init, checksum;"
     if ($LASTEXITCODE -ne 0) { throw "BACKUP DATABASE termino con codigo $LASTEXITCODE." }
 }
 
@@ -93,3 +103,4 @@ if ($viejos) {
 }
 
 Write-Host "Listo." -ForegroundColor Green
+Stop-Transcript | Out-Null
