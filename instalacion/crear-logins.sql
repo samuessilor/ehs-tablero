@@ -183,5 +183,15 @@ else
         + 'volver a correr este script para completar el permiso de ehs_app.';
 go
 
+/* La segunda puerta de escritura (migracion 0009): corregir UNA lectura ya
+   capturada, con motivo obligatorio. Sin parametro de tabla, asi que no hace
+   falta el GRANT sobre un TYPE como arriba — solo el procedimiento. */
+if object_id('ehs.sp_corregir_lectura') is not null
+    grant execute on ehs.sp_corregir_lectura to ehs_app;
+else
+    print 'Aviso: ehs.sp_corregir_lectura todavia no existe. Correr migrar.js y '
+        + 'volver a correr este script para completar el permiso de ehs_app.';
+go
+
 print 'Base analitica y logins ehs_migrador / ehs_app listos.';
 go
