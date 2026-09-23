@@ -13,8 +13,12 @@
    R.4.1 del estandar exige que quien implementa el esquema no sea quien lo
    despliega en ejecucion normal. Aqui se traduce en DOS logins:
 
-     ehs_migrador  DDL (db_ddladmin) + lectura/escritura. Solo lo usa
-                   scripts/migrar.js, solo al instalar o actualizar.
+     ehs_migrador  db_owner de analitica (ver el porque junto al ALTER ROLE mas
+                   abajo — en resumen, DDL + lectura/escritura + BACKUP DATABASE
+                   + otorgar permisos, sin volver a pedir la clave de sa cada
+                   vez que una migracion agrega un procedimiento). Solo lo usan
+                   scripts/migrar.js e instalacion/*.ps1, nunca la app en
+                   ejecucion.
      ehs_app       db_datareader (todo el dato es de lectura publica dentro de
                    la app: tablero, captura, reportes) + EXECUTE en
                    ehs.sp_capturar_lote — sin db_datawriter. src/datos/
@@ -117,31 +121,34 @@ go
 
 /* ------------------------------------------------------------------ roles --- */
 
-/* db_ddladmin: puede crear, alterar y borrar objetos (tablas, vistas, procedimientos,
-   tipos, esquemas via EXEC) — exactamente lo que migrar.js necesita para aplicar los
-   archivos numerados de migraciones, y nada de administracion de servidor.
-   db_datareader + db_datawriter porque el migrador tambien corre la migracion de
-   datos de ejemplo (opcional, con --con-datos-semilla) y necesita leer/escribir
-   ops.migracion_aplicada. */
-if not exists (select 1 from sys.database_role_members rm
-               join sys.database_principals r on r.principal_id = rm.role_principal_id
-               join sys.database_principals m on m.principal_id = rm.member_principal_id
-               where r.name = 'db_ddladmin' and m.name = 'ehs_migrador')
-    alter role db_ddladmin add member ehs_migrador;
-go
+/* ehs_migrador es db_owner de analitica, no una coleccion de roles mas angostos
+   (db_ddladmin + db_datareader + db_datawriter + db_backupoperator, que es lo que
+   una version anterior de este script le daba). Dos razones, no una:
 
-if not exists (select 1 from sys.database_role_members rm
-               join sys.database_principals r on r.principal_id = rm.role_principal_id
-               join sys.database_principals m on m.principal_id = rm.member_principal_id
-               where r.name = 'db_datareader' and m.name = 'ehs_migrador')
-    alter role db_datareader add member ehs_migrador;
-go
+     1. Necesita las cuatro cosas de todas formas: DDL para migrar.js, lectura y
+        escritura para la migracion opcional de datos de ejemplo, y BACKUP DATABASE
+        porque SQL Server Express no trae SQL Server Agent (es Standard+) y
+        instalacion/respaldar.ps1 tiene que respaldar desde AFUERA del motor.
 
+     2. Sin la capacidad de otorgar permisos que db_owner si trae, CADA vez que una
+        migracion agregara un procedimiento nuevo (como paso con
+        ehs.sp_corregir_lectura en la migracion 0009) alguien tendria que volver a
+        traer la clave de sa solo para completar un GRANT EXECUTE — una clave que
+        instalar.ps1 genera una vez, usa una vez y nunca guarda en ningun archivo, a
+        proposito. Con ehs_migrador como db_owner, instalacion/actualizar.ps1 puede
+        aplicar migraciones nuevas Y completar sus permisos usando unicamente las
+        credenciales que ya viven en config\ehs.env — nunca vuelve a pedir sa.
+
+   Sigue habiendo una frontera real: ehs_migrador NUNCA corre mientras la app esta en
+   uso (solo lo invocan instalar.ps1/actualizar.ps1), y ehs_app sigue sin acercarse a
+   db_owner ni a ningun permiso de escritura directa — ver mas abajo. R.4.1
+   (implementador != desplegador) esta en esa separacion, no en cuanto pueda hacer
+   dentro de la base el propio migrador cuando corre. */
 if not exists (select 1 from sys.database_role_members rm
                join sys.database_principals r on r.principal_id = rm.role_principal_id
                join sys.database_principals m on m.principal_id = rm.member_principal_id
-               where r.name = 'db_datawriter' and m.name = 'ehs_migrador')
-    alter role db_datawriter add member ehs_migrador;
+               where r.name = 'db_owner' and m.name = 'ehs_migrador')
+    alter role db_owner add member ehs_migrador;
 go
 
 /* ehs_app: solo lectura de datos. Ni db_datawriter ni db_ddladmin. */

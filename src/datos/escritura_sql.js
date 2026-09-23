@@ -16,8 +16,37 @@
  * La conexion (driver, configuracion y pool) vive en conexion_sql.js, compartida con
  * el adaptador de lectura: una sola forma de conectarse a la base para toda la app.
  */
+const path = require('path');
+const { spawn } = require('child_process');
 const { MAGNITUDES } = require('../validacion');
 const { cargarDriver, pool, cerrar } = require('./conexion_sql');
+
+/**
+ * Dispara instalacion/respaldar.ps1 en segundo plano, sin esperarlo ni dejar que su
+ * fallo afecte la respuesta que ya se le dio a quien capturo o corrigio. Es "mejor
+ * esfuerzo" a proposito: la tarea programada diaria (instalar.ps1) sigue siendo el
+ * respaldo que de verdad se puede prometer; esto es solo adelantarlo cuando hay un
+ * cambio real, tal como lo pide el encargo ("diario y despues de cada captura").
+ *
+ * Nunca corre en un equipo de desarrollo sin instalar (no existe respaldar.ps1 fuera
+ * de un paquete instalado) — por eso el primer chequeo es que el archivo exista, no
+ * un try/catch que lo descubra tarde.
+ */
+function dispararRespaldoEnSegundoPlano() {
+  const rutaScript = path.join(__dirname, '..', '..', 'instalacion', 'respaldar.ps1');
+  try {
+    if (!require('fs').existsSync(rutaScript)) return;
+    const hijo = spawn(
+      'powershell.exe',
+      ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', rutaScript],
+      { detached: true, stdio: 'ignore', windowsHide: true }
+    );
+    hijo.unref();
+    hijo.on('error', () => {}); // mejor esfuerzo: un respaldo que no arranco no es motivo para nada mas
+  } catch {
+    // igual, mejor esfuerzo
+  }
+}
 
 /**
  * Graba un lote. Devuelve el mismo objeto que el adaptador simulado, para que la
@@ -56,6 +85,8 @@ async function capturarLote({ filas, capturadoPor, origen, confirmarAtipicos }) 
 
   const [resumen = [], rechazos = [], advertencias = []] = r.recordsets;
   const cab = resumen[0] || {};
+
+  if (cab.grabadas > 0) dispararRespaldoEnSegundoPlano();
 
   return {
     modo: 'sql',
@@ -131,10 +162,13 @@ async function corregirLectura({ anio, mes, sitio, magnitud, valor, motivo, corr
     .execute('ehs.sp_corregir_lectura');
 
   const fila = (r.recordset || [])[0] || {};
+  const corregida = (fila.filas_corregidas ?? 0) > 0;
+  if (corregida) dispararRespaldoEnSegundoPlano();
+
   return {
     modo: 'sql',
     persistido: true,
-    corregida: (fila.filas_corregidas ?? 0) > 0,
+    corregida,
   };
 }
 
