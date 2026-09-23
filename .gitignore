@@ -7,3 +7,15 @@ datos/bitacora.jsonl
 # La carga inicial son cifras de la empresa, no estructura:
 # se genera con analisis/generar_sql_carga.py y no se versiona (R.5.4.1).
 sql/03-carga-inicial.sql
+
+# Migracion 0008 es la misma carga inicial portada a ref.*/ehs.*: mismas
+# cifras de la empresa, misma regla (R.5.4.1). Su estructura (que existe la
+# migracion 0008 y que es opcional via --con-datos-semilla) si se versiona;
+# el contenido, no.
+migraciones/0008_carga_inicial.sql
+
+# Config que el instalador escribe en la maquina de destino: credenciales y
+# rutas locales, nunca del repositorio. La plantilla (sin credenciales reales)
+# si se versiona, igual que datos/.gitkeep.
+config/*
+!config/ehs.env.ejemplo

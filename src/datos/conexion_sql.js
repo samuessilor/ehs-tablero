@@ -13,6 +13,8 @@
  * (ORIGEN_DATOS=json) nunca lo toca, sigue con las mismas dos dependencias de
  * siempre, y un despliegue sin el driver instalado arranca igual en vez de caerse.
  */
+const { obtener, rutaConfig } = require('./configuracion');
+
 let mssql = null;
 let poolPrometido = null;
 
@@ -31,36 +33,61 @@ function cargarDriver() {
   return mssql;
 }
 
-/** Configuracion desde el entorno. Ninguna credencial vive en el repositorio. */
-function configuracion() {
-  const faltan = ['SQL_SERVIDOR', 'SQL_BASE', 'SQL_USUARIO', 'SQL_CLAVE'].filter(
-    (v) => !process.env[v]
-  );
+/**
+ * Configuracion desde el entorno o, si no esta ahi, desde el archivo que dejo el
+ * instalador (ver configuracion.js). Ninguna credencial vive en el repositorio.
+ *
+ * @param {object} [opciones]
+ * @param {string} [opciones.prefijoUsuario] 'SQL' de forma predeterminada, lee
+ *   SQL_USUARIO/SQL_CLAVE — la identidad de la aplicacion (solo DML). El ejecutor de
+ *   migraciones pasa 'SQL_MIGRADOR' para conectarse con la identidad que tiene DDL,
+ *   sin duplicar servidor/base/puerto/cifrado, que son iguales para las dos.
+ */
+function configuracion(opciones = {}) {
+  const prefijoUsuario = opciones.prefijoUsuario || 'SQL';
+  const claveUsuario = `${prefijoUsuario}_USUARIO`;
+  const claveClave = `${prefijoUsuario}_CLAVE`;
+
+  const requeridas = ['SQL_SERVIDOR', 'SQL_BASE', claveUsuario, claveClave];
+  const faltan = requeridas.filter((v) => !obtener(v));
   if (faltan.length) {
-    const e = new Error(`Faltan variables de entorno de conexion: ${faltan.join(', ')}.`);
+    const e = new Error(
+      `Faltan variables de conexion: ${faltan.join(', ')} (entorno o ${rutaConfig()}).`
+    );
     e.codigo = 'configuracion_incompleta';
     throw e;
   }
   return {
-    server: process.env.SQL_SERVIDOR,
-    database: process.env.SQL_BASE,
-    user: process.env.SQL_USUARIO,
-    password: process.env.SQL_CLAVE,
-    port: Number(process.env.SQL_PUERTO || 1433),
+    server: obtener('SQL_SERVIDOR'),
+    database: obtener('SQL_BASE'),
+    user: obtener(claveUsuario),
+    password: obtener(claveClave),
+    port: Number(obtener('SQL_PUERTO') || 1433),
     options: {
       // El contenedor local y muchos servidores internos usan certificado propio.
       // En produccion esto lo decide IT, no este archivo.
-      trustServerCertificate: process.env.SQL_CONFIAR_CERT === '1',
-      encrypt: process.env.SQL_CIFRAR !== '0',
+      trustServerCertificate: obtener('SQL_CONFIAR_CERT') === '1',
+      encrypt: obtener('SQL_CIFRAR') !== '0',
     },
     pool: { max: 4, min: 0, idleTimeoutMillis: 30000 },
+    /* Sin esto, un motor caido o inalcanzable tarda mas de 25 segundos en fallar
+       (el timeout por defecto del driver es mucho mas laxo) y el tablero se queda
+       "cargando" en vez de mostrar el mensaje entendible que errores.js ya sabe dar
+       para otros casos. Cinco segundos alcanza sobrado dentro de 127.0.0.1. */
+    connectionTimeout: Number(obtener('SQL_TIMEOUT_CONEXION_MS') || 5000),
+    requestTimeout: Number(obtener('SQL_TIMEOUT_CONSULTA_MS') || 15000),
   };
 }
 
-async function pool() {
+/**
+ * @param {object} [opciones] Se reenvia tal cual a configuracion(). Un mismo proceso
+ *   solo usa una identidad (la app o el migrador, nunca las dos), asi que un solo
+ *   pool en cache alcanza — no hace falta una cache por prefijo.
+ */
+async function pool(opciones = {}) {
   if (!poolPrometido) {
     const sql = cargarDriver();
-    poolPrometido = new sql.ConnectionPool(configuracion()).connect().catch((err) => {
+    poolPrometido = new sql.ConnectionPool(configuracion(opciones)).connect().catch((err) => {
       poolPrometido = null; // que un fallo no deje el pool envenenado para siempre
       throw err;
     });
