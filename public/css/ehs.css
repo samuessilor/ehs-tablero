@@ -2580,3 +2580,47 @@ body.cargando .body {
     max-width: none;
   }
 }
+
+/* ===================================================== franja de estado (Fase C) */
+/* Visible en las 4 pantallas, justo bajo la cabecera. Se dibuja vacia y la llena
+   public/js/franja_estado.js — ver el comentario de ese archivo sobre por que
+   "Reparar" solo explica donde esta el atajo real y no intenta actuar desde aqui. */
+.franja-estado {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 6px 16px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.02em;
+  color: var(--tenue);
+  background: var(--sup);
+  border-bottom: 1px solid var(--borde);
+}
+.franja-estado-punto {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex: none;
+  background: var(--metac);
+}
+.franja-estado-punto.verde {
+  background: var(--cumple);
+  box-shadow: 0 0 0 3px rgba(46, 125, 91, 0.15);
+}
+.franja-estado-punto.rojo {
+  background: var(--incumple);
+  box-shadow: 0 0 0 3px rgba(192, 57, 43, 0.15);
+}
+.franja-estado-punto.gris {
+  background: var(--metac);
+}
+.franja-estado-reparar {
+  margin-left: auto;
+  font-weight: 700;
+  color: var(--incumple);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

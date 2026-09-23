@@ -51,6 +51,15 @@ async function atender(req, res, url) {
   const q = url.searchParams;
   if (!ruta.startsWith('/api/ehs/')) return false;
 
+  // La salud no necesita anio/mes, y sobre todo no debe fallar si el motor esta
+  // abajo: es justo lo que esta ruta tiene que poder decir. Se resuelve antes de
+  // cualquier otra validacion o try, para que un motor inalcanzable nunca deje sin
+  // franja de estado a quien esta viendo el problema.
+  if (ruta === '/api/ehs/salud') {
+    const r = await datos.salud();
+    return (json(res, r), true);
+  }
+
   // sin parametro, null: el adaptador resuelve el corte publicado. Fijar 2026 y 7 aqui
   // obligaria a editar codigo cada mes, que es justo lo que este trabajo vino a quitar.
   const anio = entero(q, 'anio', null, 2023, 2100);

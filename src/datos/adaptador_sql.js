@@ -974,4 +974,40 @@ module.exports = {
 
     return { ...cabecera(ctx), filas };
   },
+
+  /**
+   * Lo que la franja de estado necesita: si el motor responde, y en cuanto. No pasa
+   * por contexto()/peticion() (que asumen que la conexion ya funciona y fallan con el
+   * error generico de la consulta que estaban resolviendo): aqui el fallo ES la
+   * respuesta que se quiere mostrar, asi que se atrapa aqui mismo en vez de dejar que
+   * suba hasta errores.interno (que ya sabe convertir un ConnectionError en 503, pero
+   * esta ruta necesita el detalle "motor abajo" en el propio cuerpo 200, para que la
+   * franja lo pinte sin tener que distinguir codigos de error).
+   */
+  async salud() {
+    const inicio = Date.now();
+    try {
+      const { req } = await peticion();
+      await req.query('select 1 as ok');
+      const ctx = await contexto();
+      return {
+        modo: 'sql',
+        motor: 'arriba',
+        disponible: true,
+        tardoMs: Date.now() - inicio,
+        corte: { mes: ctx.corte, anio: ctx.anio },
+      };
+    } catch (err) {
+      return {
+        modo: 'sql',
+        motor: 'abajo',
+        disponible: false,
+        tardoMs: Date.now() - inicio,
+        mensaje:
+          err && err.name === 'ConnectionError'
+            ? 'No se pudo conectar al motor de base de datos.'
+            : err.message,
+      };
+    }
+  },
 };

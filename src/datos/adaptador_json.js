@@ -354,4 +354,29 @@ module.exports = {
     if (anio !== d.anio) return null;
     return { ...cabecera(d), filas: d.detalleCrudo };
   },
+
+  /**
+   * Lo que la franja de estado necesita: si hay algo que leer y desde cuando. No hay
+   * "motor" en este modo — no existe conexion que probar, asi que se declara
+   * explicitamente en vez de fingir uno que no aplica.
+   */
+  async salud() {
+    try {
+      const { d } = base();
+      return {
+        modo: 'json',
+        motor: null,
+        disponible: true,
+        mensaje: 'Interinato sin base de datos: publica desde datos.json.',
+        corte: { mes: d.corte, nombre: d.corteNombre, anio: d.anio },
+      };
+    } catch (err) {
+      return {
+        modo: 'json',
+        motor: null,
+        disponible: false,
+        mensaje: err.message,
+      };
+    }
+  },
 };

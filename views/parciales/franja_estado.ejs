@@ -1,0 +1,8 @@
+<!-- La franja de estado, en las 4 pantallas. Se dibuja vacia y se llena por fetch:
+     si se dibujara desde el servidor, un motor caido tumbaria la pagina entera en
+     vez de solo esta franja — justo el caso que existe para avisar. -->
+<div class="franja-estado no-imprimir" id="franjaEstado" role="status" aria-live="polite">
+  <span class="franja-estado-punto" id="fePunto"></span>
+  <span class="franja-estado-texto" id="feTexto">Comprobando el motor…</span>
+  <a href="#" id="feReparar" class="franja-estado-reparar" style="display:none">Reparar</a>
+</div>

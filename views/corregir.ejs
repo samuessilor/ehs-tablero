@@ -27,6 +27,8 @@
   </div>
 </header>
 
+<%- include('parciales/franja_estado.ejs') %>
+
 <main class="body cap">
 
   <% if (modo !== 'sql') { %>
@@ -137,6 +139,7 @@
 
 <script>window.EHS_MAGNITUDES = <%- JSON.stringify(magnitudes) %>;</script>
 <script src="/js/formato.js"></script>
+<script src="/js/franja_estado.js"></script>
 <script src="/js/corregir.js"></script>
 </body>
 </html>

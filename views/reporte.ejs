@@ -15,7 +15,7 @@
      un renderizador aparte solo duplicaría esa capacidad para producir el mismo papel. */
   .rep-acciones { display: flex; gap: 10px; margin: 0 0 18px; }
   .rep-tabla { width: 100%; border-collapse: collapse; font-size: 12.5px; }
-  .rep-tabla th, .rep-tabla td { padding: 7px 10px; border-bottom: 1px solid var(--linea); text-align: left; }
+  .rep-tabla th, .rep-tabla td { padding: 7px 10px; border-bottom: 1px solid var(--borde); text-align: left; }
   .rep-tabla th { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--tenue); }
   .rep-tabla td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .rep-referencia { font-size: 10.5px; color: var(--tenue); }
@@ -44,6 +44,8 @@
     </div>
   </div>
 </header>
+
+<%- include('parciales/franja_estado.ejs') %>
 
 <main class="body">
 
@@ -109,5 +111,6 @@
 <% } %>
 
 </main>
+<script src="/js/franja_estado.js"></script>
 </body>
 </html>
