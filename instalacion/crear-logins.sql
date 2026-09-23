@@ -82,7 +82,15 @@ go
 
 /* --------------------------------------------------------- login migrador --- */
 
+/* Los dos bloques de logins solo corren con quien PUEDE crear logins (sa, en la
+   primera instalacion). Cuando este mismo script lo corre ehs_migrador — en la
+   segunda pasada de instalar.ps1, en actualizar.ps1, o al reinstalar — ese login no
+   ve a los demas en sys.server_principals (un login sin permisos de servidor solo
+   se ve a si mismo), asi que "no existe ehs_app" daria verdadero aunque exista, y
+   el create login fallaria por falta de permiso. En esas corridas los logins ya
+   existen: saltarse este bloque es lo correcto, no un atajo. */
 if not exists (select 1 from sys.server_principals where name = 'ehs_migrador')
+   and has_perms_by_name(null, null, 'ALTER ANY LOGIN') = 1
 begin
     declare @sql_migrador nvarchar(max) = N'
         create login ehs_migrador
@@ -96,6 +104,7 @@ go
 /* ------------------------------------------------------------- login app --- */
 
 if not exists (select 1 from sys.server_principals where name = 'ehs_app')
+   and has_perms_by_name(null, null, 'ALTER ANY LOGIN') = 1
 begin
     declare @sql_app nvarchar(max) = N'
         create login ehs_app

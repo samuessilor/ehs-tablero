@@ -7,6 +7,6 @@
  * El contrato de las siete funciones es identico en ambos. Migrar es cambiar esta
  * variable de entorno, no tocar rutas ni front.
  */
-const origen = process.env.ORIGEN_DATOS || 'json';
+const origen = require('./configuracion').obtener('ORIGEN_DATOS') || 'json';
 
 module.exports = origen === 'sql' ? require('./adaptador_sql') : require('./adaptador_json');

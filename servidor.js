@@ -11,8 +11,17 @@ const fs = require('fs');
 const path = require('path');
 const { URL } = require('url');
 const aplicacion = require('./src/aplicacion');
+const { obtener } = require('./src/datos/configuracion');
 
-const PUERTO = Number(process.env.PUERTO) || 3000;
+// Por configuracion y no solo por entorno: la tarea programada que arranca el
+// tablero en el equipo del area no le pasa ninguna variable, asi que todo tiene que
+// poder salir de config\ehs.env (ver src/datos/configuracion.js).
+const PUERTO = Number(obtener('PUERTO')) || 3000;
+// 127.0.0.1 por defecto, no todas las interfaces: sin host explicito, listen() abre
+// el puerto hacia la red y Windows pide una excepcion de firewall la primera vez —
+// justo la ventana que quien usa el tablero nunca debe ver. El servidor propio de la
+// fase 1 si necesitara escuchar en la red; para eso se fija HOST en su config.
+const HOST = obtener('HOST') || '127.0.0.1';
 const PUBLICO = path.join(__dirname, 'public');
 const MIME = {
   '.css': 'text/css; charset=utf-8',
@@ -48,6 +57,6 @@ http
       }
     });
   })
-  .listen(PUERTO, () => {
-    console.log(`Tablero EHS en http://localhost:${PUERTO}`);
+  .listen(PUERTO, HOST, () => {
+    console.log(`Tablero EHS en http://${HOST}:${PUERTO}`);
   });

@@ -24,7 +24,9 @@ param(
     [switch]$ConDatosSemilla
 )
 
-$ErrorActionPreference = 'Stop'
+# 'Continue': un DeprecationWarning de Node en stderr no debe abortar la
+# actualizacion; cada paso nativo comprueba su codigo de salida.
+$ErrorActionPreference = 'Continue'
 Set-StrictMode -Version Latest
 
 $RaizApp = Split-Path -Parent $PSScriptRoot
@@ -39,7 +41,7 @@ if (-not (Test-Path $ArchivoConfig)) { throw "No existe $ArchivoConfig. Esto no 
 function Leer-Config {
     $variables = @{}
     foreach ($linea in Get-Content $ArchivoConfig) {
-        $t = $linea.Trim()
+        $t = $linea.Trim().TrimStart([char]0xFEFF)
         if (-not $t -or $t.StartsWith('#')) { continue }
         $i = $t.IndexOf('=')
         if ($i -lt 0) { continue }
@@ -73,13 +75,14 @@ try {
 Write-Host "Completando permisos sobre lo que la migracion haya agregado…"
 $rutaScript = Join-Path $PSScriptRoot 'crear-logins.sql'
 if ($cfg['EHS_MOTOR'] -eq 'contenedor') {
-    docker cp $rutaScript "ehs-motor:/tmp/crear-logins.sql" | Out-Null
-    docker exec ehs-motor /opt/mssql-tools18/bin/sqlcmd `
-        -C -S localhost -U $cfg['SQL_MIGRADOR_USUARIO'] -P $cfg['SQL_MIGRADOR_CLAVE'] `
+    $herramienta = @('docker', 'podman') | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
+    & $herramienta cp $rutaScript "ehs-motor:/tmp/crear-logins.sql" | Out-Null
+    & $herramienta exec ehs-motor /opt/mssql-tools18/bin/sqlcmd `
+        -C -b -S localhost -U $cfg['SQL_MIGRADOR_USUARIO'] -P $cfg['SQL_MIGRADOR_CLAVE'] `
         -v ClaveMigrador=$($cfg['SQL_MIGRADOR_CLAVE']) ClaveApp=$($cfg['SQL_CLAVE']) `
         -i /tmp/crear-logins.sql
 } else {
-    & sqlcmd -C -S "$($cfg['SQL_SERVIDOR']),$($cfg['SQL_PUERTO'])" `
+    & $cfg['EHS_SQLCMD'] -C -b -S "$($cfg['SQL_SERVIDOR']),$($cfg['SQL_PUERTO'])" `
         -U $cfg['SQL_MIGRADOR_USUARIO'] -P $cfg['SQL_MIGRADOR_CLAVE'] `
         -v ClaveMigrador=$($cfg['SQL_MIGRADOR_CLAVE']) ClaveApp=$($cfg['SQL_CLAVE']) `
         -i $rutaScript

@@ -13,7 +13,9 @@
 [CmdletBinding()]
 param()
 
-$ErrorActionPreference = 'Stop'
+# 'Continue': un aviso benigno en stderr de docker no debe abortar la reparacion;
+# cada paso comprueba su propio resultado.
+$ErrorActionPreference = 'Continue'
 Set-StrictMode -Version Latest
 
 $RaizApp = Split-Path -Parent $PSScriptRoot
@@ -23,7 +25,7 @@ function Leer-Config {
     if (-not (Test-Path $ArchivoConfig)) { throw "No existe $ArchivoConfig. ¿Se corrio instalar.ps1?" }
     $variables = @{}
     foreach ($linea in Get-Content $ArchivoConfig) {
-        $t = $linea.Trim()
+        $t = $linea.Trim().TrimStart([char]0xFEFF)
         if (-not $t -or $t.StartsWith('#')) { continue }
         $i = $t.IndexOf('=')
         if ($i -lt 0) { continue }
@@ -45,8 +47,11 @@ if ($cfg['EHS_MOTOR'] -eq 'contenedor') {
     $herramienta = @('docker', 'podman') | Where-Object { Get-Command $_ -ErrorAction SilentlyContinue } | Select-Object -First 1
     if (-not $herramienta) { throw "Ni docker ni podman estan disponibles." }
     & $herramienta restart ehs-motor | Out-Null
+    if ($LASTEXITCODE -ne 0) { Write-Host "No se pudo reiniciar el contenedor (codigo $LASTEXITCODE). ¿Esta abierto Docker Desktop / Podman?" -ForegroundColor Red }
 } else {
-    Restart-Service 'MSSQL$EHSLOCAL' -Force
+    # instalar.ps1 le dio a esta cuenta permiso de reiniciar SOLO este servicio: quien
+    # usa el equipo no es administrador, y este atajo corre sin elevar.
+    Restart-Service 'MSSQL$EHSLOCAL' -Force -ErrorAction Continue
 }
 
 $limite = (Get-Date).AddSeconds(60)

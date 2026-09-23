@@ -5,8 +5,10 @@
 const path = require('path');
 const ejs = require('ejs');
 const datos = require('./datos');
+const { obtener } = require('./datos/configuracion');
 
 const VISTAS = path.join(__dirname, '..', 'views');
+const MODO = obtener('ORIGEN_DATOS') === 'sql' ? 'sql' : 'simulado';
 
 async function dashboard(_req, res) {
   // sin anio ni mes: el adaptador resuelve el corte publicado
@@ -35,7 +37,7 @@ async function dashboard(_req, res) {
  */
 async function captura(_req, res) {
   const { MAGNITUDES, SITIOS } = require('./validacion');
-  const modo = process.env.ORIGEN_DATOS === 'sql' ? 'sql' : 'simulado';
+  const modo = MODO;
 
   const html = await ejs.renderFile(
     path.join(VISTAS, 'captura.ejs'),
@@ -62,7 +64,7 @@ async function captura(_req, res) {
  */
 async function corregir(_req, res) {
   const { MAGNITUDES, SITIOS, MOTIVO_MINIMO_CORRECCION } = require('./validacion');
-  const modo = process.env.ORIGEN_DATOS === 'sql' ? 'sql' : 'simulado';
+  const modo = MODO;
 
   const html = await ejs.renderFile(
     path.join(VISTAS, 'corregir.ejs'),

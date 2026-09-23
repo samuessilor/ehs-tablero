@@ -10,6 +10,6 @@
  * reves —que por defecto intentara grabar— un error de configuracion se convertiria en
  * dato operativo en un sitio equivocado.
  */
-const origen = process.env.ORIGEN_DATOS || 'json';
+const origen = require('./configuracion').obtener('ORIGEN_DATOS') || 'json';
 
 module.exports = origen === 'sql' ? require('./escritura_sql') : require('./escritura_simulada');
