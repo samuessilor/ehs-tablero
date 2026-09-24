@@ -12,7 +12,12 @@
  */
 const escritura = require('./datos/escritura');
 const errores = require('./errores');
-const { MAGNITUDES, SITIOS, MOTIVO_MINIMO_CORRECCION } = require('./validacion');
+const {
+  MAGNITUDES,
+  SITIOS,
+  MOTIVO_MINIMO_CORRECCION,
+  examinarCorreccion,
+} = require('./validacion');
 
 function json(res, codigo, cuerpo) {
   res.statusCode = codigo;
@@ -74,12 +79,24 @@ function normalizarCorreccion(cuerpo) {
     return { error: 'El motivo no puede pasar de 300 caracteres.' };
   }
 
+  /* El valor se examina y se NORMALIZA aqui, con las mismas reglas que la captura
+     (src/validacion.js). Antes viajaba como texto hasta el driver, que lo convierte
+     con parseFloat: "979,1" se grababa 979 y "108.543" (punto de miles) 108,543, sin
+     aviso y con "Correccion grabada" en pantalla. Ahora la coma es decimal, el punto
+     de miles ambiguo se rechaza con un mensaje que dice como escribirlo, un negativo
+     o un texto vuelven como 400 legible, y un atipico pide confirmacion (409). */
+  const r = examinarCorreccion({ magnitud: String(d.magnitud), valor: d.valor, motivo });
+  if (r.error) return { error: r.error };
+  if (r.advertencia && d.confirmarAtipico !== true) {
+    return { atipico: r.advertencia, valor: r.valor };
+  }
+
   return {
     anio,
     mes,
     sitio: String(d.sitio),
     magnitud: String(d.magnitud),
-    valor: String(d.valor).trim(),
+    valor: r.valor,
     motivo,
     corregidoPor,
   };
@@ -131,6 +148,11 @@ async function atender(req, res, url) {
     const c = normalizarCorreccion(cuerpo);
     if (c.error) {
       errores.parametroInvalido(res, c.error);
+      return true;
+    }
+    if (c.atipico) {
+      // no se graba: la pantalla muestra la advertencia y un boton para confirmar
+      json(res, 409, { error: 'atipico', mensaje: c.atipico, detalle: { valor: c.valor } });
       return true;
     }
 

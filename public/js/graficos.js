@@ -197,7 +197,7 @@ var Graficos = (function () {
      */
     serieKpi: function (id, r) {
       var dec = r.dec === undefined ? 2 : r.dec;
-      var rotulo = (r.es_referencia ? 'referencia ' : 'meta ') + Fmt.num(r.meta, dec);
+      var rotulo = (r.es_referencia ? 'referencia ' : 'meta ') + Fmt.meta(r.meta, dec);
       pintar(
         id,
         base({
@@ -229,9 +229,10 @@ var Graficos = (function () {
                   html +=
                     '<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,.16);opacity:.8">' +
                     (r.es_referencia ? 'Referencia ' : 'Meta ') +
-                    Fmt.num(r.meta, dec) +
-                    ' · brecha ' +
-                    Fmt.pct((ytd - r.meta) / r.meta) +
+                    Fmt.meta(r.meta, dec) +
+                    // con meta 0 (Agencias en accidentes y FR) la brecha no existe:
+                    // dividir por cero imprimia "— %"
+                    (r.meta ? ' · brecha ' + Fmt.pct((ytd - r.meta) / r.meta) : '') +
                     '</div>';
                 }
               }
@@ -310,7 +311,7 @@ var Graficos = (function () {
                 filaTooltip(
                   C.meta,
                   'Meta del sitio',
-                  s.meta === null ? 'sin meta' : Fmt.num(s.meta, dec)
+                  s.meta === null ? 'sin meta' : Fmt.meta(s.meta, dec)
                 ) +
                 (s.brecha_pct === null
                   ? ''
@@ -453,7 +454,7 @@ var Graficos = (function () {
                   filaTooltip(
                     C.meta,
                     k.es_referencia ? 'Referencia' : 'Meta',
-                    k.meta === null ? 'sin meta' : Fmt.num(k.meta, k.dec)
+                    k.meta === null ? 'sin meta' : Fmt.meta(k.meta, k.dec)
                   ) +
                   filaTooltip(
                     'transparent',
@@ -625,7 +626,7 @@ var Graficos = (function () {
                 '<b>Total ' +
                 Fmt.num(m.total_g_lente, 1) +
                 ' g/lente</b>' +
-                (meta ? ' · techo ' + Fmt.num(meta, 1) : '') +
+                (meta ? ' · techo ' + Fmt.meta(meta, 1) : '') +
                 '</div>';
               return html;
             },
@@ -644,7 +645,7 @@ var Graficos = (function () {
             };
             if (i === r.partes.length - 1) {
               s.itemStyle = { color: color[p], borderRadius: [2, 2, 0, 0] };
-              Object.assign(s, techo(meta, 'techo ' + Fmt.num(meta, 0)));
+              Object.assign(s, techo(meta, 'techo ' + Fmt.meta(meta, 1)));
             }
             return s;
           }),
@@ -711,7 +712,7 @@ var Graficos = (function () {
                 filaTooltip(
                   C.meta,
                   'Meta',
-                  a.meta === null ? 'no publicada' : Fmt.num(a.meta, dec)
+                  a.meta === null ? 'no publicada' : Fmt.meta(a.meta, dec)
                 ) +
                 (enCurso
                   ? '<div style="margin-top:5px;opacity:.75;max-width:230px">No es un cierre: son ' +

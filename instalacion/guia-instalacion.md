@@ -54,8 +54,11 @@ diga el mensaje (tabla de la sección 5) y se vuelve a hacer doble clic en
   - Una celda vacía **no** es un cero: se deja vacía si el dato no ha llegado.
   - Donde no hay personal temporal (hoy, Celta y La Estrella) se escribe **0** en sus
     horas.
-  - El tablero publica el mes cuando están **las 27**. Mientras tanto, la pantalla de
-    captura dice cuántas van y cuáles faltan, y marca en gris las ya capturadas.
+  - El tablero publica el mes cuando están **las 27** (y los meses anteriores también).
+    Mientras tanto, la pantalla de captura dice cuántas van y cuáles faltan, y marca en
+    gris las ya capturadas, que no se reescriben ahí: se cambian en Consultar y corregir.
+  - Números sin punto de miles: `9614`, o `979,1` con coma decimal. `9.614` se rechaza
+    por ambiguo.
 - **Consultar y corregir**: para cambiar un número ya capturado. Pide el motivo, y el
   valor anterior queda en el historial con quién lo cambió y cuándo.
 - **06 Datos** (pestaña del tablero): las lecturas tal como están en la base y, por cada

@@ -11,6 +11,7 @@ const api = require('./rutas_api');
 const captura = require('./rutas_captura');
 const correccion = require('./rutas_correccion');
 const errores = require('./errores');
+const { obtener } = require('./datos/configuracion');
 
 /* La aplicacion nacio siendo de solo lectura y rechazaba todo lo que no fuera GET. La
    captura obliga a abrir el paso a POST, y se abre por el hueco mas estrecho posible:
@@ -19,9 +20,40 @@ const errores = require('./errores');
    archivos (src/rutas_captura.js, src/rutas_correccion.js) en vez de estar repartida. */
 const RUTAS_QUE_ESCRIBEN = ['/api/ehs/captura', '/api/ehs/correccion'];
 
+/* Solo el propio tablero puede escribir. Sin esto, cualquier pagina web abierta en el
+   mismo equipo podia mandar un POST 'text/plain' (el navegador no pregunta antes) a
+   127.0.0.1 y grabar o corregir lecturas. Se exige JSON, que un Origin, si viene, sea
+   el mismo del tablero, y en la instalacion con base de datos que el Host sea local
+   (eso corta tambien el truco de un dominio ajeno que resuelve a 127.0.0.1). */
+function motivoParaNoEscribir(req) {
+  const tipo = String(req.headers['content-type'] || '').toLowerCase();
+  if (!tipo.startsWith('application/json')) {
+    return 'Las escrituras solo aceptan JSON (Content-Type: application/json).';
+  }
+  const host = String(req.headers.host || '').toLowerCase();
+  if (obtener('ORIGEN_DATOS') === 'sql' && !/^(127\.0\.0\.1|localhost)(:\d+)?$/.test(host)) {
+    return 'Solo el tablero instalado en este equipo puede escribir.';
+  }
+  const origen = req.headers.origin;
+  if (origen && !['http://' + host, 'https://' + host].includes(String(origen).toLowerCase())) {
+    return 'Origen no permitido: solo el propio tablero puede escribir.';
+  }
+  return null;
+}
+
 async function atender(req, res) {
   const url = new URL(req.url, 'http://interno');
   const ruta = url.pathname.replace(/\/+$/, '') || '/';
+
+  if (req.method === 'POST' && RUTAS_QUE_ESCRIBEN.some((r) => ruta.startsWith(r))) {
+    const motivo = motivoParaNoEscribir(req);
+    if (motivo) {
+      res.statusCode = 403;
+      res.setHeader('Content-Type', 'application/json; charset=utf-8');
+      res.end(JSON.stringify({ error: 'escritura_no_permitida', mensaje: motivo, detalle: null }));
+      return;
+    }
+  }
 
   if (ruta === '/api/ehs/captura' || ruta.startsWith('/api/ehs/captura/')) {
     if (await captura.atender(req, res, url)) return;

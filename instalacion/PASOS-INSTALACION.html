@@ -247,8 +247,14 @@
     <li>Una celda vacía <b>no</b> es un cero: si un dato no ha llegado, se deja vacía.</li>
     <li>Donde no hay personal temporal (hoy, Celta y La Estrella) se escribe <b>0</b> en sus
       horas.</li>
-    <li>El tablero publica el mes cuando están <b>las 27</b>. Mientras tanto la pantalla dice
-      cuántas van, nombra las que faltan y muestra en gris las ya capturadas.</li>
+    <li>El tablero publica el mes cuando están <b>las 27</b>, y solo si los meses anteriores
+      también están completos. Mientras tanto la pantalla dice cuántas van, nombra las que
+      faltan y muestra en gris las ya capturadas.</li>
+    <li>Las celdas ya capturadas no se pueden reescribir aquí: un valor ya guardado se cambia
+      en <b>Consultar y corregir</b>, que pide el motivo.</li>
+    <li>Los números se escriben sin punto de miles: <code>9614</code>, o <code>979,1</code>
+      con coma decimal. <code>9.614</code> se rechaza porque no se sabe si son miles o
+      decimales.</li>
   </ul>
   <h3>Consultar y corregir</h3>
   <p>Para cambiar un número ya capturado. Pide el motivo (mínimo 10 caracteres); el valor

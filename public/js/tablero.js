@@ -42,7 +42,6 @@ var Tablero = (function () {
     sin_meta: 'sinmeta',
     sin_dato: 'pend',
   };
-  var SITIOS = ['celta', 'estrella', 'agencias'];
 
   var S = {
     vista: 'panorama',
@@ -182,7 +181,7 @@ var Tablero = (function () {
       k.meta === null
         ? 'Sin meta publicada para este ámbito'
         : (k.es_referencia ? 'Referencia ' : 'Meta ') +
-          Fmt.num(k.meta, k.dec) +
+          Fmt.meta(k.meta, k.dec) +
           (k.es_referencia ? ' · COLOMBIA y PERÚ' : ' · techo');
     return (
       '<button type="button" class="kcard" data-kpi="' +
@@ -227,6 +226,13 @@ var Tablero = (function () {
     });
   }
 
+  /* El mes al que estan acumuladas las cifras en pantalla: el elegido arriba, o el
+     corte si no se eligio ninguno. Los rotulos decian siempre el corte ("acumulado a
+     Julio") aunque las fichas mostraran el YTD de marzo. */
+  function mesElegido(pan) {
+    return S.mes ? Fmt.mesLargo[S.mes - 1] : pan.corte.nombre;
+  }
+
   /* ------------------------------------------------- texto analitico, calculado --- */
   function textoContraMeta(k) {
     if (k.meta === null) {
@@ -235,8 +241,10 @@ var Tablero = (function () {
         'No se compara contra la de otro: se dice.'
       );
     }
+    // solo hasta el mes elegido: con marzo elegido, el rumbo es febrero -> marzo, no
+    // junio -> julio (que es lo que decia antes, sobre el YTD de marzo)
     var serie = k.serie_ytd.filter(function (p) {
-      return p.valor !== null;
+      return p.valor !== null && (!S.mes || p.mes <= S.mes);
     });
     var ult = serie[serie.length - 1];
     var ant = serie[serie.length - 2];
@@ -261,7 +269,7 @@ var Tablero = (function () {
       Fmt.esc(k.unidad) +
       ' contra ' +
       (k.es_referencia ? 'la referencia ' : 'la meta ') +
-      Fmt.num(k.meta, k.dec) +
+      Fmt.meta(k.meta, k.dec) +
       ' —es techo: cumplir es quedar por debajo—, brecha ' +
       Fmt.pct(k.brecha_pct) +
       '.' +
@@ -290,12 +298,12 @@ var Tablero = (function () {
     var serie = await api('serie-mensual', { ambito: S.ambito, kpi: S.kpi });
     serie.dec = foco.dec;
     $('#hFoco').textContent = foco.kpi + ' en el tiempo';
-    $('#subFoco').textContent = pan.ambito.nombre + ' · acumulado a ' + pan.corte.nombre;
+    $('#subFoco').textContent = pan.ambito.nombre + ' · acumulado a ' + mesElegido(pan);
     Graficos.serieKpi('gFoco', serie);
     $('#notaFoco').innerHTML = nota(textoContraMeta(foco));
 
     var porSitio = await api('kpi-por-sitio', { mes: S.mes, kpi: S.kpi });
-    $('#subSitios').textContent = foco.kpi + ' · acumulado a ' + pan.corte.nombre;
+    $('#subSitios').textContent = foco.kpi + ' · acumulado a ' + mesElegido(pan);
     Graficos.porSitio('gSitios', porSitio, foco.dec);
     var fuera = porSitio.sitios.filter(function (s) {
       return s.estado === 'incumple';
@@ -374,7 +382,7 @@ var Tablero = (function () {
         Fmt.num(ult.real, t.dec) +
         ') ' +
         (ult.real > ult.meta ? 'quedó por encima de su meta de ' : 'cumplió su meta de ') +
-        Fmt.num(ult.meta, t.dec) +
+        Fmt.meta(ult.meta, t.dec) +
         '. ';
     }
     if (cerrados.length >= 2) {
@@ -405,12 +413,13 @@ var Tablero = (function () {
   }
 
   async function pintarMatrizSitios(pan) {
-    var res = await Promise.all(
-      SITIOS.map(function (s) {
-        return api('panorama', { mes: S.mes, ambito: s });
+    // Siempre los cinco ambitos y en el mismo orden. Antes era [el elegido] + los tres
+    // sitios: con Celta elegido, Celta salia dos veces y faltaban los agregados.
+    var filas = await Promise.all(
+      AMBITOS.map(function (a) {
+        return a.id === S.ambito ? pan : api('panorama', { mes: S.mes, ambito: a.id });
       })
     );
-    var filas = [pan].concat(res);
     var cab =
       '<tr><th>Ámbito</th>' +
       pan.kpi
@@ -612,7 +621,7 @@ var Tablero = (function () {
     $('#notaResiduos').innerHTML = nota(textoContraMeta(kRes));
 
     var porSitio = await api('kpi-por-sitio', { mes: S.mes, kpi: 'residuos_por_lente' });
-    $('#subResSitios').textContent = 'acumulado a ' + pan.corte.nombre;
+    $('#subResSitios').textContent = 'acumulado a ' + mesElegido(pan);
     Graficos.porSitio('gResSitios', porSitio, 1);
     var fuera = porSitio.sitios.filter(function (s) {
       return s.estado === 'incumple';
@@ -723,7 +732,7 @@ var Tablero = (function () {
       ' g/lente' +
       (kRes.meta === null
         ? '.'
-        : ', con el techo del ámbito en ' + Fmt.num(kRes.meta, 1) + ' g/lente.')
+        : ', con el techo del ámbito en ' + Fmt.meta(kRes.meta, 1) + ' g/lente.')
     );
   }
 
@@ -750,7 +759,7 @@ var Tablero = (function () {
     );
 
     var porSitio = await api('kpi-por-sitio', { mes: S.mes, kpi: 'frequency_rate' });
-    $('#subSegTabla').textContent = 'frequency rate · acumulado a ' + pan.corte.nombre;
+    $('#subSegTabla').textContent = 'frequency rate · acumulado a ' + mesElegido(pan);
     $('#tSeguridad').innerHTML =
       '<table class="matriz"><tr><th>Sitio</th><th class="num">FR acumulado</th><th class="num">Meta</th>' +
       '<th>Estado</th></tr>' +
@@ -763,7 +772,7 @@ var Tablero = (function () {
             Fmt.num(s.valor, 3) +
             '</td>' +
             '<td class="num">' +
-            (s.meta === null ? '—' : Fmt.num(s.meta, 2)) +
+            (s.meta === null ? '—' : Fmt.meta(s.meta, 2)) +
             '</td>' +
             '<td>' +
             chip(s.estado) +
@@ -1217,7 +1226,10 @@ var Tablero = (function () {
   });
 
   leerUrl();
-  api('panorama', { mes: S.mes, ambito: S.ambito })
+  // La primera peticion va SIN mes: la resuelve el servidor al corte publicado. Pedirla
+  // con el mes de la URL hacia que un enlace a un mes todavia sin publicar (?mes=8)
+  // recibiera 404 y el tablero dijera "el servidor de datos no responde".
+  api('panorama', { ambito: S.ambito })
     .then(function (pan) {
       // el corte lo fija el dato, no el codigo: si el mes pedido no tiene captura se
       // cae al ultimo publicado, en vez de dibujar un vacio

@@ -52,7 +52,12 @@
     'Diciembre',
   ];
 
+  /* "9.614" es ambiguo (¿miles o decimales?): mismo criterio que src/validacion.js,
+     que lo rechaza. Antes entraba como 9,614 horas sin aviso. */
+  var MILES_AMBIGUO = /^-?\d{1,3}(\.\d{3})+$/;
+
   function aNumero(texto) {
+    if (MILES_AMBIGUO.test(String(texto == null ? '' : texto).trim())) return null;
     var s = String(texto == null ? '' : texto)
       .trim()
       .replace(',', '.');
@@ -65,11 +70,14 @@
   /** Devuelve '' si esta bien, 'mal' si es imposible, 'raro' si solo es improbable. */
   function juzgar(magnitud, texto) {
     if (String(texto).trim() === '') return '';
+    if (MILES_AMBIGUO.test(String(texto).trim())) return 'miles';
     var n = aNumero(texto);
     if (n === null) return 'mal';
     if (n < 0) return 'mal';
     var r = RANGO[magnitud];
     if (!r) return '';
+    // un cero donde nunca ha habido cero suele ser "no llego": pide confirmacion
+    if (n === 0 && r[0] > 0) return 'raro';
     if (n > r[1]) return 'raro';
     if (n > 0 && n < r[0]) return 'raro';
     return '';
@@ -85,7 +93,12 @@
     var estado = juzgar(inp.dataset.magnitud, inp.value);
     inp.classList.remove('mal', 'raro');
     var marca = inp.parentNode.querySelector('.cap-marca');
-    if (estado === 'mal') {
+    if (estado === 'miles') {
+      inp.classList.add('mal');
+      marca.textContent = 'sin punto de miles';
+      marca.className = 'cap-marca mal';
+      marca.title = 'Escribe 9614 (miles) o 9,614 (decimales)';
+    } else if (estado === 'mal') {
       inp.classList.add('mal');
       marca.textContent = 'no válido';
       marca.className = 'cap-marca mal';
@@ -236,6 +249,9 @@
         (simulado
           ? '<strong>' + r.grabadas + '</strong> lecturas habrían entrado'
           : '<strong>' + r.grabadas + '</strong> lecturas grabadas') +
+        (r.sinCambios
+          ? ' · <strong>' + r.sinCambios + '</strong> ya estaban con el mismo valor'
+          : '') +
         (r.rechazadas.length ? ' · <strong>' + r.rechazadas.length + '</strong> apartadas' : '') +
         (r.pendientes ? ' · <strong>' + r.pendientes + '</strong> esperando confirmación' : '') +
         (r.cargaId ? ' <span class="cap-res-carga">carga #' + Fmt.esc(r.cargaId) + '</span>' : '') +
@@ -245,10 +261,11 @@
     partes.push('</div>');
 
     if (r.rechazadas.length) {
-      partes.push('<h3 class="cap-res-h">Apartadas · hay que corregirlas en el origen</h3>');
+      partes.push('<h3 class="cap-res-h">Apartadas · no entraron</h3>');
       partes.push(
-        '<p class="cap-res-p">Esto no entró y no entrará mientras siga así. No se pierde: ' +
-          'queda registrado con su motivo (R.5.3.5).</p>'
+        '<p class="cap-res-p">Cada una dice por qué. Un dato imposible se arregla en el origen ' +
+          '(y queda registrado, R.5.3.5); una lectura que ya estaba capturada se cambia en ' +
+          '<a href="/corregir">Consultar y corregir</a>, que pide el motivo.</p>'
       );
       partes.push(tablaFilas(r.rechazadas, 'motivo', 'mal'));
     }
@@ -299,7 +316,10 @@
   var consultaEstado = 0;
   // Fmt.num redondea a enteros; aqui se muestra lo capturado tal cual (979,1 kg)
   function valorVisible(v) {
-    return v == null ? '—' : Number(v).toLocaleString('es-CO', { maximumFractionDigits: 4 });
+    // sin separador de miles: mostrar "190.120" enseñaba justo el formato ambiguo
+    return v == null
+      ? '—'
+      : Number(v).toLocaleString('es-CO', { maximumFractionDigits: 4, useGrouping: false });
   }
   async function pintarEstadoMes() {
     var caja = $('#estadoMes');
@@ -311,6 +331,7 @@
       i.classList.remove('cap-ya');
       i.placeholder = '';
       i.title = '';
+      i.readOnly = false;
     });
     if (!Number.isInteger(anio) || anio < 2023 || anio > 2100) {
       caja.hidden = true;
@@ -353,6 +374,14 @@
       if (Object.prototype.hasOwnProperty.call(ya, clave)) {
         capturadas++;
         i.classList.add('cap-ya');
+        // Solo lectura: reescribir una lectura ya capturada no es capturar, es corregir,
+        // y corregir pide motivo y deja historia (el servidor tambien lo aparta). Si la
+        // celda trae lo mismo que ya esta, se vacia para que se vea el valor guardado.
+        i.readOnly = true;
+        if (aNumero(i.value) === Number(ya[clave])) {
+          i.value = '';
+          marcarCelda(i);
+        }
         i.placeholder = 'ya: ' + valorVisible(ya[clave]);
         i.title =
           'Ya capturado: ' +

@@ -32,6 +32,21 @@ var Fmt = (function () {
     });
   }
 
+  /**
+   * Una META, con los decimales del KPI pero sin esconder los suyos: la meta de
+   * accidentes de Celta es 1,9 y con los 0 decimales del KPI se leia "2", mientras el
+   * estado se calculaba contra 1,9 ("1 · meta 2 · -47 %" no cuadraba a ojo). Hasta 2
+   * decimales propios, que es lo que traen las metas del scorecard (228,45).
+   */
+  function meta(v, dec) {
+    if (v === null || v === undefined || (typeof v === 'number' && !isFinite(v))) return '—';
+    var d = dec === undefined ? 0 : dec;
+    return Number(v).toLocaleString('es-CO', {
+      minimumFractionDigits: d,
+      maximumFractionDigits: Math.max(d, 2),
+    });
+  }
+
   /** Una fraccion (0,097) escrita como porcentaje con signo (+9,7 %). */
   function pct(v, dec) {
     if (v === null || v === undefined) return '—';
@@ -57,6 +72,7 @@ var Fmt = (function () {
     mesLargo: LARGO,
     mesMini: MINI,
     num: num,
+    meta: meta,
     pct: pct,
     pctDirecto: pctDirecto,
     esc: esc,

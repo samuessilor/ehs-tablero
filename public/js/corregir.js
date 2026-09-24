@@ -32,15 +32,28 @@
 
     $('#subConsulta').textContent = 'Consultando…';
     try {
-      var r = await fetch('/api/ehs/detalle?anio=' + anio);
+      /* Del estado de la captura y no de /detalle: /detalle solo trae meses ya
+         publicados, y la captura manda aqui a corregir las celdas del mes EN CURSO
+         ("para cambiarla usa Consultar y corregir"), que aparecian "sin captura". */
+      var r = await fetch('/api/ehs/captura/estado?anio=' + anio + '&mes=' + mes);
       var cuerpo = await r.json();
       if (!r.ok) {
         $('#subConsulta').textContent = cuerpo.mensaje || 'No se pudo consultar.';
         return;
       }
-      var fila = (cuerpo.filas || []).find(function (f) {
-        return Number(f.mes) === mes && f.sitio === sitio;
-      });
+      var fila;
+      if (cuerpo.celdas) {
+        fila = {};
+        cuerpo.celdas.forEach(function (c) {
+          if (c.sitio === sitio) fila[c.magnitud] = c.valor;
+        });
+      } else {
+        // sin base de datos (interinato) no hay estado por celda: el corte publicado
+        var d = await (await fetch('/api/ehs/detalle?anio=' + anio)).json();
+        fila = (d.filas || []).find(function (f) {
+          return Number(f.mes) === mes && f.sitio === sitio;
+        });
+      }
       pintarValores(fila);
     } catch (e) {
       $('#subConsulta').textContent = 'No se pudo hablar con el servidor: ' + e.message;
@@ -102,7 +115,7 @@
     estado.magnitud = null;
   }
 
-  async function enviarCorreccion() {
+  async function enviarCorreccion(confirmarAtipico) {
     var quien = String($('#corQuien').value || '').trim();
     if (!quien) {
       pintarErrorCorreccion('Falta escribir quién corrige.');
@@ -126,9 +139,23 @@
           valor: $('#corValor').value,
           motivo: motivo,
           corregidoPor: quien,
+          confirmarAtipico: confirmarAtipico === true,
         }),
       });
       var cuerpo = await r.json();
+      if (r.status === 409 && cuerpo.error === 'atipico') {
+        // fuera del rango historico: no se grabo; se pide confirmar, como en la captura
+        $('#resultadoCorreccion').innerHTML =
+          '<div class="cap-res cap-res-parcial"><p>' +
+          Fmt.esc(cuerpo.mensaje) +
+          '</p><div class="cap-acciones"><button type="button" id="bConfirmarCor" ' +
+          'class="cap-boton">Lo revisé, es correcto: corregir</button></div></div>';
+        $('#viva').textContent = cuerpo.mensaje;
+        $('#bConfirmarCor').addEventListener('click', function () {
+          enviarCorreccion(true);
+        });
+        return;
+      }
       if (!r.ok) {
         pintarErrorCorreccion(cuerpo.mensaje || 'El servidor rechazó la corrección.');
         return;

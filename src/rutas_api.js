@@ -30,14 +30,20 @@ function json(res, cuerpo) {
   res.end(JSON.stringify(cuerpo));
 }
 
-function csv(res, filas, nombre) {
+/* excel: separador ';' y coma decimal, que es lo que espera Excel con la configuracion
+   regional de Colombia. Con ',' y punto decimal, el doble clic abria todo el archivo en
+   una sola columna, justo en el paso de "verificar los datos". El CSV normal (',' y
+   punto) se queda para cualquier otra herramienta. */
+function csv(res, filas, nombre, excel) {
   const cols = Object.keys(filas[0] || {});
+  const sep = excel ? ';' : ',';
   const esc = (v) => {
-    const s = v === null || v === undefined ? '' : String(v);
-    return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    let s = v === null || v === undefined ? '' : String(v);
+    if (excel && typeof v === 'number') s = s.replace('.', ',');
+    return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
   };
-  const cuerpo = [cols.join(',')]
-    .concat(filas.map((f) => cols.map((c) => esc(f[c])).join(',')))
+  const cuerpo = [cols.join(sep)]
+    .concat(filas.map((f) => cols.map((c) => esc(f[c])).join(sep)))
     .join('\n');
   res.statusCode = 200;
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -168,6 +174,9 @@ async function atender(req, res, url) {
       const r = await datos.detalle({ anio });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
       if (q.get('formato') === 'csv') return (csv(res, r.filas, `ehs_detalle_${r.anio}.csv`), true);
+      if (q.get('formato') === 'excel') {
+        return (csv(res, r.filas, `ehs_detalle_${r.anio}_excel.csv`, true), true);
+      }
       return (json(res, r), true);
     }
 

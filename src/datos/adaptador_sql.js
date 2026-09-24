@@ -28,14 +28,12 @@
  *      otro lado del cuarto decimal. Corregido con un cast en app/sql/02-vistas.sql, y
  *      el rodeo que este adaptador llevaba se retiro.
  *
- *   2. ABIERTO, Y LO DECIDE EHS, NO EL CODIGO. v_kpi_contra_meta rotula 'cumple' /
- *      'en riesgo' / 'incumple' / 'sin meta' con una banda de +5 % SOBRE la meta; el
- *      contrato publicado (analisis/web_json.py, estado_de) rotula 'cumple' / 'riesgo' /
- *      'incumple' / 'sin_meta' / 'sin_dato' con una banda del 90 % POR DEBAJO. No son
- *      dos escrituras de la misma regla: son dos reglas, y un valor entre el 90 % y el
- *      100 % de la meta sale 'riesgo' en una y 'cumple' en la otra. Aqui manda el
- *      contrato porque es lo que el area ve hoy. En cuanto EHS diga cual vale, la que
- *      sobre se borra y esta nota con ella.
+ *   2. RESUELTO EN LA MIGRACION 0010. v_kpi_contra_meta usaba otra regla (+5 % SOBRE
+ *      la meta, 'en riesgo') que el contrato publicado (90 % POR DEBAJO, 'riesgo') y
+ *      marcaba 'en riesgo' valores por encima del techo. Ahora la vista usa la misma
+ *      regla, los mismos codigos y el mismo redondeo que ESTADO y BRECHA de este
+ *      archivo. La banda en si sigue siendo decision de EHS: si cambia, se cambia aqui
+ *      y en esa vista, que ya dicen lo mismo.
  *
  *   3. RESUELTO. v_calidad_avisos no se podia consultar: dividia entre valor_anterior
  *      sin proteger el cero y reventaba con "Divide by zero" en cuanto una magnitud
@@ -286,6 +284,41 @@ function cabecera(ctx) {
   };
 }
 
+/**
+ * Las correcciones hechas desde "Consultar y corregir" (migracion 0009) que tocan el
+ * ambito, para la franja "Valor corregido" del tablero. Antes la franja solo leia las
+ * correcciones del manifiesto (datos.json, estatico y vacio), asi que una correccion
+ * hecha en la app recalculaba todo pero no se lo decia a quien miraba el tablero.
+ * Mismas claves que las del manifiesto (valorExcel = el valor anterior).
+ */
+async function correccionesDelAmbito(anio, ambito) {
+  const { sql, req } = await peticion();
+  const r = await req.input('anio', sql.SmallInt, anio).input('ambito', sql.VarChar(20), ambito)
+    .query(`
+      select top 10 c.anio, c.mes, c.sitio_corto, c.magnitud,
+             valor_anterior = cast(c.valor_anterior as float),
+             valor_corregido = cast(c.valor_corregido as float),
+             c.motivo, c.autorizado_por,
+             corregido_en = convert(varchar(16), c.corregido_en, 120)
+        from ehs.v_correcciones c
+        join ehs.v_ambito a on a.sitio_id = c.sitio_id and a.ambito_id = @ambito
+       where c.anio = @anio
+       order by c.corregido_en desc, c.hist_id desc;
+    `);
+  const texto = (v) => (v === null || v === undefined ? '—' : String(v).replace('.', ','));
+  return r.recordset.map((x) => ({
+    anio: x.anio,
+    mes: x.mes,
+    sitio: x.sitio_corto,
+    magnitud: x.magnitud,
+    valorExcel: texto(x.valor_anterior),
+    valorCorregido: texto(x.valor_corregido),
+    motivo: x.motivo,
+    autorizadoPor: x.autorizado_por,
+    fecha: x.corregido_en,
+  }));
+}
+
 /** anio y mes ausentes significan "el corte publicado", igual que en el adaptador JSON. */
 function alCorte(ctx, anio, mes) {
   return { anio: anio == null ? ctx.anio : anio, mes: mes == null ? ctx.corte : mes };
@@ -372,7 +405,9 @@ module.exports = {
         estado: k.estado,
         serie_ytd: porKpi.get(k.kpi_id) || [],
       })),
-      correcciones: metadatos().correcciones.filter((c) => c.anio === anio),
+      correcciones: metadatos()
+        .correcciones.filter((c) => c.anio === anio)
+        .concat(await correccionesDelAmbito(anio, ambito)),
     };
   },
 
@@ -380,7 +415,8 @@ module.exports = {
   async kpiPorSitio({ anio, mes, kpi }) {
     const ctx = await contexto();
     ({ anio, mes } = alCorte(ctx, anio, mes));
-    if (anio !== ctx.anio) return null;
+    // nada pasa del corte publicado: ?mes=8 devolvia en silencio los valores de julio
+    if (anio !== ctx.anio || mes > ctx.corte) return null;
 
     const { sql, req } = await peticion();
     const r = await req

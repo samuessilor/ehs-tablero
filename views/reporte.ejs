@@ -91,7 +91,9 @@
               <% if (k.es_referencia) { %><br /><span class="rep-referencia">meta de referencia, no propia del ámbito</span><% } %>
             </td>
             <td class="num"><%= n(k.valor, k.dec) %></td>
-            <td class="num"><%= n(k.meta, k.dec) %></td>
+            <%# la meta con sus propios decimales: 1,9 y no "2" (el estado se calcula contra 1,9) %>
+            <td class="num"><%= k.meta == null ? '—' : Number(k.meta).toLocaleString('es-CO',
+                  { minimumFractionDigits: k.dec, maximumFractionDigits: Math.max(k.dec, 2) }) %></td>
             <td class="num"><%= k.brecha_pct == null ? '—' : (k.brecha_pct > 0 ? '+' : '') + n(k.brecha_pct * 100, 1) + ' %' %></td>
             <td><span class="chip <%= CLASE[k.estado] || 'sinmeta' %>"><%= ETIQUETA[k.estado] || k.estado %></span></td>
           </tr>

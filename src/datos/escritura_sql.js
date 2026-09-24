@@ -16,18 +16,73 @@
  * La conexion (driver, configuracion y pool) vive en conexion_sql.js, compartida con
  * el adaptador de lectura: una sola forma de conectarse a la base para toda la app.
  */
-const { MAGNITUDES } = require('../validacion');
+const {
+  MAGNITUDES,
+  SITIOS,
+  MENSAJE_MILES,
+  aNumero,
+  esMilesAmbiguo,
+  advertenciaCero,
+} = require('../validacion');
 const { cargarDriver, pool, cerrar } = require('./conexion_sql');
 const respaldo = require('../respaldo');
+
+const SITIO_IDS = new Set(SITIOS.map((s) => s.id));
+
+// La fecha viaja SIEMPRE en ISO. Mandar '01/08/2026' dejaria que el idioma del
+// servidor decida si es enero o agosto, y las dos lecturas son plausibles.
+const fechaIso = (f) => `${String(f.anio).padStart(4, '0')}-${String(f.mes).padStart(2, '0')}-01`;
 
 /**
  * Graba un lote. Devuelve el mismo objeto que el adaptador simulado, para que la
  * ruta y el cliente no sepan cual de los dos esta detras.
+ *
+ * Antes del procedimiento se decide aqui lo que la revision final encontro que se
+ * colaba (el procedimiento sigue siendo quien valida rango, negativos y texto):
+ *   - una lectura YA capturada con otro valor no se sobrescribe: se aparta con
+ *     "usa Consultar y corregir". El merge del procedimiento la reemplazaba en
+ *     silencio, sin motivo y sin salir en el historial de correcciones. Con el mismo
+ *     valor no pasa nada (reenviar el mes no cambia nada), y se cuenta aparte;
+ *   - el numero se normaliza (coma decimal) y el punto de miles ambiguo se rechaza:
+ *     el procedimiento leia "9.614" como 9,614 horas y "979,1" como texto invalido;
+ *   - solo capturan Celta, La Estrella y Agencias (peru y colombia_peru existen en la
+ *     base para el scorecard anual y el procedimiento los aceptaba);
+ *   - un cero donde nunca ha habido cero pide confirmacion, como cualquier atipico.
+ * Lo apartado aqui no pasa por ops.lectura_rechazada: no es un dato malo del origen,
+ * es una lectura que ya existe o un numero escrito de forma ambigua en la pantalla.
  */
 async function capturarLote({ filas, capturadoPor, origen, confirmarAtipicos }) {
   const sql = cargarDriver();
   const p = await pool();
 
+  // lo que ya esta en la base para los meses del lote
+  const fechasValidas = [
+    ...new Set(
+      filas
+        .filter(
+          (f) => Number.isInteger(f.anio) && Number.isInteger(f.mes) && f.mes >= 1 && f.mes <= 12
+        )
+        .map(fechaIso)
+    ),
+  ].sort();
+  const existentes = new Map();
+  if (fechasValidas.length) {
+    const e = await p
+      .request()
+      .input('desde', sql.Date, fechasValidas[0])
+      .input('hasta', sql.Date, fechasValidas[fechasValidas.length - 1])
+      .query(
+        'select fecha = convert(char(10), fecha, 23), sitio_id, magnitud_id, ' +
+          'valor = cast(valor as float) from ehs.hecho_lectura_mensual ' +
+          'where fecha between @desde and @hasta'
+      );
+    for (const x of e.recordset)
+      existentes.set(`${x.fecha}|${x.sitio_id}|${x.magnitud_id}`, x.valor);
+  }
+
+  const apartadas = [];
+  const advertidasAqui = [];
+  let sinCambios = 0;
   const tabla = new sql.Table('ehs.lote_lectura');
   tabla.columns.add('fecha_texto', sql.VarChar(40), { nullable: true });
   tabla.columns.add('sitio_texto', sql.VarChar(60), { nullable: true });
@@ -35,49 +90,90 @@ async function capturarLote({ filas, capturadoPor, origen, confirmarAtipicos }) 
   tabla.columns.add('valor_texto', sql.VarChar(60), { nullable: true });
 
   for (const f of filas) {
-    // La fecha viaja SIEMPRE en ISO. Mandar '01/08/2026' dejaria que el idioma del
-    // servidor decida si es enero o agosto, y las dos lecturas son plausibles.
-    const fecha = `${String(f.anio).padStart(4, '0')}-${String(f.mes).padStart(2, '0')}-01`;
+    const fila = { sitio: f.sitio, magnitud: f.magnitud, valor: f.valor };
+    if (f.sitio != null && !SITIO_IDS.has(String(f.sitio))) {
+      apartadas.push({
+        ...fila,
+        motivo: 'Ese sitio no captura mes a mes: solo Celta, La Estrella y Agencias.',
+      });
+      continue;
+    }
+    if (esMilesAmbiguo(f.valor)) {
+      apartadas.push({ ...fila, motivo: MENSAJE_MILES });
+      continue;
+    }
+    const n = aNumero(f.valor);
+    const previo = existentes.get(`${fechaIso(f)}|${f.sitio}|${f.magnitud}`);
+    if (previo !== undefined && n !== null) {
+      if (Math.abs(previo - n) < 1e-9) {
+        sinCambios++;
+      } else {
+        apartadas.push({
+          ...fila,
+          motivo:
+            `Ya está capturada con ${String(previo).replace('.', ',')}. Para cambiarla usa ` +
+            'Consultar y corregir: pide el motivo y deja el valor anterior en el historial.',
+        });
+      }
+      continue;
+    }
+    const cero = n !== null ? advertenciaCero(String(f.magnitud), n) : null;
+    if (cero && !confirmarAtipicos) {
+      advertidasAqui.push({ ...fila, advertencia: cero });
+      continue;
+    }
     tabla.rows.add(
-      fecha,
+      fechaIso(f),
       f.sitio == null ? null : String(f.sitio),
       f.magnitud == null ? null : String(f.magnitud),
-      f.valor == null ? null : String(f.valor)
+      // normalizado si es numero; si no, el texto tal cual, para que el procedimiento
+      // lo rechace y deje en la bitacora exactamente lo que se escribio
+      n !== null ? String(n) : f.valor == null ? null : String(f.valor)
     );
   }
 
-  const r = await p
-    .request()
-    .input('lote', tabla)
-    .input('capturado_por', sql.VarChar(60), capturadoPor)
-    .input('origen', sql.VarChar(120), origen || 'formulario de captura EHS')
-    .input('confirmar_atipicos', sql.Bit, confirmarAtipicos ? 1 : 0)
-    .output('carga_id', sql.BigInt)
-    .execute('ehs.sp_capturar_lote');
+  let cab = {};
+  let rechazos = [];
+  let advertencias = [];
+  let cargaId = null;
+  if (tabla.rows.length) {
+    const r = await p
+      .request()
+      .input('lote', tabla)
+      .input('capturado_por', sql.VarChar(60), capturadoPor)
+      .input('origen', sql.VarChar(120), origen || 'formulario de captura EHS')
+      .input('confirmar_atipicos', sql.Bit, confirmarAtipicos ? 1 : 0)
+      .output('carga_id', sql.BigInt)
+      .execute('ehs.sp_capturar_lote');
+    [[cab = {}] = [], rechazos = [], advertencias = []] = r.recordsets;
+    cargaId = cab.carga_id ?? r.output.carga_id ?? null;
+  }
 
-  const [resumen = [], rechazos = [], advertencias = []] = r.recordsets;
-  const cab = resumen[0] || {};
-
-  if (cab.grabadas > 0) respaldo.disparar();
+  if ((cab.grabadas ?? 0) > 0) respaldo.disparar();
 
   return {
     modo: 'sql',
     persistido: true,
-    cargaId: cab.carga_id ?? r.output.carga_id ?? null,
+    cargaId,
     grabadas: cab.grabadas ?? 0,
-    rechazadas: rechazos.map((x) => ({
-      sitio: x.sitio,
-      magnitud: x.magnitud,
-      valor: x.valor,
-      motivo: x.motivo,
-    })),
-    advertidas: advertencias.map((x) => ({
-      sitio: x.sitio,
-      magnitud: x.magnitud,
-      valor: x.valor,
-      advertencia: x.advertencia,
-    })),
-    pendientes: cab.pendientes ?? 0,
+    sinCambios,
+    rechazadas: apartadas.concat(
+      rechazos.map((x) => ({
+        sitio: x.sitio,
+        magnitud: x.magnitud,
+        valor: x.valor,
+        motivo: x.motivo,
+      }))
+    ),
+    advertidas: advertidasAqui.concat(
+      advertencias.map((x) => ({
+        sitio: x.sitio,
+        magnitud: x.magnitud,
+        valor: x.valor,
+        advertencia: x.advertencia,
+      }))
+    ),
+    pendientes: (cab.pendientes ?? 0) + advertidasAqui.length,
   };
 }
 

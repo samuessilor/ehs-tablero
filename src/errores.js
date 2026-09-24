@@ -111,6 +111,15 @@ module.exports = {
       return;
     }
 
+    // raiserror de un procedimiento propio (numero 50000): es una regla de negocio con
+    // un mensaje escrito para quien usa el tablero ("Esa lectura no existe todavia. Se
+    // captura, no se corrige."), no un error de programacion. Antes salia como el 500
+    // generico y el motivo se perdia.
+    if (err && err.name === 'RequestError' && err.number === 50000) {
+      responder(res, 400, 'regla_de_la_base', err.message, null);
+      return;
+    }
+
     responder(
       res,
       explicables[codigo] || 500,

@@ -41,7 +41,9 @@ const MAGNITUDES = [
   },
   {
     id: 'accidentes_dafw',
-    etiqueta: 'Accidentes con días perdidos',
+    // "del mes": la hoja AT 2026 del libro lleva acumulados, y quien copie de ahi el
+    // acumulado haria que el tablero sumara el mismo accidente dos veces
+    etiqueta: 'Accidentes con días perdidos (del mes)',
     unidad: 'casos',
     grupo: 'Seguridad',
   },
@@ -78,14 +80,46 @@ const SITIO_IDS = new Set(SITIOS.map((s) => s.id));
    palabra no es un motivo. */
 const MOTIVO_MINIMO_CORRECCION = 10;
 
-/** Numero decimal con punto o coma. Devuelve null si no lo es. */
+/* "9.614" es ambiguo en Colombia: puede ser nueve mil seiscientos catorce (punto de
+   miles) o nueve coma seiscientos catorce. Sin esta regla entraba como 9,614: la
+   revision final lo encontro en las horas temporales de Agencias (8.076 a 9.988 al
+   mes), donde el error no dispara ninguna advertencia porque el minimo es 0. Se
+   rechaza con un mensaje que dice como escribirlo; nunca se adivina. */
+const MILES_AMBIGUO = /^-?\d{1,3}(\.\d{3})+$/;
+const MENSAJE_MILES =
+  'Número ambiguo: no uses punto de miles. Escribe 9614 (miles) o 9,614 (decimales).';
+
+/** El texto tiene la forma "9.614" / "1.234.567": no se sabe si el punto es de miles. */
+function esMilesAmbiguo(texto) {
+  return texto !== null && texto !== undefined && MILES_AMBIGUO.test(String(texto).trim());
+}
+
+/**
+ * Numero decimal con punto o coma decimal ("979,1" o "979.1"). Devuelve null si no lo
+ * es, y tambien si es ambiguo ("9.614"): ver MILES_AMBIGUO.
+ */
 function aNumero(texto) {
   if (texto === null || texto === undefined) return null;
+  if (esMilesAmbiguo(texto)) return null;
   const s = String(texto).trim().replace(',', '.');
   if (s === '') return null;
   if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
   const n = Number(s);
   return Number.isFinite(n) ? n : null;
+}
+
+/* Un cero donde el minimo historico es mayor que cero (lentes, horas fijas, agua,
+   energia, residuos) casi siempre es "todavia no llego" escrito como 0. Entra solo si
+   quien captura lo confirma. Accidentes y horas temporales si pueden ser cero. */
+function advertenciaCero(magnitud, n) {
+  const rango = RANGO[magnitud];
+  if (n === 0 && rango && rango[0] > 0) {
+    return (
+      `Es cero, y ${magnitud} nunca ha sido cero. Si el dato todavía no llegó, deja la ` +
+      'celda vacía; si de verdad fue cero, confírmalo.'
+    );
+  }
+  return null;
 }
 
 /**
@@ -121,6 +155,9 @@ function examinarFila(fila) {
     return { motivo: `Magnitud desconocida: ${magnitud}.`, advertencia: null };
   }
 
+  if (esMilesAmbiguo(valor)) {
+    return { motivo: MENSAJE_MILES, advertencia: null };
+  }
   const n = aNumero(valor);
   if (n === null) {
     return { motivo: `El valor no es un número: ${valor}.`, advertencia: null };
@@ -131,6 +168,9 @@ function examinarFila(fila) {
       advertencia: null,
     };
   }
+
+  const cero = advertenciaCero(magnitud, n);
+  if (cero) return { motivo: null, advertencia: cero };
 
   const rango = RANGO[magnitud];
   if (rango) {
@@ -193,6 +233,9 @@ function examinarCorreccion({ magnitud, valor, motivo }) {
     };
   }
 
+  if (esMilesAmbiguo(valor)) {
+    return { motivoInvalido: null, error: MENSAJE_MILES, advertencia: null };
+  }
   const n = aNumero(valor);
   if (n === null) {
     return {
@@ -210,8 +253,8 @@ function examinarCorreccion({ magnitud, valor, motivo }) {
   }
 
   const rango = RANGO[magnitud];
-  let advertencia = null;
-  if (rango) {
+  let advertencia = advertenciaCero(magnitud, n);
+  if (!advertencia && rango) {
     const [min, max] = rango;
     if (n > max) {
       advertencia = `Supera el máximo histórico de ${magnitud} con holgura (${max}). Confirma que es correcto.`;
@@ -228,7 +271,10 @@ module.exports = {
   SITIOS,
   RANGO,
   MOTIVO_MINIMO_CORRECCION,
+  MENSAJE_MILES,
   aNumero,
+  esMilesAmbiguo,
+  advertenciaCero,
   examinarFila,
   examinarLote,
   examinarCorreccion,
