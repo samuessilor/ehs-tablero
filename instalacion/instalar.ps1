@@ -505,8 +505,15 @@ if ($Motor -eq 'contenedor') {
     if (-not $script:Herramienta) {
         throw "Ni docker ni podman estan disponibles. Instala Podman (o Docker con licencia) o usa -Motor nativo."
     }
-    & $script:Herramienta info *> $null
+    $infoMotor = & $script:Herramienta info 2>&1 | Out-String
     if ($LASTEXITCODE -ne 0) {
+        # Una cuenta fuera del grupo docker-users no es "Docker cerrado": abrir Docker
+        # Desktop y reintentar no lo arregla, y el mensaje generico mandaba justo a eso.
+        if ($infoMotor -match 'Access is denied|acceso denegado|permission denied|Acceso denegado') {
+            throw ("Docker responde 'acceso denegado': la cuenta $Usuario no esta en el grupo local " +
+                   "docker-users. IT la agrega (Administracion de equipos > Usuarios y grupos locales > " +
+                   "docker-users), se cierra sesion y se vuelve a correr este instalador.")
+        }
         throw "$($script:Herramienta) esta instalado pero no responde. Abre Docker Desktop / inicia la maquina de Podman y vuelve a correr este script."
     }
     Write-Host "Usando $($script:Herramienta)."
@@ -534,8 +541,12 @@ if ($motorPrevio) {
     } elseif ($Previo['SQL_MIGRADOR_CLAVE']) {
         $usuarioAdmin = 'ehs_migrador'; $claveAdmin = $ClaveMigrador
     } else {
+        # Casi siempre: se instalo antes desde OTRA carpeta (Descargas, el Escritorio). El
+        # desinstalar de esta carpeta no sirve: sin su ehs.env no sabe que motor retirar.
         throw ("Hay un motor EHS de un intento anterior, pero no su configuracion (config\ehs.env). " +
-               "Sin sus claves no hay forma de entrar. Corre desinstalar.ps1 -BorrarDatoTambien y vuelve a instalar.")
+               "Sin sus claves no hay forma de entrar. Casi siempre es porque se instalo antes desde " +
+               "otra carpeta: corre el desinstalar.ps1 de ESA carpeta (con -BorrarDatoTambien si ahi " +
+               "todavia no hay dato real) y vuelve a instalar desde aqui. Ver PASOS-INSTALACION.html, seccion 06.")
     }
 } else {
     $usuarioAdmin = 'sa'; $claveAdmin = $ClaveSa

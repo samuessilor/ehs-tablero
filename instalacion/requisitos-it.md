@@ -11,7 +11,7 @@ instala IT, una vez.
 |---|---|
 | Docker Desktop instalado | Con el motor WSL 2 (el que Docker Desktop propone por defecto). Necesita la virtualización activa en la BIOS/UEFI |
 | La cuenta de la persona en el grupo `docker-users` | Si IT instala Docker Desktop con otra cuenta de administrador, la cuenta de quien usa el equipo **no** queda en ese grupo y `docker` le responde "acceso denegado". Docker lo documenta así: hay que agregarla a mano (Administración de equipos → Usuarios y grupos locales → `docker-users`) y cerrar sesión |
-| Licencia | Docker Desktop es gratis solo para empresas de menos de 250 empleados **y** menos de 10 millones de dólares de ingresos. EssilorLuxottica necesita un puesto de **Docker Business** para ese equipo, o usar **Podman Desktop** (gratis, sin esa condición; el instalador de EHS lo detecta, pero con Podman no se ha probado en vivo) |
+| Licencia | Docker Desktop es gratis solo para empresas de menos de 250 empleados **y** menos de 10 millones de dólares de ingresos. EssilorLuxottica necesita un puesto de **Docker Business** para ese equipo, o usar **Podman Desktop** o **Rancher Desktop** con motor *dockerd* (gratis, sin esa condición). El instalador de EHS los detecta, pero el arranque automático y "Reparar EHS" están hechos para Docker Desktop, y no se han probado en vivo |
 | Memoria | 8 GB de RAM en el equipo es lo razonable: SQL Server en contenedor pide al menos 2 GB para él solo |
 
 Con eso listo, la persona del área (o Samuel con ella) hace doble clic en
@@ -44,9 +44,12 @@ Con eso listo, la persona del área (o Samuel con ella) hace doble clic en
 ## Plan B, si Docker no es posible en ese equipo
 
 `INSTALAR-EHS-NATIVO.cmd` instala SQL Server 2022 Express como servicio de Windows, sin
-Docker. Ese camino **sí** pide administrador una vez (el aviso de UAC), porque instalar
-un servicio lo exige. La aplicación, el esquema y las pantallas son los mismos. Este
-modo quedó preparado pero todavía no se ha corrido de punta a punta en un equipo real.
+Docker. Ese camino **sí** pide administrador (el aviso de UAC) para instalar y también
+para desinstalar, porque instala y retira un servicio. La aplicación, el esquema y las
+pantallas son los mismos. El paquete trae el instalador de SQL Server en español
+(`SQLEXPR_x64_ESN.exe`), que solo instala sobre Windows en español; para otro idioma se
+arma con `SQLEXPR_x64_ENU.exe`. Este modo quedó preparado pero todavía no se ha corrido
+de punta a punta en un equipo real.
 
 ## Migrar más adelante a la instancia de empresa
 

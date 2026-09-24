@@ -19,7 +19,9 @@ const { obtener } = require('./datos/configuracion');
 
 const SCRIPT = path.join(__dirname, '..', 'instalacion', 'respaldar.ps1');
 const HORAS_ENTRE_RESPALDOS = 20;
+const MINIMO_ENTRE_DISPAROS_MS = 60 * 1000;
 let ultimoDisparo = 0;
+let pendiente = null;
 
 /** Cuando se tomo el ultimo .bak; undefined sin carpeta configurada, null si no hay. */
 function fechaUltimoRespaldo() {
@@ -45,10 +47,24 @@ function fechaUltimoRespaldo() {
  * afectar la respuesta que ya se le dio a quien capturo. Si queda mal, lo registra en
  * ultimo-respaldo.log y la franja de estado lo muestra (el ultimo .bak envejece).
  * Varias capturas seguidas no lanzan varios respaldos a la vez: uno por minuto basta.
+ * Pero lo que se graba dentro de ese minuto tampoco se queda sin respaldo: queda UNO
+ * programado para cuando se cumpla el minuto. Antes simplemente se descartaba, y lo
+ * grabado al confirmar valores fuera de rango enseguida de la primera tanda (o una
+ * segunda correccion seguida) esperaba hasta el respaldo diario, hasta 20 h despues.
  */
 function disparar() {
   if (!obtener('EHS_CARPETA_RESPALDO') || !fs.existsSync(SCRIPT)) return;
-  if (Date.now() - ultimoDisparo < 60 * 1000) return;
+  const espera = MINIMO_ENTRE_DISPAROS_MS - (Date.now() - ultimoDisparo);
+  if (espera > 0) {
+    if (!pendiente) {
+      pendiente = setTimeout(() => {
+        pendiente = null;
+        disparar();
+      }, espera);
+      pendiente.unref();
+    }
+    return;
+  }
   ultimoDisparo = Date.now();
   try {
     // SIN detached: en Windows, detached lanza el hijo sin consola (DETACHED_PROCESS),

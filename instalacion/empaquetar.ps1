@@ -12,6 +12,7 @@
         INSTALAR-EHS.cmd         doble clic: modo contenedor, SIN administrador
         INSTALAR-EHS-NATIVO.cmd  doble clic: modo nativo, pide administrador (UAC)
         DESINSTALAR-EHS.cmd      doble clic: retira EHS conservando el dato
+        PASOS-INSTALACION.html   el paso a paso para quien instala (doble clic)
         LEEME.txt
         app\                     la aplicacion, con node_modules SOLO de produccion
         node\node.exe            Node 22 portable: el equipo del area no instala Node
@@ -126,6 +127,10 @@ if ($LASTEXITCODE -ne 0) { throw "El driver mssql no carga con el node.exe del p
 Copy-Item $nodeOrigen $PaqueteNode
 Copy-Item $RutaMedioSql $PaqueteInstaladores
 $nombreMedio = Split-Path $RutaMedioSql -Leaf
+if ($nombreMedio -notmatch '_ENU') {
+    Write-Warning ("El medio de SQL Server es $nombreMedio, no ENU: el plan B (INSTALAR-EHS-NATIVO.cmd) de " +
+                   "este paquete solo instala sobre Windows en ese mismo idioma. ENU sirve en cualquiera.")
+}
 
 if ($ConImagenContenedor) {
     Write-Host "Guardando la imagen $ImagenContenedor (modo contenedor sin internet)…"
@@ -215,21 +220,49 @@ El tablero arranca solo cada vez que se inicia sesion en Windows.
 Sin Docker en el equipo: INSTALAR-EHS-NATIVO.cmd instala SQL Server Express como
 servicio de Windows. Ese SI pide permiso de administrador una vez.
 
-Detalle completo: app\instalacion\guia-instalacion.md
+Paso a paso completo: PASOS-INSTALACION.html (doble clic, se abre en el navegador).
 "@.Replace("`r`n", "`n").Replace("`n", "`r`n") | Set-Content -Path (Join-Path $CarpetaSalida 'LEEME.txt') -Encoding ASCII
+
+# La guia para quien instala, en la raiz del paquete: una pagina que se abre con doble
+# clic y se imprime, sin internet. La fuente vive en app\instalacion.
+Copy-Item (Join-Path $PSScriptRoot 'PASOS-INSTALACION.html') (Join-Path $CarpetaSalida 'PASOS-INSTALACION.html') -Force
 
 # ------------------------------------------------------------------------- zip
 
 $tamano = (Get-ChildItem $CarpetaSalida -Recurse -File | Measure-Object Length -Sum).Sum
-Write-Host ("Tamano del paquete: {0:N0} MB" -f ($tamano / 1MB))
-if ($tamano -lt 1.9GB) {
-    $rutaZip = "$CarpetaSalida.zip"
-    if (Test-Path $rutaZip) { Remove-Item $rutaZip -Force }
-    Write-Host "Comprimiendo…"
+$archivos = @(Get-ChildItem $CarpetaSalida -Recurse -File).Count
+Write-Host ("Tamano del paquete: {0:N0} MB, {1} archivos" -f ($tamano / 1MB), $archivos)
+$rutaZip = "$CarpetaSalida.zip"
+if (Test-Path $rutaZip) { Remove-Item $rutaZip -Force }
+Write-Host "Comprimiendo…"
+# tar.exe (bsdtar, viene con Windows 10 y 11) comprime en streaming con poca memoria y
+# sin el tope de 2 GB. Compress-Archive de PowerShell 5.1 es lento y pesado: en el
+# equipo de desarrollo, con Docker ocupando la memoria, Windows lo mato a mitad y dejo
+# un .zip de 15 MB que parecia bueno. Queda solo como respaldo si no hay tar.exe.
+$tar = Get-Command tar.exe -ErrorAction SilentlyContinue
+if ($tar) {
+    $raiz = @(Get-ChildItem $CarpetaSalida -Name)
+    & $tar.Source -a -c -f $rutaZip -C $CarpetaSalida @raiz
+    if ($LASTEXITCODE -ne 0) { throw "tar.exe termino con codigo $LASTEXITCODE armando $rutaZip." }
+} elseif ($tamano -lt 1.9GB) {
     Compress-Archive -Path "$CarpetaSalida\*" -DestinationPath $rutaZip -CompressionLevel Optimal
-    Write-Host "Paquete: $rutaZip" -ForegroundColor Green
 } else {
-    Write-Host "Pasa de 2 GB (Compress-Archive no puede): lleva la carpeta $CarpetaSalida tal cual." -ForegroundColor Yellow
+    Write-Host "Sin tar.exe y pasa de 2 GB: lleva la carpeta $CarpetaSalida tal cual." -ForegroundColor Yellow
+    $rutaZip = $null
+}
+if ($rutaZip) {
+    # Un .zip cortado a la mitad se abre igual y parece bueno: se cuenta lo que trae.
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    $zip = [IO.Compression.ZipFile]::OpenRead($rutaZip)
+    try {
+        $enZip = @($zip.Entries | Where-Object { -not $_.FullName.EndsWith('/') })
+        $bytesEnZip = ($enZip | Measure-Object Length -Sum).Sum
+    } finally { $zip.Dispose() }
+    if ($enZip.Count -ne $archivos -or $bytesEnZip -ne $tamano) {
+        throw ("El .zip no trae todo: {0} de {1} archivos, {2:N0} de {3:N0} bytes. No lo uses." -f
+               $enZip.Count, $archivos, $bytesEnZip, $tamano)
+    }
+    Write-Host ("Paquete: {0} ({1:N0} MB, {2} archivos, completo)" -f $rutaZip, ((Get-Item $rutaZip).Length / 1MB), $archivos) -ForegroundColor Green
 }
 
 Write-Host ""

@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>EHS · Pasos de instalación</title>
+<link rel="icon" href="data:," />
+<style>
+  :root {
+    --fondo: #f4f6f9;
+    --papel: #ffffff;
+    --tinta: #0b2239;
+    --tenue: #5b6b7c;
+    --borde: #d9e0e8;
+    --acento: #1c8f8f;
+    --acento-suave: #e6f4f4;
+    --aviso: #b45f06;
+    --aviso-suave: #fdf3e7;
+    --mal: #b3261e;
+    --bien: #1e7a46;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #0d1620;
+      --papel: #142230;
+      --tinta: #e6edf3;
+      --tenue: #9fb0c0;
+      --borde: #2a3b4d;
+      --acento: #4fc4c4;
+      --acento-suave: #173338;
+      --aviso: #f0a24a;
+      --aviso-suave: #33260f;
+      --mal: #ff8a80;
+      --bien: #6fd49a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--fondo);
+    color: var(--tinta);
+    font: 15px/1.55 "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  }
+  header {
+    background: #0b2239;
+    color: #fff;
+    padding: 28px 16px 24px;
+  }
+  header .in, main { max-width: 900px; margin: 0 auto; }
+  header h1 { margin: 0 0 6px; font-size: 26px; letter-spacing: -.01em; }
+  header p { margin: 0; color: #b9d3e3; }
+  header .etiqueta {
+    display: inline-block; margin-bottom: 10px; padding: 2px 8px; border-radius: 3px;
+    background: rgba(79, 196, 196, .18); color: #8fe0e0;
+    font: 600 11px/1.6 Consolas, monospace; letter-spacing: .12em; text-transform: uppercase;
+  }
+  main { padding: 20px 16px 48px; }
+  section {
+    background: var(--papel);
+    border: 1px solid var(--borde);
+    border-radius: 6px;
+    padding: 20px 22px;
+    margin: 0 0 18px;
+  }
+  h2 { font-size: 19px; margin: 0 0 12px; }
+  h2 .num {
+    display: inline-block; min-width: 28px; margin-right: 6px; color: var(--acento);
+    font: 700 13px/1 Consolas, monospace;
+  }
+  h3 { font-size: 15px; margin: 18px 0 6px; }
+  p { margin: 0 0 10px; }
+  code, .ruta {
+    font-family: Consolas, "Cascadia Mono", monospace; font-size: 13px;
+    background: var(--acento-suave); padding: 1px 5px; border-radius: 3px;
+    white-space: nowrap;
+  }
+  /* los comandos largos si se parten, para que quepan en pantalla y en papel */
+  code.cmd { white-space: normal; overflow-wrap: anywhere; }
+  ol.pasos { list-style: none; counter-reset: paso; padding: 0; margin: 0; }
+  ol.pasos > li {
+    counter-increment: paso; position: relative;
+    padding: 12px 0 12px 52px; border-top: 1px solid var(--borde);
+  }
+  ol.pasos > li:first-child { border-top: 0; }
+  ol.pasos > li::before {
+    content: counter(paso); position: absolute; left: 0; top: 10px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--acento); color: #fff;
+    font: 700 17px/36px "Segoe UI", sans-serif; text-align: center;
+  }
+  ol.pasos > li strong:first-child { display: block; font-size: 16px; margin-bottom: 2px; }
+  ul { margin: 0 0 10px; padding-left: 20px; }
+  li { margin: 3px 0; }
+  .nota {
+    border-left: 4px solid var(--aviso); background: var(--aviso-suave);
+    padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 10px 0;
+  }
+  .ok {
+    border-left: 4px solid var(--acento); background: var(--acento-suave);
+    padding: 10px 14px; border-radius: 0 4px 4px 0; margin: 10px 0;
+  }
+  .check { list-style: none; padding-left: 0; }
+  .check li::before { content: "☐ "; color: var(--acento); font-weight: 700; }
+  .tabla { width: 100%; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; vertical-align: top; padding: 8px 10px; border-bottom: 1px solid var(--borde); }
+  th {
+    font: 600 11px/1.4 Consolas, monospace; letter-spacing: .08em;
+    text-transform: uppercase; color: var(--tenue);
+  }
+  .pie { color: var(--tenue); font-size: 13px; text-align: center; margin-top: 24px; }
+  @media print {
+    body { background: #fff; color: #000; font-size: 12px; }
+    header { background: #fff; color: #000; border-bottom: 2px solid #000; padding: 0 0 10px; }
+    header p, header .etiqueta { color: #333; background: none; padding: 0; }
+    section { border: 1px solid #999; break-inside: avoid; }
+    ol.pasos > li::before { background: #000; }
+  }
+  @media (max-width: 560px) {
+    section { padding: 16px 14px; }
+    ol.pasos > li { padding-left: 46px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="in">
+    <span class="etiqueta">EHS · tablero de indicadores</span>
+    <h1>Pasos de instalación en el equipo del área</h1>
+    <p>Un doble clic, sin permiso de administrador. Unos dos minutos.</p>
+  </div>
+</header>
+
+<main>
+
+<section>
+  <h2><span class="num">00</span>En resumen</h2>
+  <p>Con <b>Docker Desktop</b> ya instalado y abierto en el equipo: extraer
+  <code>paquete.zip</code> en <code>C:\EHS</code> y hacer doble clic en
+  <code>INSTALAR-EHS.cmd</code>. Al terminar se abre el tablero y quedan dos íconos en el
+  escritorio: <b>EHS</b> y <b>Reparar EHS</b>. No hace falta internet: todo viaja dentro
+  del paquete.</p>
+</section>
+
+<section>
+  <h2><span class="num">01</span>Antes: lo que el equipo necesita (una sola vez)</h2>
+  <p>Esto lo deja listo IT, porque instalar Docker Desktop sí pide administrador.</p>
+  <ul class="check">
+    <li>Windows 10 u 11 de 64 bits, 8 GB de RAM y unos 4 GB libres en el disco C.</li>
+    <li><b>Docker Desktop instalado</b>, con el motor WSL 2 (el que propone por defecto) y la
+      virtualización activa en la BIOS.</li>
+    <li>La cuenta de quien usa el equipo en el grupo local <code>docker-users</code>. Si IT
+      instala Docker con otra cuenta, hay que agregarla a mano y cerrar sesión; si no, Docker
+      responde “acceso denegado”.</li>
+  </ul>
+  <div class="nota">
+    <b>Licencia.</b> Docker Desktop es gratis solo para empresas de menos de 250 empleados y
+    menos de 10 millones de dólares de ingresos. Para trabajo de EssilorLuxottica hace falta un
+    puesto de <b>Docker Business</b>, sin importar lo pequeño del proyecto. Alternativas
+    gratuitas que el instalador también reconoce: Podman Desktop, o Rancher Desktop con el motor
+    <i>dockerd (moby)</i>. Con ellas hay que dejar el motor arrancando solo al iniciar sesión a
+    mano, y <b>Reparar EHS</b> no sabe abrirlas: el arranque automático y Reparar están hechos
+    para Docker Desktop. Todavía no probadas con EHS.
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">02</span>Instalar</h2>
+  <ol class="pasos">
+    <li>
+      <strong>Copiar el paquete al equipo</strong>
+      Llevar <code>paquete.zip</code> por USB, OneDrive o como sea más fácil.
+    </li>
+    <li>
+      <strong>Extraer en <code>C:\EHS</code></strong>
+      Clic derecho sobre el .zip → <i>Extraer todo…</i> → escribir <code>C:\EHS</code> →
+      <i>Extraer</i>. No en Descargas ni en el Escritorio: esa carpeta es la instalación y no se
+      mueve después. Adentro deben quedar <code>INSTALAR-EHS.cmd</code>, <code>app</code>,
+      <code>node</code> e <code>instaladores</code>. Si ya se había corrido el instalador desde
+      otra carpeta, ver en la sección 06 la fila “Hay un motor EHS de un intento anterior, pero
+      no su configuracion”.
+    </li>
+    <li>
+      <strong>Abrir Docker Desktop</strong>
+      Esperar a que abajo a la izquierda diga <i>Engine running</i> (la ballena de la barra de
+      tareas deja de moverse).
+    </li>
+    <li>
+      <strong>Doble clic en <code>C:\EHS\INSTALAR-EHS.cmd</code></strong>
+      Si Windows pregunta <i>“¿Desea ejecutar este archivo?”</i>, responder
+      <b>Ejecutar</b>. Si sale <i>“Windows protegió su PC”</i>: <b>Más información</b> →
+      <b>Ejecutar de todas formas</b>. No aparece ningún aviso de administrador.
+    </li>
+    <li>
+      <strong>Esperar unos dos minutos</strong>
+      La ventana negra va mostrando cada paso (cargar el motor, crear la base, cargar el
+      histórico 2026). Al terminar dice <code>Instalacion terminada</code> y se abre el tablero
+      en el navegador. Presionar cualquier tecla para cerrar la ventana.
+    </li>
+  </ol>
+  <div class="ok">
+    Si algo falla, la ventana lo dice en rojo y <b>no se pierde nada</b>: se corrige lo que
+    diga el mensaje (tabla de la sección 06) y se vuelve a hacer doble clic en
+    <code>INSTALAR-EHS.cmd</code>. Repetirlo es seguro.
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">03</span>Comprobar que quedó bien</h2>
+  <ul class="check">
+    <li>Arriba del tablero, la franja dice <b>“Motor conectado”</b> con el punto verde. Justo
+      después de instalar puede decir “todavía no hay ningún respaldo” en ámbar: el primero se
+      toma solo a los tres minutos.</li>
+    <li>Se ven los cinco indicadores (agua, energía, residuos, frequency rate, accidentes) con
+      corte a julio de 2026, cada uno contra su meta.</li>
+    <li>En el escritorio están los íconos <b>EHS</b> y <b>Reparar EHS</b>.</li>
+    <li>En la barra de arriba del tablero están <b>Capturar mes</b>, <b>Consultar y
+      corregir</b> y <b>Descargar reporte</b>.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">04</span>El uso de cada mes</h2>
+  <h3>Capturar mes</h3>
+  <ul>
+    <li>Las 27 lecturas del mes que cerró: 9 magnitudes por cada uno de los 3 sitios.</li>
+    <li>Una celda vacía <b>no</b> es un cero: si un dato no ha llegado, se deja vacía.</li>
+    <li>Donde no hay personal temporal (hoy, Celta y La Estrella) se escribe <b>0</b> en sus
+      horas.</li>
+    <li>El tablero publica el mes cuando están <b>las 27</b>. Mientras tanto la pantalla dice
+      cuántas van, nombra las que faltan y muestra en gris las ya capturadas.</li>
+  </ul>
+  <h3>Consultar y corregir</h3>
+  <p>Para cambiar un número ya capturado. Pide el motivo (mínimo 10 caracteres); el valor
+  anterior queda en el historial con quién lo cambió y cuándo.</p>
+  <h3>Descargar reporte</h3>
+  <p>El resumen del corte para imprimir o guardar como PDF, y el detalle en CSV.</p>
+  <h3>Respaldos</h3>
+  <p>Automáticos: uno después de cada captura o corrección (si hay varias dentro del mismo
+  minuto, un solo respaldo al cumplirse el minuto las cubre a todas) y uno diario, en
+  <span class="ruta">C:\EHS\ehs-datos\respaldo</span> (quedan los 14 más recientes), y una copia
+  en la carpeta <code>EHS-respaldo</code> del OneDrive corporativo si está configurado. La
+  franja de arriba dice cuándo fue el último.</p>
+</section>
+
+<section>
+  <h2><span class="num">05</span>Al encender el equipo</h2>
+  <p>No hay que hacer nada: Docker Desktop y el tablero arrancan solos al iniciar sesión. El
+  motor tarda uno o dos minutos en estar listo; si se abre <b>EHS</b> antes, aparece
+  <i>“El motor de datos todavía no responde”</i> y la página lo vuelve a intentar sola cada
+  15 segundos. Si justo al iniciar sesión el navegador dice que no puede conectarse a
+  <code>127.0.0.1</code>, es el tablero que todavía está arrancando: esperar unos segundos y
+  presionar F5.</p>
+  <p>Docker Desktop tiene que quedar abierto (puede estar minimizado). No hace falta cerrarlo
+  nunca.</p>
+</section>
+
+<section>
+  <h2><span class="num">06</span>Si algo falla</h2>
+  <div class="tabla">
+  <table>
+    <thead><tr><th>Qué se ve</th><th>Qué hacer</th></tr></thead>
+    <tbody>
+      <tr><td>“Ni docker ni podman estan disponibles”</td>
+          <td>Docker Desktop no está instalado: IT (sección 01).</td></tr>
+      <tr><td>“docker esta instalado pero no responde”</td>
+          <td>Abrir Docker Desktop, esperar <i>Engine running</i> y volver a correr
+          <code>INSTALAR-EHS.cmd</code>. Si Docker Desktop no llega a <i>Engine running</i>:
+          IT.</td></tr>
+      <tr><td>“Docker responde 'acceso denegado': la cuenta … no esta en el grupo local
+          docker-users”</td>
+          <td>IT agrega la cuenta al grupo <code>docker-users</code>; se cierra sesión, se
+          vuelve a entrar y se corre otra vez <code>INSTALAR-EHS.cmd</code>.</td></tr>
+      <tr><td>“Una directiva de IT (…) impide correr los scripts de EHS”</td>
+          <td>La política de ejecución del equipo lo bloquea: IT.</td></tr>
+      <tr><td>“El puerto 14330 ya lo usa otro programa”</td>
+          <td>Casi siempre es un EHS anterior instalado <b>sin Docker</b> (plan B).
+          <code>DESINSTALAR-EHS.cmd</code> con doble clic no lo retira, porque ese necesita
+          administrador: IT abre PowerShell como Administrador y corre el
+          <code>desinstalar.ps1</code> de la carpeta donde se instaló ese EHS
+          (<code class="cmd">powershell -ExecutionPolicy Bypass -File &lt;esa carpeta&gt;\app\instalacion\desinstalar.ps1</code>).
+          Después, volver a hacer doble clic en <code>INSTALAR-EHS.cmd</code>. Si no es EHS,
+          avisar.</td></tr>
+      <tr><td>“Hay un motor EHS de un intento anterior, pero no su configuracion”</td>
+          <td>Se instaló antes desde <b>otra carpeta</b> (por ejemplo Descargas). El desinstalar de
+          <code>C:\EHS</code> no sirve: hay que usar el de esa carpeta.
+          <ul>
+            <li>Si ahí todavía no hay dato real: en PowerShell,
+              <code class="cmd">powershell -ExecutionPolicy Bypass -File &lt;carpeta vieja&gt;\app\instalacion\desinstalar.ps1 -BorrarDatoTambien</code>,
+              escribir <code>BORRAR</code> cuando lo pida y volver a hacer doble clic en
+              <code>C:\EHS\INSTALAR-EHS.cmd</code>.</li>
+            <li>Si ya hay dato real: doble clic en <code>&lt;carpeta vieja&gt;\DESINSTALAR-EHS.cmd</code>
+              (conserva el dato), copiar <code>&lt;carpeta vieja&gt;\app\config\ehs.env</code> a
+              <code>C:\EHS\app\config\</code> y volver a instalar desde <code>C:\EHS</code>.</li>
+            <li>Si la carpeta vieja ya no existe: no borrar nada y avisar.</li>
+          </ul></td></tr>
+      <tr><td>“El motor de un intento anterior no acepta las claves”</td>
+          <td>Quedó un intento a medias (sin dato real). En PowerShell:
+          <code class="cmd">powershell -ExecutionPolicy Bypass -File C:\EHS\app\instalacion\desinstalar.ps1 -BorrarDatoTambien</code>,
+          escribir <code>BORRAR</code> cuando lo pida (borra el motor, los respaldos locales y la
+          configuración) y volver a hacer doble clic en <code>INSTALAR-EHS.cmd</code>.</td></tr>
+      <tr><td>El navegador dice que no se puede acceder a <code>127.0.0.1:3210</code>, y F5 no lo
+          arregla</td>
+          <td>El tablero no está corriendo: doble clic en <b>Reparar EHS</b> (lo arranca) y
+          después F5.</td></tr>
+      <tr><td>La franja se pone roja, o la página del motor no se va en 3 minutos</td>
+          <td>Doble clic en <b>Reparar EHS</b>: abre Docker Desktop si está cerrado, reinicia
+          el motor y el tablero, y confirma que responden. Después, F5 en el tablero.</td></tr>
+      <tr><td>Reparar termina con un mensaje en rojo</td>
+          <td>Ese mensaje, tal cual, es lo que hay que reportar.</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="num">07</span>Sin Docker (plan B)</h2>
+  <p><code>INSTALAR-EHS-NATIVO.cmd</code> instala SQL Server 2022 Express como servicio de
+  Windows, sin Docker. La aplicación, la base y las pantallas son las mismas. Este camino está
+  preparado pero todavía no se ha corrido de punta a punta en un equipo real.</p>
+  <ul>
+    <li><b>Pide administrador</b>, para instalar y también para desinstalar.</li>
+    <li>Se abre una segunda ventana, la de administrador, y la primera se cierra; la segunda
+      termina en <code>=== Listo ===</code>. Si el permiso lo dio la cuenta de IT, el tablero no
+      se abre todavía: la persona cierra sesión y, al volver a entrar, arranca.</li>
+    <li>El instalador de SQL Server que trae este paquete es la versión en español
+      (<code>SQLEXPR_x64_ESN</code>): el plan B solo instala sobre un Windows en español. Para
+      otro idioma hay que armar el paquete con <code>SQLEXPR_x64_ENU.exe</code>.</li>
+  </ul>
+</section>
+
+<section>
+  <h2><span class="num">08</span>Actualizar, desinstalar y dónde queda cada cosa</h2>
+  <h3>Actualizar a una versión nueva</h3>
+  <p>Copiar la carpeta <code>app</code> nueva encima de <code>C:\EHS\app</code> (se conserva
+  la configuración) y correr
+  <code class="cmd">powershell -ExecutionPolicy Bypass -File C:\EHS\app\instalacion\actualizar.ps1</code>.
+  Sin administrador.</p>
+  <h3>Desinstalar</h3>
+  <p>Doble clic en <code>DESINSTALAR-EHS.cmd</code>. Con Docker (el camino normal) toma un
+  último respaldo y <b>conserva</b> el dato: retira el contenedor pero deja el volumen
+  <code>ehs-motor-datos</code> y la configuración, así que volver a instalar lo recupera todo.
+  También devuelve Docker Desktop a como arrancaba antes.</p>
+  <p>Con el plan B (sin Docker) el doble clic no alcanza: hay que correr
+  <code>desinstalar.ps1</code> desde un PowerShell abierto como Administrador. Ese camino
+  desinstala SQL Server, y el dato queda solo en el último <code>.bak</code> de
+  <span class="ruta">C:\EHS\ehs-datos\respaldo</span>: reinstalar <b>no</b> lo restaura solo
+  (la base vuelve a arrancar con el histórico de carga) y ese <code>.bak</code> se restaura a
+  mano.</p>
+  <div class="tabla">
+  <table>
+    <thead><tr><th>Qué</th><th>Dónde</th></tr></thead>
+    <tbody>
+      <tr><td>La aplicación</td><td><span class="ruta">C:\EHS\app</span></td></tr>
+      <tr><td>Claves de la base (no compartir)</td><td><span class="ruta">C:\EHS\app\config\ehs.env</span></td></tr>
+      <tr><td>Respaldos y registro del último</td><td><span class="ruta">C:\EHS\ehs-datos\respaldo</span></td></tr>
+      <tr><td>El motor</td><td>Contenedor <code>ehs-motor</code> y volumen <code>ehs-motor-datos</code>, en Docker Desktop</td></tr>
+      <tr><td>Arranque automático</td><td><code>EHS Tablero</code> en la carpeta Inicio de la persona</td></tr>
+      <tr><td>El tablero</td><td><span class="ruta">http://127.0.0.1:3210</span> (solo en este equipo)</td></tr>
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<p class="pie">Probado el 23 de septiembre de 2026 en Windows 11 con Docker Desktop 28.3.2:
+instalación sin administrador, captura y corrección desde las pantallas, respaldo automático,
+motor caído y Reparar, actualización, desinstalación y reinstalación.<br />
+Dudas: Samuel Galeano.</p>
+
+</main>
+</body>
+</html>
