@@ -39,8 +39,15 @@
     </section>
   </section>
 
-  <!-- ================================ 02 · AGUA ============================ -->
+  <!-- ================================ 02 · AGUA Y ENERGÍA ================== -->
+  <!-- Un solo destino para los dos recursos que se capturan por consumo y por
+       producción: mismo formato de analisis (combo, variacion, mes a mes), solo
+       cambian las unidades. El subgrupo separa visualmente cual bloque es cual sin
+       abrir una pestaña por recurso. -->
   <section class="vista" id="v-agua" role="tabpanel" aria-labelledby="tab-agua" hidden>
+
+    <div class="subgrupo"><h2>Agua</h2><span class="sub">consumo, producción y ratio por lente</span></div>
+
     <section class="panel c7">
       <header><span class="ix">01</span><h2>Producción contra consumo por lente</h2><span class="sub" id="subAguaCombo"></span></header>
       <div class="grafico alto" id="gAguaCombo"></div>
@@ -62,9 +69,39 @@
       <header><span class="ix">04</span><h2>Detalle diario del mes</h2><span class="sub" id="subAguaDiario"></span></header>
       <div class="cuerpo" id="cajaAguaDiario"></div>
     </section>
+
+    <div class="subgrupo"><h2>Energía</h2><span class="sub">consumo, producción y ratio por lente</span></div>
+
+    <section class="panel c7">
+      <header><span class="ix">05</span><h2>Producción contra consumo por lente</h2><span class="sub" id="subEnergiaCombo"></span></header>
+      <div class="grafico alto" id="gEnergiaCombo"></div>
+      <div class="cuerpo" id="notaEnergiaCombo"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">06</span><h2>Variación contra el mes anterior</h2><span class="sub" id="subEnergiaVar"></span></header>
+      <div class="cuerpo" id="cajasEnergiaVar"></div>
+      <div class="cuerpo" id="notaEnergiaVar"></div>
+    </section>
+
+    <section class="panel c7">
+      <header><span class="ix">07</span><h2>Mes a mes: consumo, lentes y ratio</h2><span class="sub" id="subEnergiaTabla"></span></header>
+      <div class="cuerpo tablabox" id="tEnergia"></div>
+    </section>
+
+    <section class="panel c5">
+      <!-- Energia no tiene registro diario en el esquema (solo agua lo trae:
+           ehs.hecho_lectura_diaria_agua, migracion 0004): en su lugar, la comparacion
+           por sitio, que si es un dato real y ya se usa en Ambiental y Seguridad. -->
+      <header><span class="ix">08</span><h2>Cada sitio contra su propia meta</h2><span class="sub" id="subEnergiaSitios"></span></header>
+      <div class="grafico alto" id="gEnergiaSitios"></div>
+      <div class="cuerpo" id="notaEnergiaSitios"></div>
+    </section>
   </section>
 
   <!-- ================================ 03 · AMBIENTAL ======================= -->
+  <!-- Residuos: agua y energia, que tambien son magnitudes ambientales, ya tienen
+       su propio destino en la vista 02. -->
   <section class="vista" id="v-ambiental" role="tabpanel" aria-labelledby="tab-ambiental" hidden>
     <section class="panel c7">
       <header><span class="ix">01</span><h2>Residuos en el tiempo</h2><span class="sub" id="subResiduos"></span></header>
@@ -87,12 +124,6 @@
     <section class="panel c5">
       <header><span class="ix">04</span><h2>Participación de cada tipo</h2><span class="sub" id="subAcumComp"></span></header>
       <div class="cuerpo" id="cajaAcumComp"></div>
-    </section>
-
-    <section class="panel c12">
-      <header><span class="ix">05</span><h2>Energía en el tiempo</h2><span class="sub" id="subEnergia"></span></header>
-      <div class="grafico" id="gEnergia"></div>
-      <div class="cuerpo" id="notaEnergia"></div>
     </section>
   </section>
 

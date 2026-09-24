@@ -46,7 +46,12 @@ param(
     [Parameter(Mandatory = $true)] [string]$RutaMedioSql,
     [string]$CarpetaSalida,
     [switch]$ConImagenContenedor,
-    [string]$ImagenContenedor = 'mcr.microsoft.com/mssql/server:2022-latest'
+    [string]$ImagenContenedor = 'mcr.microsoft.com/mssql/server:2022-latest',
+    # Un .tar de la imagen ya guardado antes (de un paquete anterior): se copia en vez de
+    # volver a correr 'docker save', que es el paso que mas memoria pide. En el equipo de
+    # desarrollo, con otros contenedores corriendo, Windows mato dos veces el empaquetado
+    # justo ahi.
+    [string]$RutaImagenTar
 )
 
 $ErrorActionPreference = 'Continue'
@@ -132,7 +137,11 @@ if ($nombreMedio -notmatch '_ENU') {
                    "este paquete solo instala sobre Windows en ese mismo idioma. ENU sirve en cualquiera.")
 }
 
-if ($ConImagenContenedor) {
+if ($RutaImagenTar) {
+    if (-not (Test-Path $RutaImagenTar)) { throw "-RutaImagenTar no existe: $RutaImagenTar" }
+    Write-Host "Copiando la imagen del motor ya guardada ($RutaImagenTar)…"
+    Copy-Item $RutaImagenTar (Join-Path $PaqueteInstaladores 'mssql-server-2022.tar')
+} elseif ($ConImagenContenedor) {
     Write-Host "Guardando la imagen $ImagenContenedor (modo contenedor sin internet)…"
     & docker image inspect $ImagenContenedor *> $null
     if ($LASTEXITCODE -ne 0) { throw "No esta la imagen $ImagenContenedor en esta maquina (docker pull primero)." }

@@ -1,5 +1,5 @@
 /**
- * Adaptador SQL — el destino. Mismas nueve firmas que adaptador_json.js.
+ * Adaptador SQL — el destino. Mismas firmas que adaptador_json.js.
  *
  * Cada funcion consulta las vistas del esquema ehs (app/sql/02-vistas.sql), que
  * implementan las dos reglas del area una sola vez. Aqui no se calcula ningun
@@ -11,6 +11,8 @@
  *   kpiPorSitio         -> ehs.v_kpi_ytd por sitio + ehs.meta de cada sitio
  *   serieMensual        -> ehs.v_kpi_mensual + ehs.v_kpi_ytd
  *   aguaMensual         -> ehs.v_lectura_ambito, con las variaciones por lag()
+ *                          (hojaMensualRecurso, compartida con energiaMensual)
+ *   energiaMensual      -> igual que aguaMensual, para energia_por_lente
  *   aguaDiaria          -> ehs.v_agua_diaria + ehs.v_estado_agua_diaria
  *   residuosComposicion -> ehs.v_lectura_ambito agregado por magnitud de residuo
  *   trayectoriaAnual    -> ehs.scorecard_anual del perimetro consolidado
@@ -324,6 +326,67 @@ function alCorte(ctx, anio, mes) {
   return { anio: anio == null ? ctx.anio : anio, mes: mes == null ? ctx.corte : mes };
 }
 
+/**
+ * La hoja mensual "consumo, producción y ratio" de un KPI de razón simple (un
+ * numerador, un denominador): agua y energía comparten exactamente esta forma.
+ * Que magnitud es el numerador y cual el denominador lo dice ref.kpi_magnitud, que
+ * ya guarda esa definición como dato — repetir 'agua_m3'/'energia_kwh' aquí sería
+ * una segunda copia de la misma fórmula, la misma razón por la que v_kpi_mensual
+ * tampoco la hardcodea.
+ *
+ * La variación se mide contra el mes INMEDIATAMENTE anterior; si ese mes no se
+ * reportó no hay contra qué compararlo y se dice (null), no se salta al último que
+ * haya. El factor de conversión (agua ×1000 de m³ a L, energía ×1) sale de
+ * ref.dim_kpi: no se hardcodea aquí tampoco.
+ */
+async function hojaMensualRecurso({ ctx, anio, ambito, kpiId }) {
+  const { sql, req } = await peticion();
+  const r = await req
+    .input('anio', sql.SmallInt, anio)
+    .input('corte', sql.TinyInt, ctx.corte)
+    .input('ambito', sql.VarChar(20), ambito)
+    .input('kpi', sql.VarChar(40), kpiId).query(`
+      select nombre = ${NOMBRE_AMBITO};
+
+      with mensual as (
+          select f.num_mes, nombre_mes = f.mes,
+                 num = sum(case when km.rol = 'numerador' then cast(la.valor as float) end),
+                 den = sum(case when km.rol = 'denominador' then cast(la.valor as float) end)
+            from ehs.v_lectura_ambito la
+            join ref.dim_fecha f on f.fecha = la.fecha
+            join ref.kpi_magnitud km
+              on km.magnitud_id = la.magnitud_id and km.kpi_id = @kpi
+           where la.anio = @anio and la.ambito_id = @ambito and f.num_mes <= @corte
+           group by f.num_mes, f.mes
+      ),
+      con_previo as (
+          select *,
+                 num_prev = lag(num) over (order by num_mes),
+                 den_prev = lag(den) over (order by num_mes),
+                 mes_prev = lag(num_mes) over (order by num_mes)
+            from mensual
+      )
+      select mes = num_mes, nombre_mes,
+             consumo = round(num, 2),
+             lentes = cast(den as bigint),
+             ratio = round(num * (select factor from ref.dim_kpi where kpi_id = @kpi)
+                           / nullif(den, 0), 4),
+             var_total_pct = case when mes_prev = num_mes - 1 and num_prev <> 0
+                                  then round((num - num_prev) / num_prev * 100, 2) end,
+             -- el factor de conversion se cancela en un cambio porcentual: no hace
+             -- falta traerlo aqui otra vez
+             var_por_lente_pct = case when mes_prev = num_mes - 1 and num_prev <> 0
+                                       and den_prev <> 0 and den <> 0
+                                  then round((num / den - num_prev / den_prev)
+                                             / (num_prev / den_prev) * 100, 2) end
+        from con_previo
+       order by num_mes;
+    `);
+
+  const [[general = {}], filas] = r.recordsets;
+  return { nombre: general.nombre, filas };
+}
+
 module.exports = {
   /** Los cinco KPI del ambito al corte, con meta, brecha y estado ya resueltos. */
   async panorama({ anio, mes, ambito }) {
@@ -535,59 +598,19 @@ module.exports = {
     ({ anio } = alCorte(ctx, anio, null));
     if (anio !== ctx.anio) return null;
 
-    const { sql, req } = await peticion();
-    const r = await req
-      .input('anio', sql.SmallInt, anio)
-      .input('corte', sql.TinyInt, ctx.corte)
-      .input('ambito', sql.VarChar(20), ambito).query(`
-        select nombre = ${NOMBRE_AMBITO};
-
-        -- que magnitud es el consumo y cual el denominador lo dice ref.kpi_magnitud, que
-        -- ya guarda la formula del agua como dato: repetir 'agua_m3' aqui seria una
-        -- segunda copia de la misma definicion
-        with mensual as (
-            select f.num_mes, nombre_mes = f.mes,
-                   agua = sum(case when km.rol = 'numerador' then cast(la.valor as float) end),
-                   lbp  = sum(case when km.rol = 'denominador' then cast(la.valor as float) end)
-              from ehs.v_lectura_ambito la
-              join ref.dim_fecha f on f.fecha = la.fecha
-              join ref.kpi_magnitud km
-                on km.magnitud_id = la.magnitud_id and km.kpi_id = 'agua_por_lente'
-             where la.anio = @anio and la.ambito_id = @ambito and f.num_mes <= @corte
-             group by f.num_mes, f.mes
-        ),
-        con_previo as (
-            select *,
-                   agua_prev = lag(agua) over (order by num_mes),
-                   lbp_prev  = lag(lbp)  over (order by num_mes),
-                   mes_prev  = lag(num_mes) over (order by num_mes)
-              from mensual
-        )
-        select mes = num_mes, nombre_mes,
-               consumo_m3 = round(agua, 2),
-               lentes = cast(lbp as bigint),
-               l_por_lente = round(agua * 1000 / nullif(lbp, 0), 4),
-               -- la variacion se mide contra el mes inmediatamente anterior; si ese mes
-               -- no se reporto no hay contra que compararlo y se dice, no se salta al
-               -- ultimo que haya
-               var_total_pct = case when mes_prev = num_mes - 1 and agua_prev <> 0
-                                    then round((agua - agua_prev) / agua_prev * 100, 2) end,
-               var_por_lente_pct = case when mes_prev = num_mes - 1 and agua_prev <> 0
-                                         and lbp_prev <> 0 and lbp <> 0
-                                    then round((agua * 1000 / lbp - agua_prev * 1000 / lbp_prev)
-                                               / (agua_prev * 1000 / lbp_prev) * 100, 2) end
-          from con_previo
-         order by num_mes;
-      `);
-
-    const [[general = {}], filas] = r.recordsets;
+    const { nombre, filas } = await hojaMensualRecurso({
+      ctx,
+      anio,
+      ambito,
+      kpiId: 'agua_por_lente',
+    });
 
     // el reporte de agua del area publica cada sitio y el consolidado nacional; Nacional
     // Labs es un subconjunto que ese reporte no tiene, y se dice, no se inventa (R.5.5.1)
     if (ambito === 'nacional_labs' || !filas.length) {
       return {
         ...cabecera(ctx),
-        ambito: { id: ambito, nombre: general.nombre },
+        ambito: { id: ambito, nombre },
         filas: [],
         nota: 'sin_fila_en_reporte_area',
       };
@@ -595,13 +618,54 @@ module.exports = {
 
     return {
       ...cabecera(ctx),
-      ambito: { id: ambito, nombre: general.nombre },
+      ambito: { id: ambito, nombre },
       filas: filas.map((f) => ({
         mes: f.mes,
         nombre_mes: f.nombre_mes,
-        consumo_m3: num(f.consumo_m3),
+        consumo_m3: num(f.consumo),
         lentes: num(f.lentes),
-        l_por_lente: num(f.l_por_lente),
+        l_por_lente: num(f.ratio),
+        var_total_pct: num(f.var_total_pct),
+        var_por_lente_pct: num(f.var_por_lente_pct),
+      })),
+    };
+  },
+
+  /**
+   * La misma hoja que aguaMensual, para energía. A diferencia del agua, el área no
+   * publica un reporte externo de energía que excluya Nacional Labs: aquí los cinco
+   * ámbitos se sirven igual, sin la salvedad de R.5.5.1 de arriba.
+   */
+  async energiaMensual({ anio, ambito }) {
+    const ctx = await contexto();
+    ({ anio } = alCorte(ctx, anio, null));
+    if (anio !== ctx.anio) return null;
+
+    const { nombre, filas } = await hojaMensualRecurso({
+      ctx,
+      anio,
+      ambito,
+      kpiId: 'energia_por_lente',
+    });
+
+    if (!filas.length) {
+      return {
+        ...cabecera(ctx),
+        ambito: { id: ambito, nombre },
+        filas: [],
+        nota: 'sin_fila_en_reporte_area',
+      };
+    }
+
+    return {
+      ...cabecera(ctx),
+      ambito: { id: ambito, nombre },
+      filas: filas.map((f) => ({
+        mes: f.mes,
+        nombre_mes: f.nombre_mes,
+        consumo_kwh: num(f.consumo),
+        lentes: num(f.lentes),
+        kwh_por_lente: num(f.ratio),
         var_total_pct: num(f.var_total_pct),
         var_por_lente_pct: num(f.var_por_lente_pct),
       })),

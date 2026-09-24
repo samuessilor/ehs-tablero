@@ -1018,6 +1018,40 @@ main {
   filter: brightness(0.97);
 }
 
+/* ==================== SUBGRUPO DENTRO DE UNA VISTA ======================= */
+/* Agrupa varios paneles bajo un titulo comun sin abrir una pestaña nueva por cada
+   recurso: hoy, Agua y Energia dentro de la vista 02. Ocupa el ancho completo de la
+   cuadricula de 12 columnas, igual que .c12. */
+.subgrupo {
+  grid-column: span 12;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 10px 2px 0;
+  margin-top: 2px;
+  border-top: 2px solid var(--amb);
+}
+.subgrupo:first-child {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+.subgrupo h2 {
+  margin: 0;
+  font-family: var(--cond);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--tinta);
+}
+.subgrupo .sub {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tenue);
+}
+
 /* ============================ VISTA DE DATOS ============================= */
 /* Las cifras detras de las graficas. Reusa .matriz (bordes y colores del tablero) pero
    con relleno y ancho automatico: aqui se leen numeros largos, no celdas de color. */

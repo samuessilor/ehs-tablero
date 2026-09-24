@@ -196,6 +196,54 @@ module.exports = {
     };
   },
 
+  /**
+   * La misma hoja que aguaMensual, para energía: consumo, lentes, ratio y
+   * variaciones. A diferencia del agua, no depende de un archivo aparte
+   * (agua-detalle.json, que es el reporte externo de agua que publica el área):
+   * sale de d.serie[ambito], que ya trae el consumo de energía y las unidades
+   * buenas crudas de cada mes — los mismos numeros que arma /serie-mensual. Y a
+   * diferencia del agua, el área no publica un reporte externo de energía que
+   * excluya Nacional Labs, así que aquí los cinco ámbitos se sirven igual.
+   */
+  async energiaMensual({ anio, ambito }) {
+    const { d } = base();
+    ({ anio } = alCorte(d, anio, null));
+    const serie = d.serie[ambito];
+    if (anio !== d.anio || !serie) return null;
+
+    const filas = [];
+    let prev = null;
+    for (const p of serie) {
+      // un mes sin las dos magnitudes no es un mes con dato: no se inventa un ratio
+      if (p.energiaKwh == null || p.lbp == null) continue;
+      const ratio = p.lbp ? p.energiaKwh / p.lbp : null;
+      const prevRatio = prev && prev.lbp ? prev.energiaKwh / prev.lbp : null;
+      const hayPrevio = prev && prev.mes === p.mes - 1;
+      filas.push({
+        mes: p.mes,
+        nombre_mes: p.nombre,
+        consumo_kwh: p.energiaKwh,
+        lentes: p.lbp,
+        kwh_por_lente: ratio,
+        var_total_pct:
+          hayPrevio && prev.energiaKwh
+            ? Math.round(((p.energiaKwh - prev.energiaKwh) / prev.energiaKwh) * 10000) / 100
+            : null,
+        var_por_lente_pct:
+          hayPrevio && ratio !== null && prevRatio !== null && prevRatio !== 0
+            ? Math.round(((ratio - prevRatio) / prevRatio) * 10000) / 100
+            : null,
+      });
+      prev = p;
+    }
+
+    return {
+      ...cabecera(d),
+      ambito: { id: ambito, nombre: d.ambitos[ambito] },
+      filas,
+    };
+  },
+
   /** El diario de agua. Hoy: construido y vacio, y lo dice. */
   async aguaDiaria({ anio, mes, sitio }) {
     const { d, agua } = base();

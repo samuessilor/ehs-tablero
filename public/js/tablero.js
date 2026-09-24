@@ -15,7 +15,7 @@ var Tablero = (function () {
 
   var VISTAS = [
     { id: 'panorama', rotulo: '01 Panorama' },
-    { id: 'agua', rotulo: '02 Agua' },
+    { id: 'agua', rotulo: '02 Agua y Energía' },
     { id: 'ambiental', rotulo: '03 Ambiental' },
     { id: 'seguridad', rotulo: '04 Seguridad' },
     { id: 'calidad', rotulo: '05 Calidad del dato' },
@@ -480,112 +480,15 @@ var Tablero = (function () {
     );
   }
 
-  /* --------------------------------------------------------------------- agua --- */
-  async function pintarAgua() {
-    var agua = await api('agua-mensual', { ambito: S.ambito });
-    var diario = await api('agua-diaria', { mes: S.mes, sitio: S.ambito });
-
-    if (!agua.filas.length) {
-      $('#subAguaCombo').textContent = agua.ambito.nombre;
-      $('#gAguaCombo').innerHTML =
-        '<div class="vacio"><span class="chip sinmeta">sin fila en el reporte del área</span>' +
-        '<p><b>' +
-        Fmt.esc(agua.ambito.nombre) +
-        '</b> no es una fila del reporte de agua que publica el área. ' +
-        'No se dibuja una serie que el origen no trae.</p></div>';
-      $('#notaAguaCombo').innerHTML = '';
-      $('#cajasAguaVar').innerHTML = '';
-      $('#subAguaVar').textContent = '—';
-      $('#notaAguaVar').innerHTML = '';
-      $('#tAgua').innerHTML = '';
-      $('#subAguaTabla').textContent = '—';
-    } else {
-      $('#subAguaCombo').textContent = agua.ambito.nombre + ' · ' + agua.anio;
-      Graficos.aguaCombo('gAguaCombo', agua.filas);
-      $('#notaAguaCombo').innerHTML = nota(
-        'Dos causas distintas mueven el consumo por lente: lo que se gasta y lo que se produce. ' +
-          'El eje doble deja ver cuál de las dos manda en cada mes, y el máximo y el mínimo quedan ' +
-          'anotados dentro del propio gráfico.'
-      );
-
-      var f =
-        agua.filas.filter(function (x) {
-          return x.mes === S.mes;
-        })[0] || agua.filas[agua.filas.length - 1];
-      $('#subAguaVar').textContent =
-        Fmt.mesLargo[f.mes - 1] + ' contra ' + (f.mes >= 2 ? Fmt.mesLargo[f.mes - 2] : '—');
-      $('#cajasAguaVar').innerHTML = [
-        ['Consumo total', f.var_total_pct],
-        ['Consumo por lente', f.var_por_lente_pct],
-      ]
-        .map(function (par) {
-          return (
-            '<div class="varbox ' +
-            signoClase(par[1]) +
-            '"><span class="et">' +
-            par[0] +
-            '</span>' +
-            '<span class="num vv">' +
-            Fmt.pctDirecto(par[1]) +
-            '</span></div>'
-          );
-        })
-        .join('');
-      $('#notaAguaVar').innerHTML = nota(textoAgua(f));
-
-      $('#subAguaTabla').textContent = agua.filas.length + ' meses con dato';
-      $('#tAgua').innerHTML =
-        '<table class="matriz"><tr><th>Mes</th><th class="num">Consumo m³</th><th class="num">Lentes</th>' +
-        '<th class="num">l/lente</th><th class="num">Δ total</th><th class="num">Δ por lente</th></tr>' +
-        agua.filas
-          .map(function (r) {
-            return (
-              '<tr><th>' +
-              Fmt.esc(r.nombre_mes) +
-              '</th>' +
-              '<td class="num">' +
-              Fmt.num(r.consumo_m3, 0) +
-              '</td>' +
-              '<td class="num">' +
-              Fmt.num(r.lentes, 0) +
-              '</td>' +
-              '<td class="num">' +
-              Fmt.num(r.l_por_lente, 2) +
-              '</td>' +
-              '<td class="num ' +
-              signoClase(r.var_total_pct) +
-              '">' +
-              Fmt.pctDirecto(r.var_total_pct) +
-              '</td>' +
-              '<td class="num ' +
-              signoClase(r.var_por_lente_pct) +
-              '">' +
-              Fmt.pctDirecto(r.var_por_lente_pct) +
-              '</td></tr>'
-            );
-          })
-          .join('') +
-        '</table>';
-    }
-
-    $('#subAguaDiario').textContent = diario.disponible
-      ? diario.dias.length + ' lecturas'
-      : 'próximamente';
-    $('#cajaAguaDiario').innerHTML = diario.disponible
-      ? ''
-      : '<div class="vacio"><span class="chip pend">próximamente</span>' +
-        '<p>El área sí lleva el registro diario y esta vista ya está construida para leerlo: ' +
-        'se enciende sola en cuanto el registro entre. Estado que informa el servidor: ' +
-        '<b>' +
-        Fmt.esc(diario.estado) +
-        '</b>.</p></div>';
-  }
+  /* ------------------------------------------------------------ agua y energía --- */
 
   function signoClase(v) {
     return v === null || v === undefined ? '' : v < 0 ? 'baja' : 'sube';
   }
 
-  function textoAgua(f) {
+  /* Generico a proposito: no nombra "agua" ni "energia" en ningun texto, asi que sirve
+     igual para las dos hojas mensuales (pintarHojaMensual la llama para ambas). */
+  function textoVariacion(f) {
     if (f.var_por_lente_pct === null)
       return 'Primer mes con dato: no hay mes anterior contra el que comparar.';
     var lente = f.var_por_lente_pct;
@@ -598,10 +501,209 @@ var Tablero = (function () {
     if (total === null) return txt + '.';
     txt += ', con el consumo total en ' + Fmt.pctDirecto(total) + ': ';
     if (lente < 0 && total >= 0)
-      return txt + 'la mejora del ratio viene de la producción, no de gastar menos agua.';
+      return txt + 'la mejora del ratio viene de la producción, no de gastar menos.';
     if (lente < 0 && total < 0) return txt + 'baja el gasto y además baja el ratio.';
-    if (lente > 0 && total < 0) return txt + 'se gastó menos agua, pero se produjo aún menos.';
+    if (lente > 0 && total < 0) return txt + 'se gastó menos, pero se produjo aún menos.';
     return txt + 'sube el gasto y el ratio lo acusa.';
+  }
+
+  /**
+   * La hoja "producción contra consumo por lente" de un recurso simple (agua o
+   * energía): gráfico combo, variación contra el mes anterior y tabla mes a mes.
+   * Agua y energía comparten exactamente este formato — solo cambian las unidades,
+   * los campos de la respuesta y en qué elementos del DOM se pinta cada uno —, así
+   * que hay una sola implementación en vez de dos copias que podrían separarse.
+   *
+   * @param {object} ids   los '#id' de cada elemento (ver las dos llamadas abajo)
+   * @param {object} datos lo que devuelve /api/ehs/agua-mensual o /energia-mensual
+   * @param {object} cfg   nombreRecurso, dibujarCombo, notaCombo, etiquetas y
+   *                       nombres de campo/columna/decimales propios del recurso
+   */
+  function pintarHojaMensual(ids, datos, cfg) {
+    if (!datos.filas.length) {
+      $(ids.subCombo).textContent = datos.ambito.nombre;
+      $(ids.combo).innerHTML =
+        '<div class="vacio"><span class="chip sinmeta">sin fila en el reporte del área</span>' +
+        '<p><b>' +
+        Fmt.esc(datos.ambito.nombre) +
+        '</b> no es una fila del reporte de ' +
+        cfg.nombreRecurso +
+        ' que publica el área. No se dibuja una serie que el origen no trae.</p></div>';
+      $(ids.notaCombo).innerHTML = '';
+      $(ids.cajasVar).innerHTML = '';
+      $(ids.subVar).textContent = '—';
+      $(ids.notaVar).innerHTML = '';
+      $(ids.tabla).innerHTML = '';
+      $(ids.subTabla).textContent = '—';
+      return;
+    }
+
+    $(ids.subCombo).textContent = datos.ambito.nombre + ' · ' + datos.anio;
+    cfg.dibujarCombo(ids.comboRaw, datos.filas);
+    $(ids.notaCombo).innerHTML = nota(cfg.notaCombo);
+
+    var f =
+      datos.filas.filter(function (x) {
+        return x.mes === S.mes;
+      })[0] || datos.filas[datos.filas.length - 1];
+    $(ids.subVar).textContent =
+      Fmt.mesLargo[f.mes - 1] + ' contra ' + (f.mes >= 2 ? Fmt.mesLargo[f.mes - 2] : '—');
+    $(ids.cajasVar).innerHTML = [
+      ['Consumo total', f.var_total_pct],
+      ['Consumo por lente', f.var_por_lente_pct],
+    ]
+      .map(function (par) {
+        return (
+          '<div class="varbox ' +
+          signoClase(par[1]) +
+          '"><span class="et">' +
+          par[0] +
+          '</span>' +
+          '<span class="num vv">' +
+          Fmt.pctDirecto(par[1]) +
+          '</span></div>'
+        );
+      })
+      .join('');
+    $(ids.notaVar).innerHTML = nota(textoVariacion(f));
+
+    $(ids.subTabla).textContent = datos.filas.length + ' meses con dato';
+    $(ids.tabla).innerHTML =
+      '<table class="matriz"><tr><th>Mes</th><th class="num">' +
+      cfg.colConsumo +
+      '</th><th class="num">Lentes</th>' +
+      '<th class="num">' +
+      cfg.colRatio +
+      '</th><th class="num">Δ total</th><th class="num">Δ por lente</th></tr>' +
+      datos.filas
+        .map(function (r) {
+          return (
+            '<tr><th>' +
+            Fmt.esc(r.nombre_mes) +
+            '</th>' +
+            '<td class="num">' +
+            Fmt.num(r[cfg.campoConsumo], cfg.decConsumo) +
+            '</td>' +
+            '<td class="num">' +
+            Fmt.num(r.lentes, 0) +
+            '</td>' +
+            '<td class="num">' +
+            Fmt.num(r[cfg.campoRatio], cfg.decRatio) +
+            '</td>' +
+            '<td class="num ' +
+            signoClase(r.var_total_pct) +
+            '">' +
+            Fmt.pctDirecto(r.var_total_pct) +
+            '</td>' +
+            '<td class="num ' +
+            signoClase(r.var_por_lente_pct) +
+            '">' +
+            Fmt.pctDirecto(r.var_por_lente_pct) +
+            '</td></tr>'
+          );
+        })
+        .join('') +
+      '</table>';
+  }
+
+  async function pintarAgua() {
+    var agua = await api('agua-mensual', { ambito: S.ambito });
+    var diario = await api('agua-diaria', { mes: S.mes, sitio: S.ambito });
+
+    pintarHojaMensual(
+      {
+        subCombo: '#subAguaCombo',
+        combo: '#gAguaCombo',
+        comboRaw: 'gAguaCombo',
+        notaCombo: '#notaAguaCombo',
+        subVar: '#subAguaVar',
+        cajasVar: '#cajasAguaVar',
+        notaVar: '#notaAguaVar',
+        tabla: '#tAgua',
+        subTabla: '#subAguaTabla',
+      },
+      agua,
+      {
+        nombreRecurso: 'agua',
+        dibujarCombo: Graficos.aguaCombo,
+        notaCombo:
+          'Dos causas distintas mueven el consumo por lente: lo que se gasta y lo que se produce. ' +
+          'El eje doble deja ver cuál de las dos manda en cada mes, y el máximo y el mínimo quedan ' +
+          'anotados dentro del propio gráfico.',
+        colConsumo: 'Consumo m³',
+        colRatio: 'l/lente',
+        campoConsumo: 'consumo_m3',
+        decConsumo: 0,
+        campoRatio: 'l_por_lente',
+        decRatio: 2,
+      }
+    );
+
+    $('#subAguaDiario').textContent = diario.disponible
+      ? diario.dias.length + ' lecturas'
+      : 'próximamente';
+    $('#cajaAguaDiario').innerHTML = diario.disponible
+      ? ''
+      : '<div class="vacio"><span class="chip pend">próximamente</span>' +
+        '<p>El área sí lleva el registro diario y esta vista ya está construida para leerlo: ' +
+        'se enciende sola en cuanto el registro entre. Estado que informa el servidor: ' +
+        '<b>' +
+        Fmt.esc(diario.estado) +
+        '</b>.</p></div>';
+
+    // --------------------------------------------------------------- energía ---
+    var pan = await api('panorama', { mes: S.mes, ambito: S.ambito });
+    var kEne = pan.kpi.filter(function (k) {
+      return k.kpi_id === 'energia_por_lente';
+    })[0];
+
+    var energia = await api('energia-mensual', { ambito: S.ambito });
+    pintarHojaMensual(
+      {
+        subCombo: '#subEnergiaCombo',
+        combo: '#gEnergiaCombo',
+        comboRaw: 'gEnergiaCombo',
+        notaCombo: '#notaEnergiaCombo',
+        subVar: '#subEnergiaVar',
+        cajasVar: '#cajasEnergiaVar',
+        notaVar: '#notaEnergiaVar',
+        tabla: '#tEnergia',
+        subTabla: '#subEnergiaTabla',
+      },
+      energia,
+      {
+        nombreRecurso: 'energía',
+        dibujarCombo: Graficos.energiaCombo,
+        notaCombo:
+          'Igual que con el agua: lo que sube o baja el consumo por lente puede ser el gasto o ' +
+          'la producción, y el eje doble separa cuál de las dos manda cada mes.',
+        colConsumo: 'Consumo kWh',
+        colRatio: 'kWh/lente',
+        campoConsumo: 'consumo_kwh',
+        decConsumo: 0,
+        campoRatio: 'kwh_por_lente',
+        decRatio: 3,
+      }
+    );
+
+    var porSitioEnergia = await api('kpi-por-sitio', { mes: S.mes, kpi: 'energia_por_lente' });
+    $('#subEnergiaSitios').textContent = 'acumulado a ' + mesElegido(pan);
+    Graficos.porSitio('gEnergiaSitios', porSitioEnergia, kEne ? kEne.dec : 3);
+    var fueraEne = porSitioEnergia.sitios.filter(function (s) {
+      return s.estado === 'incumple';
+    });
+    $('#notaEnergiaSitios').innerHTML = nota(
+      'Las metas de energía por sitio son distintas entre sí y no son comparables entre ellas. ' +
+        (fueraEne.length
+          ? 'Superan la suya: <b>' +
+            fueraEne
+              .map(function (s) {
+                return Fmt.esc(s.sitio);
+              })
+              .join(', ') +
+            '</b>.'
+          : 'Ninguno supera la suya al corte.')
+    );
   }
 
   /* ---------------------------------------------------------------- ambiental --- */
@@ -609,9 +711,6 @@ var Tablero = (function () {
     var pan = await api('panorama', { mes: S.mes, ambito: S.ambito });
     var kRes = pan.kpi.filter(function (k) {
       return k.kpi_id === 'residuos_por_lente';
-    })[0];
-    var kEne = pan.kpi.filter(function (k) {
-      return k.kpi_id === 'energia_por_lente';
     })[0];
 
     var res = await api('serie-mensual', { ambito: S.ambito, kpi: 'residuos_por_lente' });
@@ -644,12 +743,6 @@ var Tablero = (function () {
     Graficos.composicionResiduos('gComp', comp, kRes.meta);
     $('#notaComp').innerHTML = nota(textoComposicion(comp, kRes));
     pintarAcumuladoComp(comp);
-
-    var ene = await api('serie-mensual', { ambito: S.ambito, kpi: 'energia_por_lente' });
-    ene.dec = kEne.dec;
-    $('#subEnergia').textContent = pan.ambito.nombre;
-    Graficos.serieKpi('gEnergia', ene);
-    $('#notaEnergia').innerHTML = nota(textoContraMeta(kEne));
   }
 
   function pintarAcumuladoComp(comp) {

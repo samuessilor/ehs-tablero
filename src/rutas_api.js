@@ -124,6 +124,17 @@ async function atender(req, res, url) {
       return (json(res, r), true);
     }
 
+    if (ruta === '/api/ehs/energia-mensual') {
+      const ambito = q.get('ambito') || 'nacional';
+      if (!AMBITOS.includes(ambito)) {
+        errores.parametroInvalido(res, `Ambito desconocido: ${ambito}.`, { validos: AMBITOS });
+        return true;
+      }
+      const r = await datos.energiaMensual({ anio, ambito });
+      if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
+      return (json(res, r), true);
+    }
+
     if (ruta === '/api/ehs/agua-diaria') {
       const r = await datos.aguaDiaria({ anio, mes, sitio: q.get('sitio') });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);

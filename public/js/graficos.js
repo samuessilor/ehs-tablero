@@ -186,6 +186,114 @@ var Graficos = (function () {
     );
   }
 
+  /**
+   * "Producción contra consumo por lente" para un recurso simple (agua o energía):
+   * lentes procesados en barra, el ratio por lente en línea con eje propio, y el
+   * pico anotado dentro del gráfico. Agua y energía son la misma lectura con otras
+   * unidades, así que comparten esta única implementación (aguaCombo/energiaCombo
+   * abajo solo dicen de qué campos y qué unidades leer).
+   */
+  function comboProduccion(id, filas, cfg) {
+    var porMes = {};
+    filas.forEach(function (f) {
+      porMes[f.mes] = f;
+    });
+    var lentes = Fmt.mesMini.map(function (_, i) {
+      return porMes[i + 1] ? porMes[i + 1].lentes : null;
+    });
+    var ratio = Fmt.mesMini.map(function (_, i) {
+      return porMes[i + 1] ? porMes[i + 1][cfg.campoRatio] : null;
+    });
+    pintar(
+      id,
+      base({
+        legend: { top: 0, left: 'center', icon: 'roundRect' },
+        xAxis: ejeMeses(),
+        yAxis: [
+          { type: 'value', name: 'lentes' },
+          { type: 'value', splitLine: { show: false }, scale: true },
+        ],
+        tooltip: {
+          trigger: 'axis',
+          confine: true,
+          backgroundColor: 'rgba(11,34,57,.95)',
+          borderWidth: 0,
+          padding: [8, 11],
+          textStyle: { color: '#EAF2F7', fontSize: 11.5 },
+          formatter: function (ps) {
+            var f = porMes[ps[0].dataIndex + 1];
+            if (!f)
+              return (
+                '<b>' +
+                Fmt.mesLargo[ps[0].dataIndex] +
+                '</b><div style="opacity:.7">sin captura</div>'
+              );
+            return (
+              '<b>' +
+              f.nombre_mes +
+              '</b>' +
+              filaTooltip(C.ambSuave, 'Lentes procesados', Fmt.num(f.lentes, 0)) +
+              filaTooltip(
+                C.tinta,
+                'Consumo por lente',
+                Fmt.num(f[cfg.campoRatio], cfg.decRatio) + ' ' + cfg.unidadRatio
+              ) +
+              filaTooltip(
+                'transparent',
+                'Consumo total',
+                Fmt.num(f[cfg.campoConsumo], 0) + ' ' + cfg.unidadConsumo
+              ) +
+              (f.var_por_lente_pct === null
+                ? ''
+                : filaTooltip(
+                    'transparent',
+                    'Contra el mes anterior',
+                    Fmt.pctDirecto(f.var_por_lente_pct)
+                  ))
+            );
+          },
+        },
+        series: [
+          {
+            name: 'Lentes procesados',
+            type: 'bar',
+            data: lentes,
+            itemStyle: { color: C.ambSuave, borderRadius: [2, 2, 0, 0] },
+            barMaxWidth: 24,
+          },
+          {
+            name: 'Consumo por lente (' + cfg.unidadRatio + '/lente)',
+            type: 'line',
+            yAxisIndex: 1,
+            data: ratio,
+            symbol: 'circle',
+            symbolSize: 6,
+            itemStyle: { color: C.tinta, borderColor: '#fff', borderWidth: 1.5 },
+            lineStyle: { color: C.tinta, width: 2.2 },
+            z: 5,
+            // el pico se anota DENTRO del grafico: es la lectura que el area busca
+            markPoint: {
+              symbol: 'pin',
+              symbolSize: 46,
+              label: {
+                fontSize: 9,
+                color: '#fff',
+                fontFamily: MONO,
+                formatter: function (p) {
+                  return Fmt.num(p.value, cfg.decRatio);
+                },
+              },
+              data: [
+                { type: 'max', name: 'maximo', itemStyle: { color: C.riesgo } },
+                { type: 'min', name: 'minimo', itemStyle: { color: C.cumple } },
+              ],
+            },
+          },
+        ],
+      })
+    );
+  }
+
   return {
     colores: C,
     redibujar: redibujar,
@@ -489,96 +597,24 @@ var Graficos = (function () {
 
     /** El agua: produccion en barras y consumo por lente en linea, con los picos marcados. */
     aguaCombo: function (id, filas) {
-      var porMes = {};
-      filas.forEach(function (f) {
-        porMes[f.mes] = f;
+      comboProduccion(id, filas, {
+        campoConsumo: 'consumo_m3',
+        campoRatio: 'l_por_lente',
+        unidadConsumo: 'm³',
+        unidadRatio: 'l',
+        decRatio: 2,
       });
-      var lentes = Fmt.mesMini.map(function (_, i) {
-        return porMes[i + 1] ? porMes[i + 1].lentes : null;
+    },
+
+    /** Lo mismo que aguaCombo, para energía. */
+    energiaCombo: function (id, filas) {
+      comboProduccion(id, filas, {
+        campoConsumo: 'consumo_kwh',
+        campoRatio: 'kwh_por_lente',
+        unidadConsumo: 'kWh',
+        unidadRatio: 'kWh',
+        decRatio: 3,
       });
-      var ratio = Fmt.mesMini.map(function (_, i) {
-        return porMes[i + 1] ? porMes[i + 1].l_por_lente : null;
-      });
-      pintar(
-        id,
-        base({
-          legend: { top: 0, left: 'center', icon: 'roundRect' },
-          xAxis: ejeMeses(),
-          yAxis: [
-            { type: 'value', name: 'lentes' },
-            { type: 'value', splitLine: { show: false }, scale: true },
-          ],
-          tooltip: {
-            trigger: 'axis',
-            confine: true,
-            backgroundColor: 'rgba(11,34,57,.95)',
-            borderWidth: 0,
-            padding: [8, 11],
-            textStyle: { color: '#EAF2F7', fontSize: 11.5 },
-            formatter: function (ps) {
-              var f = porMes[ps[0].dataIndex + 1];
-              if (!f)
-                return (
-                  '<b>' +
-                  Fmt.mesLargo[ps[0].dataIndex] +
-                  '</b><div style="opacity:.7">sin captura</div>'
-                );
-              return (
-                '<b>' +
-                f.nombre_mes +
-                '</b>' +
-                filaTooltip(C.ambSuave, 'Lentes procesados', Fmt.num(f.lentes, 0)) +
-                filaTooltip(C.tinta, 'Consumo por lente', Fmt.num(f.l_por_lente, 2) + ' l') +
-                filaTooltip('transparent', 'Consumo total', Fmt.num(f.consumo_m3, 0) + ' m³') +
-                (f.var_por_lente_pct === null
-                  ? ''
-                  : filaTooltip(
-                      'transparent',
-                      'Contra el mes anterior',
-                      Fmt.pctDirecto(f.var_por_lente_pct)
-                    ))
-              );
-            },
-          },
-          series: [
-            {
-              name: 'Lentes procesados',
-              type: 'bar',
-              data: lentes,
-              itemStyle: { color: C.ambSuave, borderRadius: [2, 2, 0, 0] },
-              barMaxWidth: 24,
-            },
-            {
-              name: 'Consumo por lente (l/lente)',
-              type: 'line',
-              yAxisIndex: 1,
-              data: ratio,
-              symbol: 'circle',
-              symbolSize: 6,
-              itemStyle: { color: C.tinta, borderColor: '#fff', borderWidth: 1.5 },
-              lineStyle: { color: C.tinta, width: 2.2 },
-              z: 5,
-              // el pico se anota DENTRO del grafico: es la lectura que el area busca
-              markPoint: {
-                symbol: 'pin',
-                symbolSize: 46,
-                label: {
-                  fontSize: 9,
-                  color: '#fff',
-                  fontFamily: MONO,
-                  formatter: function (p) {
-                    return Fmt.num(p.value, 2);
-                  },
-                },
-                data: [
-                  { type: 'max', name: 'maximo', itemStyle: { color: C.riesgo } },
-                  { type: 'min', name: 'minimo', itemStyle: { color: C.cumple } },
-                ],
-              },
-            },
-          ],
-        })
-      );
     },
 
     /**
