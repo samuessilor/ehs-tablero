@@ -15,6 +15,7 @@ Cuatro pantallas. Las otras tres se abren desde la barra de arriba del tablero
 | **Tablero** | Los cinco indicadores del mes, contra su meta |
 | **Capturar mes** | Entrar los 27 números del mes que acaba de cerrar. El tablero publica el mes cuando están los 27; donde no hay personal temporal se escribe 0 |
 | **Consultar y corregir** | Arreglar un número que ya se capturó, con el motivo de por qué cambia |
+| **06 Datos** (pestaña) | Ver las lecturas y de dónde sale cada gráfica (numerador, denominador, resultado), comprobar que cuadra y, con el lápiz ✎, corregir una lectura |
 | **Descargar reporte** | Un resumen para imprimir o guardar como PDF |
 
 ## Si algo no responde

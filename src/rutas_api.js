@@ -152,6 +152,18 @@ async function atender(req, res, url) {
       return (json(res, r), true);
     }
 
+    if (ruta === '/api/ehs/datos') {
+      // los datos detras de las graficas, para la vista "Datos" del tablero
+      const ambito = q.get('ambito') || 'nacional';
+      if (!AMBITOS.includes(ambito)) {
+        errores.parametroInvalido(res, `Ambito desconocido: ${ambito}.`, { validos: AMBITOS });
+        return true;
+      }
+      const r = await datos.datosTabulados({ anio, ambito });
+      if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
+      return (json(res, r), true);
+    }
+
     if (ruta === '/api/ehs/detalle') {
       const r = await datos.detalle({ anio });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);

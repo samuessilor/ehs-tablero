@@ -996,6 +996,120 @@ module.exports = {
   },
 
   /**
+   * Los datos detras de las graficas, para la vista "Datos" del tablero.
+   *
+   * Dos cosas, las dos del corte publicado y del ambito elegido:
+   *   - las lecturas crudas mes a mes (sumadas por magnitud si el ambito agrega sitios),
+   *     de ehs.v_lectura_ambito;
+   *   - por cada KPI, el numerador, el denominador y el valor mensual y acumulado TAL
+   *     COMO los publican ehs.v_kpi_mensual y ehs.v_kpi_ytd, que son las vistas de las
+   *     que salen las graficas y las fichas.
+   * No calcula nada nuevo: pone a la vista de donde sale cada numero, con que
+   * magnitudes (ref.kpi_magnitud) y con que factor, para que se pueda comprobar a mano.
+   */
+  async datosTabulados({ anio, ambito }) {
+    const ctx = await contexto();
+    ({ anio } = alCorte(ctx, anio, null));
+    if (anio !== ctx.anio) return null;
+
+    const { sql, req } = await peticion();
+    const r = await req
+      .input('anio', sql.SmallInt, anio)
+      .input('corte', sql.TinyInt, ctx.corte)
+      .input('ambito', sql.VarChar(20), ambito).query(`
+        select nombre = ${NOMBRE_AMBITO};
+
+        select a.sitio_id, s.sitio
+          from ehs.v_ambito a
+          join ref.dim_sitio s on s.sitio_id = a.sitio_id
+         where a.ambito_id = @ambito
+         order by a.sitio_id;
+
+        select magnitud_id, magnitud, unidad
+          from ref.dim_magnitud where area = 'ehs' order by orden;
+
+        select k.kpi_id, k.kpi, k.unidad, k.formato, factor = cast(k.factor as float)
+          from ref.dim_kpi k where k.area = 'ehs' order by k.orden;
+
+        select km.kpi_id, km.magnitud_id, km.rol
+          from ref.kpi_magnitud km
+          join ref.dim_kpi k on k.kpi_id = km.kpi_id and k.area = 'ehs';
+
+        select la.num_mes, la.magnitud_id,
+               valor = cast(sum(la.valor) as float), lecturas = count(*)
+          from ehs.v_lectura_ambito la
+         where la.anio = @anio and la.ambito_id = @ambito and la.num_mes <= @corte
+         group by la.num_mes, la.magnitud_id;
+
+        select m.num_mes, m.kpi_id,
+               numerador = cast(m.numerador as float),
+               denominador = cast(m.denominador as float),
+               valor = cast(round(m.valor, 6) as float),
+               ytd_numerador = cast(y.numerador as float),
+               ytd_denominador = cast(y.denominador as float),
+               ytd = cast(round(y.valor, 6) as float)
+          from ehs.v_kpi_mensual m
+          left join ehs.v_kpi_ytd y
+                 on y.anio = m.anio and y.num_mes_corte = m.num_mes
+                and y.ambito_id = m.ambito_id and y.kpi_id = m.kpi_id
+         where m.anio = @anio and m.ambito_id = @ambito and m.num_mes <= @corte;
+      `);
+
+    const [[def], sitios, magnitudes, kpis, mapa, lecturas, valores] = r.recordsets;
+    if (!def || !lecturas.length) return null;
+
+    const meses = new Map();
+    const mesDe = (n) => {
+      if (!meses.has(n)) meses.set(n, { mes: n, lecturas: {}, sitiosConLectura: {}, kpis: {} });
+      return meses.get(n);
+    };
+    for (const l of lecturas) {
+      const m = mesDe(l.num_mes);
+      m.lecturas[l.magnitud_id] = num(l.valor);
+      // cuantos sitios aportaron a la suma: con menos de los del ambito, la suma es parcial
+      m.sitiosConLectura[l.magnitud_id] = l.lecturas;
+    }
+    for (const v of valores) {
+      mesDe(v.num_mes).kpis[v.kpi_id] = {
+        numerador: num(v.numerador),
+        denominador: num(v.denominador),
+        valor: num(v.valor),
+        ytd_numerador: num(v.ytd_numerador),
+        ytd_denominador: num(v.ytd_denominador),
+        ytd: num(v.ytd),
+      };
+    }
+
+    return {
+      ...cabecera(ctx),
+      ambito: {
+        id: ambito,
+        nombre: def.nombre,
+        sitios: sitios.map((s) => ({ id: s.sitio_id, nombre: s.sitio })),
+      },
+      magnitudes: magnitudes.map((g) => ({
+        id: g.magnitud_id,
+        nombre: g.magnitud,
+        unidad: g.unidad,
+      })),
+      kpis: kpis.map((k) => ({
+        id: k.kpi_id,
+        nombre: k.kpi,
+        unidad: k.unidad,
+        dec: decimales(k.formato),
+        factor: num(k.factor),
+        numerador: mapa
+          .filter((x) => x.kpi_id === k.kpi_id && x.rol === 'numerador')
+          .map((x) => x.magnitud_id),
+        denominador: mapa
+          .filter((x) => x.kpi_id === k.kpi_id && x.rol === 'denominador')
+          .map((x) => x.magnitud_id),
+      })),
+      meses: [...meses.values()].sort((a, b) => a.mes - b.mes),
+    };
+  },
+
+  /**
    * Lo que la franja de estado necesita: si el motor responde, y en cuanto. No pasa
    * por contexto()/peticion() (que asumen que la conexion ya funciona y fallan con el
    * error generico de la consulta que estaban resolviendo): aqui el fallo ES la

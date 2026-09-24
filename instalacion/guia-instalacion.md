@@ -58,6 +58,10 @@ diga el mensaje (tabla de la sección 5) y se vuelve a hacer doble clic en
     captura dice cuántas van y cuáles faltan, y marca en gris las ya capturadas.
 - **Consultar y corregir**: para cambiar un número ya capturado. Pide el motivo, y el
   valor anterior queda en el historial con quién lo cambió y cuándo.
+- **06 Datos** (pestaña del tablero): las lecturas tal como están en la base y, por cada
+  indicador, numerador, denominador y resultado del mes y del acumulado, que es lo que
+  dibujan las gráficas. Cada fila dice **cuadra** si las lecturas dan lo que usa el
+  cálculo. Con un sitio elegido, el lápiz ✎ de cada lectura abre su corrección.
 - **Descargar reporte**: el resumen para imprimir o guardar como PDF, y el detalle en
   CSV.
 

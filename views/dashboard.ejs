@@ -153,6 +153,23 @@
     </section>
   </section>
 
+  <!-- ================================ 06 · DATOS =========================== -->
+  <!-- Los datos detras de las graficas: lecturas, numerador y denominador de cada KPI,
+       la comprobacion de que cuadran, y el lapiz para corregir una lectura. -->
+  <section class="vista" id="v-datos" role="tabpanel" aria-labelledby="tab-datos" hidden>
+    <section class="panel c12">
+      <header><span class="ix">01</span><h2>Las lecturas, tal como están en la base</h2><span class="sub" id="subDatosLect"></span></header>
+      <div class="cuerpo tablabox" id="tDatosLect"></div>
+      <div class="cuerpo" id="notaDatosLect"></div>
+    </section>
+
+    <section class="panel c12">
+      <header><span class="ix">02</span><h2>De dónde sale cada gráfica</h2><span class="sub" id="subDatosKpi"></span></header>
+      <div class="cuerpo" id="cajaDatosKpi"></div>
+      <div class="cuerpo" id="notaDatosKpi"></div>
+    </section>
+  </section>
+
 </main>
 
 <%- include('parciales/pie.ejs') %>

@@ -241,19 +241,54 @@
   /* ----------------------------------------------------------------------- inicio */
 
   /* Abre en el mes del corte publicado, ya consultado: lo que se corrige casi siempre es
-     lo ultimo que se capturo. Antes abria en enero y vacio. */
+     lo ultimo que se capturo. Antes abria en enero y vacio.
+     Con ?anio=&mes=&sitio=&magnitud= (el lapiz de la vista "Datos" del tablero) abre
+     directo en esa lectura, con el formulario de correccion ya abierto. */
   async function abrirEnElCorte() {
-    try {
-      var r = await fetch('/api/ehs/salud');
-      var s = await r.json();
-      if (s && s.corte && s.corte.mes) {
-        $('#cMes').value = String(s.corte.mes);
-        if (s.corte.anio) $('#cAnio').value = String(s.corte.anio);
+    var q = new URLSearchParams(location.search);
+    var mesUrl = parseInt(q.get('mes'), 10);
+    var anioUrl = parseInt(q.get('anio'), 10);
+    var sitioUrl = q.get('sitio');
+    if (mesUrl >= 1 && mesUrl <= 12) {
+      $('#cMes').value = String(mesUrl);
+      if (anioUrl >= 2023 && anioUrl <= 2100) $('#cAnio').value = String(anioUrl);
+    } else {
+      try {
+        var r = await fetch('/api/ehs/salud');
+        var s = await r.json();
+        if (s && s.corte && s.corte.mes) {
+          $('#cMes').value = String(s.corte.mes);
+          if (s.corte.anio) $('#cAnio').value = String(s.corte.anio);
+        }
+      } catch {
+        // sin salud se queda en lo que trae la pagina; consultar igual funciona a mano
       }
-    } catch {
-      // sin salud se queda en lo que trae la pagina; consultar igual funciona a mano
     }
-    consultar();
+    if (
+      sitioUrl &&
+      Array.prototype.some.call($('#cSitio').options, function (o) {
+        return o.value === sitioUrl;
+      })
+    ) {
+      $('#cSitio').value = sitioUrl;
+      // se llego desde el lapiz de "Datos": volver ahi, al mismo sitio y mes, y no a la
+      // portada, que obligaba a buscar otra vez la tabla para ver el cambio
+      var volver = document.querySelector('a.volver[href="/"]');
+      if (volver && mesUrl >= 1 && mesUrl <= 12) {
+        volver.href =
+          '/?' + new URLSearchParams({ vista: 'datos', sitio: sitioUrl, mes: mesUrl }).toString();
+        volver.textContent = '← Volver a Datos';
+      }
+    }
+    await consultar();
+
+    var i = MAGNITUDES.findIndex(function (m) {
+      return m.id === q.get('magnitud');
+    });
+    if (i >= 0) {
+      var boton = document.querySelector('#cuerpoValores tr:nth-child(' + (i + 1) + ') button');
+      if (boton && !boton.disabled) boton.click();
+    }
   }
 
   function iniciar() {

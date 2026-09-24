@@ -356,6 +356,20 @@ module.exports = {
   },
 
   /**
+   * La vista "Datos" muestra numerador, denominador y valor tal como los calculan las
+   * vistas de SQL Server. Aqui no hay vistas que mostrar: el JSON trae el resultado ya
+   * calculado por el pipeline, y rehacer el calculo en este adaptador seria inventar
+   * una segunda implementacion. Se declara, no se simula.
+   */
+  async datosTabulados() {
+    const e = new Error(
+      'La vista de datos necesita la instalacion con base de datos (ORIGEN_DATOS=sql).'
+    );
+    e.codigo = 'sin_implementar';
+    throw e;
+  },
+
+  /**
    * Lo que la franja de estado necesita: si hay algo que leer y desde cuando. No hay
    * "motor" en este modo — no existe conexion que probar, asi que se declara
    * explicitamente en vez de fingir uno que no aplica.

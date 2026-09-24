@@ -19,6 +19,7 @@ var Tablero = (function () {
     { id: 'ambiental', rotulo: '03 Ambiental' },
     { id: 'seguridad', rotulo: '04 Seguridad' },
     { id: 'calidad', rotulo: '05 Calidad del dato' },
+    { id: 'datos', rotulo: '06 Datos' },
   ];
   var AMBITOS = [
     { id: 'nacional', rotulo: 'Nacional + Ag.' },
@@ -959,6 +960,203 @@ var Tablero = (function () {
     );
   }
 
+  /* -------------------------------------------------------------- 06 · datos --- */
+
+  /* Una lectura o una suma tal como esta en la base: 979,1 y no 979. Fmt.num redondea a
+     los decimales que se le pidan, y aqui no se quiere esconder ninguno. */
+  function crudo(v) {
+    return v === null || v === undefined
+      ? '—'
+      : Number(v).toLocaleString('es-CO', { maximumFractionDigits: 4 });
+  }
+
+  /**
+   * Los datos detras de las graficas. Todo llega de /api/ehs/datos, que lee las mismas
+   * vistas que alimentan las fichas y las graficas (ehs.v_kpi_mensual y v_kpi_ytd): aqui
+   * no se calcula ningun indicador.
+   *
+   * Lo unico que se hace en el navegador es la COMPROBACION: sumar las lecturas de la
+   * tabla 01 que, segun ref.kpi_magnitud (servido tambien), forman cada numerador y
+   * denominador, y confirmar que dan lo mismo que usa la vista. Es una suma de cifras
+   * servidas, no una formula de KPI, y es justo lo que permite a quien mira el tablero
+   * ver con sus ojos que la grafica sale de estas lecturas y no de otras.
+   */
+  async function pintarDatos() {
+    var d = await api('datos', { ambito: S.ambito });
+    var unSitio = d.ambito.sitios.length === 1;
+    var sitio = unSitio ? d.ambito.sitios[0].id : null;
+    var nombres = d.ambito.sitios.map(function (s) {
+      return s.nombre;
+    });
+    var porMagnitud = {};
+    d.magnitudes.forEach(function (g) {
+      porMagnitud[g.id] = g;
+    });
+
+    // --- 01 · las lecturas
+    $('#subDatosLect').textContent = unSitio
+      ? d.ambito.nombre + ' · ' + d.corte.nombre + ' ' + d.anio
+      : 'suma de ' + nombres.join(' + ') + ' · al corte de ' + d.corte.nombre;
+    $('#tDatosLect').innerHTML =
+      '<table class="matriz datos-tabla"><tr><th>Mes</th>' +
+      d.magnitudes
+        .map(function (g) {
+          return (
+            '<th class="num">' + Fmt.esc(g.nombre) + '<small>' + Fmt.esc(g.unidad) + '</small></th>'
+          );
+        })
+        .join('') +
+      '</tr>' +
+      d.meses
+        .map(function (m) {
+          return (
+            '<tr' +
+            (m.mes === S.mes ? ' class="datos-sel"' : '') +
+            '><th>' +
+            Fmt.mesLargo[m.mes - 1] +
+            '</th>' +
+            d.magnitudes
+              .map(function (g) {
+                var v = m.lecturas[g.id];
+                var parcial =
+                  v !== undefined && (m.sitiosConLectura[g.id] || 0) < d.ambito.sitios.length;
+                var editar = unSitio
+                  ? ' <a class="datos-editar" title="Corregir este valor" href="/corregir?' +
+                    new URLSearchParams({
+                      anio: d.anio,
+                      mes: m.mes,
+                      sitio: sitio,
+                      magnitud: g.id,
+                    }).toString() +
+                    '">✎</a>'
+                  : '';
+                return (
+                  '<td class="num' +
+                  (parcial ? ' datos-parcial' : '') +
+                  '"' +
+                  (parcial ? ' title="Falta la lectura de algún sitio: la suma es parcial"' : '') +
+                  '>' +
+                  crudo(v) +
+                  editar +
+                  '</td>'
+                );
+              })
+              .join('') +
+            '</tr>'
+          );
+        })
+        .join('') +
+      '</table>';
+    $('#notaDatosLect').innerHTML = nota(
+      unSitio
+        ? 'Cada número es la lectura tal como está en la base. Para cambiar uno, el lápiz ✎ ' +
+            'abre <b>Consultar y corregir</b> con ese valor ya elegido: pide el motivo, guarda el ' +
+            'valor anterior en el historial y el tablero se recalcula solo.'
+        : 'En un agregado cada número es la <b>suma</b> de las lecturas de ' +
+            Fmt.esc(nombres.join(', ')) +
+            '. Para ver o corregir la lectura de un sitio, elígelo arriba en <b>Sitio</b>.'
+    );
+
+    // --- 02 · de donde salen las graficas
+    var sumar = function (m, lista) {
+      if (!lista.length) return null;
+      var s = 0;
+      for (var i = 0; i < lista.length; i++) {
+        var v = m.lecturas[lista[i]];
+        if (v === undefined || v === null) return null;
+        s += Number(v);
+      }
+      return s;
+    };
+    var igual = function (a, b) {
+      var faltaA = a === null || a === undefined;
+      var faltaB = b === null || b === undefined;
+      if (faltaA || faltaB) return faltaA && faltaB;
+      return Math.abs(a - b) <= 1e-6 * Math.max(1, Math.abs(a), Math.abs(b));
+    };
+    var nombreDe = function (lista) {
+      return lista
+        .map(function (id) {
+          var g = porMagnitud[id];
+          return g ? g.nombre + ' (' + g.unidad + ')' : id;
+        })
+        .join(' + ');
+    };
+    var fallas = 0;
+    $('#cajaDatosKpi').innerHTML = d.kpis
+      .map(function (k) {
+        var formula =
+          (k.numerador.length > 1 ? '(' : '') +
+          nombreDe(k.numerador) +
+          (k.numerador.length > 1 ? ')' : '') +
+          (k.factor !== 1 ? ' × ' + Fmt.num(k.factor) : '') +
+          (k.denominador.length
+            ? ' ÷ ' +
+              (k.denominador.length > 1 ? '(' : '') +
+              nombreDe(k.denominador) +
+              (k.denominador.length > 1 ? ')' : '')
+            : '');
+        var filas = d.meses
+          .map(function (m) {
+            var x = m.kpis[k.id] || {};
+            var ok =
+              igual(sumar(m, k.numerador), x.numerador) &&
+              (k.denominador.length ? igual(sumar(m, k.denominador), x.denominador) : true);
+            if (!ok) fallas++;
+            return (
+              '<tr' +
+              (m.mes === S.mes ? ' class="datos-sel"' : '') +
+              '><th>' +
+              Fmt.mesLargo[m.mes - 1] +
+              '</th><td class="num">' +
+              crudo(x.numerador) +
+              '</td><td class="num">' +
+              (k.denominador.length ? crudo(x.denominador) : '—') +
+              '</td><td class="num fuerte">' +
+              Fmt.num(x.valor, k.dec) +
+              '</td><td class="num">' +
+              crudo(x.ytd_numerador) +
+              '</td><td class="num">' +
+              (k.denominador.length ? crudo(x.ytd_denominador) : '—') +
+              '</td><td class="num fuerte">' +
+              Fmt.num(x.ytd, k.dec) +
+              '</td><td class="datos-ok">' +
+              (ok
+                ? '<span class="chip cumple" title="La suma de las lecturas de la tabla 01 da este numerador y este denominador">cuadra</span>'
+                : '<span class="chip incumple" title="La suma de las lecturas no coincide con lo que usa el cálculo">no cuadra</span>') +
+              '</td></tr>'
+            );
+          })
+          .join('');
+        return (
+          '<div class="datos-kpi"><h3>' +
+          Fmt.esc(k.nombre) +
+          ' <small>' +
+          Fmt.esc(k.unidad) +
+          '</small></h3><p class="datos-formula">' +
+          Fmt.esc(formula) +
+          (k.denominador.length ? '' : ' · es un conteo: no divide') +
+          '</p><div class="tablabox"><table class="matriz datos-tabla"><tr><th>Mes</th>' +
+          '<th class="num">Numerador</th><th class="num">Denominador</th><th class="num">Del mes</th>' +
+          '<th class="num">Numerador acum.</th><th class="num">Denominador acum.</th>' +
+          '<th class="num">Acumulado (YTD)</th><th>Comprobación</th></tr>' +
+          filas +
+          '</table></div></div>'
+        );
+      })
+      .join('');
+    $('#subDatosKpi').textContent = fallas
+      ? fallas + (fallas === 1 ? ' fila no cuadra' : ' filas no cuadran')
+      : 'todo cuadra con las lecturas de la tabla 01';
+    $('#notaDatosKpi').innerHTML = nota(
+      'Estas son las cifras exactas que dibujan las fichas y las gráficas: numerador y ' +
+        'denominador del mes, y los mismos sumados de enero al mes (el acumulado se divide al ' +
+        'final, nunca se promedia). <b>Cuadra</b> quiere decir que sumar las lecturas de la ' +
+        'tabla 01 da exactamente lo que usa el cálculo.' +
+        ' <a href="/api/ehs/detalle?formato=csv">Descargar las lecturas en CSV</a>.'
+    );
+  }
+
   /* ------------------------------------------------------------------- render --- */
   async function render() {
     // Un clic mientras se dibuja NO se descarta: se recuerda y se atiende al terminar.
@@ -992,6 +1190,7 @@ var Tablero = (function () {
       else if (S.vista === 'ambiental') await pintarAmbiental();
       else if (S.vista === 'seguridad') await pintarSeguridad();
       else if (S.vista === 'calidad') await pintarCalidad();
+      else if (S.vista === 'datos') await pintarDatos();
 
       Graficos.redibujar();
       $('#viva').textContent =

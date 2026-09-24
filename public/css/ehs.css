@@ -1018,6 +1018,79 @@ main {
   filter: brightness(0.97);
 }
 
+/* ============================ VISTA DE DATOS ============================= */
+/* Las cifras detras de las graficas. Reusa .matriz (bordes y colores del tablero) pero
+   con relleno y ancho automatico: aqui se leen numeros largos, no celdas de color. */
+.datos-tabla {
+  table-layout: auto;
+}
+.datos-tabla th,
+.datos-tabla td {
+  padding: 5px 8px;
+}
+.datos-tabla td.num,
+.datos-tabla th.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.datos-tabla tr:first-child th {
+  background: #edf1f6;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tenue);
+  vertical-align: bottom;
+}
+.datos-tabla tr:first-child th small {
+  display: block;
+  font-weight: 400;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.datos-tabla td.fuerte {
+  font-weight: 700;
+}
+.datos-tabla tr.datos-sel th,
+.datos-tabla tr.datos-sel td {
+  background: rgba(33, 160, 160, 0.08);
+}
+.datos-tabla td.datos-parcial {
+  color: var(--riesgo);
+}
+.datos-editar {
+  margin-left: 6px;
+  color: var(--amb);
+  text-decoration: none;
+}
+.datos-editar:hover {
+  color: var(--tinta);
+}
+.datos-kpi + .datos-kpi {
+  margin-top: 20px;
+}
+.datos-kpi h3 {
+  margin: 0 0 2px;
+  font-size: 14px;
+}
+.datos-kpi h3 small {
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--tenue);
+}
+.datos-formula {
+  margin: 0 0 8px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--tenue);
+}
+.datos-ok {
+  white-space: nowrap;
+}
+
 /* ============================ VISTA DE AGUA ============================== */
 .aguacab {
   grid-column: span 12;
