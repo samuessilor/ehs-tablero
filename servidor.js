@@ -13,6 +13,7 @@ const { URL } = require('url');
 const aplicacion = require('./src/aplicacion');
 const { obtener } = require('./src/datos/configuracion');
 const respaldo = require('./src/respaldo');
+const { asegurarDockerDesktop } = require('./src/arranque_motor');
 
 // Por configuracion y no solo por entorno: la tarea programada que arranca el
 // tablero en el equipo del area no le pasa ninguna variable, asi que todo tiene que
@@ -61,4 +62,8 @@ http
   .listen(PUERTO, HOST, () => {
     console.log(`Tablero EHS en http://${HOST}:${PUERTO}`);
     respaldo.programarDiario();
+    // en la instalacion en contenedor, abre Docker Desktop si nadie lo abrio al iniciar sesion
+    asegurarDockerDesktop().then((r) => {
+      if (r === 'abierto') console.log('Docker Desktop estaba cerrado: se abrio.');
+    });
   });

@@ -453,32 +453,6 @@ function Carpeta-DeUsuario {
     return $null
 }
 
-# Docker Desktop viene con "Start Docker Desktop when you sign in" APAGADO: sin
-# encenderlo, despues de cada reinicio el motor no existe hasta que alguien abre
-# Docker a mano, y el tablero queda en rojo. Es un ajuste del usuario, en su propio
-# settings-store.json: no pide administrador. Se guarda copia antes de tocarlo.
-function Activar-ArranqueDocker {
-    $perfil = (Get-CimInstance Win32_UserProfile -Filter "SID='$SidUsuario'" -ErrorAction SilentlyContinue).LocalPath
-    if (-not $perfil) { return }
-    foreach ($nombre in 'settings-store.json', 'settings.json') {
-        $ruta = Join-Path $perfil "AppData\Roaming\Docker\$nombre"
-        if (-not (Test-Path $ruta)) { continue }
-        $ajustes = Get-Content $ruta -Raw | ConvertFrom-Json
-        if ($ajustes.PSObject.Properties.Name -contains 'AutoStart') {
-            if ($ajustes.AutoStart -eq $true) { Write-Host "Docker Desktop ya arranca al iniciar sesion."; return }
-            $ajustes.AutoStart = $true
-        } else {
-            $ajustes | Add-Member -NotePropertyName AutoStart -NotePropertyValue $true
-        }
-        Copy-Item $ruta "$ruta.ehs-antes" -Force
-        [IO.File]::WriteAllText($ruta, ($ajustes | ConvertTo-Json -Depth 50), [Text.UTF8Encoding]::new($false))
-        Write-Host "Docker Desktop queda arrancando al iniciar sesion ($nombre)." -ForegroundColor Green
-        return
-    }
-    Write-Warning ("No se encontro la configuracion de Docker Desktop del usuario: activa a mano " +
-                   "'Start Docker Desktop when you sign in' (Settings > General).")
-}
-
 # ------------------------------------------ credenciales: nuevas o del intento previo
 
 $Previo = Leer-Config $ArchivoConfig
@@ -506,6 +480,22 @@ if ($Motor -eq 'contenedor') {
         throw "Ni docker ni podman estan disponibles. Instala Podman (o Docker con licencia) o usa -Motor nativo."
     }
     $infoMotor = & $script:Herramienta info 2>&1 | Out-String
+    # Docker Desktop cerrado: se abre y se espera a su motor, igual que en reparar.ps1,
+    # en vez de pedirle a quien instala que lo abra y vuelva a empezar. La primera vez
+    # despues de instalar Docker Desktop hay que aceptar sus terminos en su ventana:
+    # eso no se puede hacer por la persona, y si no se hace, esto termina en el aviso
+    # de siempre al cabo de tres minutos.
+    $escritorioDocker = Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'
+    if ($LASTEXITCODE -ne 0 -and $script:Herramienta -eq 'docker' -and (Test-Path $escritorioDocker) -and
+        $infoMotor -notmatch 'Access is denied|acceso denegado|permission denied') {
+        Write-Host "Docker Desktop esta cerrado: abriendolo y esperando su motor (hasta 3 minutos)…"
+        Start-Process $escritorioDocker
+        $limite = (Get-Date).AddSeconds(180)
+        do {
+            Start-Sleep -Seconds 5
+            $infoMotor = & $script:Herramienta info 2>&1 | Out-String
+        } while ($LASTEXITCODE -ne 0 -and (Get-Date) -lt $limite)
+    }
     if ($LASTEXITCODE -ne 0) {
         # Una cuenta fuera del grupo docker-users no es "Docker cerrado": abrir Docker
         # Desktop y reintentar no lo arregla, y el mensaje generico mandaba justo a eso.
@@ -514,7 +504,9 @@ if ($Motor -eq 'contenedor') {
                    "docker-users. IT la agrega (Administracion de equipos > Usuarios y grupos locales > " +
                    "docker-users), se cierra sesion y se vuelve a correr este instalador.")
         }
-        throw "$($script:Herramienta) esta instalado pero no responde. Abre Docker Desktop / inicia la maquina de Podman y vuelve a correr este script."
+        throw ("$($script:Herramienta) esta instalado pero no responde. Abre Docker Desktop (la primera vez hay " +
+               "que aceptar sus terminos en su ventana) o inicia la maquina de Podman, espera a que diga " +
+               "'Engine running' y vuelve a correr INSTALAR-EHS.cmd.")
     }
     Write-Host "Usando $($script:Herramienta)."
     $procesoPrevio = [bool](& $script:Herramienta ps -a --format '{{.Names}}' | Where-Object { $_ -eq $NombreContenedor })
@@ -700,7 +692,8 @@ $accesoInicio.Description = 'Arranca el tablero EHS al iniciar sesion, sin venta
 $accesoInicio.Save()
 Write-Host "Arranque automatico: $(Ruta-AccesoInicio -CarpetaInicio $carpetaInicio)"
 
-if ($Motor -eq 'contenedor') { Activar-ArranqueDocker }
+# Docker Desktop al iniciar sesion: lo abre el propio tablero (src/arranque_motor.js)
+# si nadie lo abrio. Editar su settings-store.json no se sostiene: Docker lo reescribe.
 
 # ------------------------------------------------ arrancarlo ya, y comprobarlo
 

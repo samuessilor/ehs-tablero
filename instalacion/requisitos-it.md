@@ -25,7 +25,7 @@ Con eso listo, la persona del área (o Samuel con ella) hace doble clic en
 | Dónde escucha | **Solo `127.0.0.1`**: el motor en el puerto 14330 y el tablero en el 3210. Ninguno queda en una interfaz de red, así que no pide ninguna excepción del firewall |
 | La aplicación | Node.js portable dentro de `C:\EHS\node\`. No instala Node en el sistema ni toca el PATH |
 | Arranque | Un acceso directo en la carpeta **Inicio** de la persona (`EHS Tablero.lnk`), que abre el tablero sin ventana al iniciar sesión. No es un servicio de Windows ni una tarea programada, y no corre con cuenta de sistema |
-| Docker al iniciar sesión | Se enciende "Start Docker Desktop when you sign in" en la configuración de Docker **de esa persona** (queda copia del archivo original como `settings-store.json.ehs-antes`). Sin esto, después de cada reinicio el tablero se quedaría sin motor |
+| Docker al iniciar sesión | El tablero, al arrancar, abre Docker Desktop si no está abierto. No se toca ningún ajuste de Docker: editar su configuración no se sostiene, porque Docker Desktop la reescribe |
 | Dos logins SQL | `ehs_migrador` (crea y actualiza el esquema) y `ehs_app` (la que usa el tablero: solo lee y solo puede ejecutar dos procedimientos, el de captura y el de corrección; ni `db_owner` ni `sa`) |
 | Respaldo | Un `.bak` después de cada captura o corrección y uno diario, en `C:\EHS\ehs-datos\respaldo\` (se conservan los 14 más recientes), copiado además a OneDrive corporativo si está configurado en el equipo |
 | Accesos en el escritorio | **EHS** (abre el tablero) y **Reparar EHS** |

@@ -135,12 +135,32 @@
 <main>
 
 <section>
-  <h2><span class="num">00</span>En resumen</h2>
-  <p>Con <b>Docker Desktop</b> ya instalado y abierto en el equipo: extraer
-  <code>paquete.zip</code> en <code>C:\EHS</code> y hacer doble clic en
-  <code>INSTALAR-EHS.cmd</code>. Al terminar se abre el tablero y quedan dos íconos en el
-  escritorio: <b>EHS</b> y <b>Reparar EHS</b>. No hace falta internet: todo viaja dentro
-  del paquete.</p>
+  <h2><span class="num">00</span>Lo esencial</h2>
+  <div class="tabla">
+  <table>
+    <thead><tr><th>Cuándo</th><th>Qué se hace</th></tr></thead>
+    <tbody>
+      <tr><td><b>Una vez</b>, antes</td>
+          <td>Docker Desktop instalado en el equipo, abierto una vez y con sus términos
+          aceptados (sección 01).</td></tr>
+      <tr><td><b>Una vez</b>, instalar</td>
+          <td>Extraer <code>paquete.zip</code> en <code>C:\EHS</code> y doble clic en
+          <code>INSTALAR-EHS.cmd</code>. Dos minutos. Queda <b>todo configurado</b>: la base con
+          el histórico 2026, los íconos <b>EHS</b> y <b>Reparar EHS</b>, el arranque solo al
+          encender el equipo y los respaldos automáticos.</td></tr>
+      <tr><td><b>Cada día</b></td>
+          <td>Doble clic en el ícono <b>EHS</b>. Nada más: el motor, el tablero y los respaldos
+          arrancan y trabajan solos.</td></tr>
+      <tr><td><b>Cada mes</b></td>
+          <td>En el tablero, <b>Capturar mes</b>: las 27 lecturas del mes que cerró
+          (sección 04).</td></tr>
+      <tr><td>Si algo se ve en rojo</td>
+          <td>Doble clic en <b>Reparar EHS</b>.</td></tr>
+    </tbody>
+  </table>
+  </div>
+  <p>No hace falta internet: todo viaja dentro del paquete. El resto de esta página es el
+  detalle, para cuando haga falta.</p>
 </section>
 
 <section>
@@ -153,6 +173,9 @@
     <li>La cuenta de quien usa el equipo en el grupo local <code>docker-users</code>. Si IT
       instala Docker con otra cuenta, hay que agregarla a mano y cerrar sesión; si no, Docker
       responde “acceso denegado”.</li>
+    <li>Docker Desktop <b>abierto una vez</b> después de instalarlo, con sus términos aceptados
+      (el inicio de sesión en Docker se puede saltar). Desde ahí ya no hace falta abrirlo a
+      mano: el instalador y el tablero lo abren solos.</li>
   </ul>
   <div class="nota">
     <b>Licencia.</b> Docker Desktop es gratis solo para empresas de menos de 250 empleados y
@@ -182,15 +205,11 @@
       no su configuracion”.
     </li>
     <li>
-      <strong>Abrir Docker Desktop</strong>
-      Esperar a que abajo a la izquierda diga <i>Engine running</i> (la ballena de la barra de
-      tareas deja de moverse).
-    </li>
-    <li>
       <strong>Doble clic en <code>C:\EHS\INSTALAR-EHS.cmd</code></strong>
       Si Windows pregunta <i>“¿Desea ejecutar este archivo?”</i>, responder
       <b>Ejecutar</b>. Si sale <i>“Windows protegió su PC”</i>: <b>Más información</b> →
-      <b>Ejecutar de todas formas</b>. No aparece ningún aviso de administrador.
+      <b>Ejecutar de todas formas</b>. No aparece ningún aviso de administrador. Si Docker
+      Desktop está cerrado, el instalador lo abre y espera a que esté listo.
     </li>
     <li>
       <strong>Esperar unos dos minutos</strong>
@@ -246,7 +265,8 @@
 
 <section>
   <h2><span class="num">05</span>Al encender el equipo</h2>
-  <p>No hay que hacer nada: Docker Desktop y el tablero arrancan solos al iniciar sesión. El
+  <p>No hay que hacer nada: el tablero arranca solo al iniciar sesión y, si Docker Desktop no
+  está abierto, lo abre él mismo. El
   motor tarda uno o dos minutos en estar listo; si se abre <b>EHS</b> antes, aparece
   <i>“El motor de datos todavía no responde”</i> y la página lo vuelve a intentar sola cada
   15 segundos. Si justo al iniciar sesión el navegador dice que no puede conectarse a
@@ -265,8 +285,9 @@
       <tr><td>“Ni docker ni podman estan disponibles”</td>
           <td>Docker Desktop no está instalado: IT (sección 01).</td></tr>
       <tr><td>“docker esta instalado pero no responde”</td>
-          <td>Abrir Docker Desktop, esperar <i>Engine running</i> y volver a correr
-          <code>INSTALAR-EHS.cmd</code>. Si Docker Desktop no llega a <i>Engine running</i>:
+          <td>El instalador ya intentó abrir Docker Desktop durante tres minutos. Abrirlo a mano:
+          si es la primera vez, aceptar sus términos; esperar a que diga <i>Engine running</i> y
+          volver a correr <code>INSTALAR-EHS.cmd</code>. Si nunca llega a <i>Engine running</i>:
           IT.</td></tr>
       <tr><td>“Docker responde 'acceso denegado': la cuenta … no esta en el grupo local
           docker-users”</td>
@@ -341,7 +362,7 @@
   <p>Doble clic en <code>DESINSTALAR-EHS.cmd</code>. Con Docker (el camino normal) toma un
   último respaldo y <b>conserva</b> el dato: retira el contenedor pero deja el volumen
   <code>ehs-motor-datos</code> y la configuración, así que volver a instalar lo recupera todo.
-  También devuelve Docker Desktop a como arrancaba antes.</p>
+  No cambia ningún ajuste de Docker Desktop.</p>
   <p>Con el plan B (sin Docker) el doble clic no alcanza: hay que correr
   <code>desinstalar.ps1</code> desde un PowerShell abierto como Administrador. Ese camino
   desinstala SQL Server, y el dato queda solo en el último <code>.bak</code> de

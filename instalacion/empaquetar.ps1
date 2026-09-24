@@ -210,7 +210,8 @@ pause
 EHS - tablero de indicadores
 ============================
 
-ANTES: Docker Desktop instalado y abierto en este equipo.
+ANTES: Docker Desktop instalado en este equipo y abierto una vez (terminos aceptados).
+Si esta cerrado al instalar, el instalador lo abre solo.
 
 Para instalar: doble clic en INSTALAR-EHS.cmd. No pide permiso de administrador.
 Tarda unos minutos. Al final se abre el tablero y quedan dos iconos en el

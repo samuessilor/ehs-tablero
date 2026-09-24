@@ -138,27 +138,6 @@ if ($motor -eq 'contenedor') {
             Write-Host "El volumen ehs-motor-datos se CONSERVA: instalar.ps1 -Motor contenedor lo vuelve a usar."
         }
     }
-    # instalar.ps1 encendio "Start Docker Desktop when you sign in" y guardo el archivo
-    # de antes como .ehs-antes. Se devuelve SOLO ese ajuste al valor que tenia: copiar
-    # el archivo entero pisaria cualquier otro ajuste que la persona cambio despues.
-    $docker = Join-Path $env:APPDATA 'Docker'
-    foreach ($nombre in 'settings-store.json', 'settings.json') {
-        $actual = Join-Path $docker $nombre
-        $antes = "$actual.ehs-antes"
-        if (-not ((Test-Path $actual) -and (Test-Path $antes))) { continue }
-        try {
-            $valorAntes = [bool]((Get-Content $antes -Raw | ConvertFrom-Json).PSObject.Properties |
-                Where-Object Name -eq 'AutoStart' | Select-Object -ExpandProperty Value)
-            $ajustes = Get-Content $actual -Raw | ConvertFrom-Json
-            if ($ajustes.PSObject.Properties.Name -contains 'AutoStart') { $ajustes.AutoStart = $valorAntes }
-            else { $ajustes | Add-Member -NotePropertyName AutoStart -NotePropertyValue $valorAntes }
-            [IO.File]::WriteAllText($actual, ($ajustes | ConvertTo-Json -Depth 50), [Text.UTF8Encoding]::new($false))
-            Remove-Item $antes -Force
-            Write-Host "Docker Desktop vuelve a su ajuste anterior de arranque al iniciar sesion ($valorAntes)."
-        } catch {
-            Write-Warning "No se pudo devolver el ajuste de arranque de Docker Desktop: $($_.Exception.Message)"
-        }
-    }
 } elseif ($motor -eq 'nativo') {
     $setup = Get-ChildItem 'C:\Program Files\Microsoft SQL Server\160\Setup Bootstrap\SQL2022\setup.exe' -ErrorAction SilentlyContinue |
         Select-Object -First 1 -ExpandProperty FullName

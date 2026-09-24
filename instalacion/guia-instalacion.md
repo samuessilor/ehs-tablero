@@ -1,7 +1,8 @@
 # EHS en el equipo del área: instalación paso a paso
 
 La versión final se instala **en modo contenedor y sin administrador**: un doble clic
-en `INSTALAR-EHS.cmd`, con Docker Desktop abierto. Tarda unos dos minutos.
+en `INSTALAR-EHS.cmd`, con Docker Desktop instalado. Tarda unos dos minutos, y deja todo
+configurado: base, histórico 2026, íconos, arranque solo al encender y respaldos.
 
 El modo nativo (SQL Server Express como servicio de Windows) queda como plan B en
 `INSTALAR-EHS-NATIVO.cmd`, para un equipo donde Docker no sea posible. Ese sí pide
@@ -16,7 +17,7 @@ administrador una vez.
 | Windows 10 u 11 de 64 bits, 8 GB de RAM, unos 4 GB libres en disco | Configuración → Sistema → Información |
 | **Docker Desktop instalado** | Aparece en el menú Inicio |
 | La cuenta de la persona en el grupo `docker-users` | Al abrir Docker Desktop no sale un error de permisos |
-| Docker Desktop **abierto**, con el motor corriendo | La ballena en la barra de tareas; en Docker Desktop, abajo a la izquierda, *Engine running* |
+| Docker Desktop **abierto una vez** tras instalarlo, con sus términos aceptados | Después ya no hace falta abrirlo a mano: el instalador y el tablero lo abren solos |
 
 Instalar Docker Desktop **sí** pide administrador. Si el equipo no lo tiene, eso lo
 hace IT una vez: ver [requisitos-it.md](requisitos-it.md), que además explica la
@@ -32,14 +33,14 @@ No hace falta internet: la imagen del motor viaja dentro del paquete.
 2. **Clic derecho → Extraer todo… → `C:\EHS`.** No en Descargas ni en el Escritorio:
    esa carpeta es la instalación y no se debe mover después. Quedan
    `C:\EHS\INSTALAR-EHS.cmd`, `app\`, `node\` e `instaladores\`.
-3. **Abre Docker Desktop** y espera a que diga *Engine running*.
-4. **Doble clic en `C:\EHS\INSTALAR-EHS.cmd`.** Si Windows pregunta "¿Desea ejecutar
+3. **Doble clic en `C:\EHS\INSTALAR-EHS.cmd`.** Si Docker Desktop está cerrado, el
+   instalador lo abre y espera a que esté listo. Si Windows pregunta "¿Desea ejecutar
    este archivo?" (pasa cuando el .zip vino de internet o de un correo), responde
    **Ejecutar**. No aparece ningún aviso de administrador.
-5. **Espera unos dos minutos.** La ventana va mostrando cada paso. Al terminar dice
+4. **Espera unos dos minutos.** La ventana va mostrando cada paso. Al terminar dice
    `Instalacion terminada` y se abre el tablero en el navegador. Presiona una tecla
    para cerrar la ventana.
-6. **Comprueba** que arriba del tablero la franja dice **"Motor conectado"** con el
+5. **Comprueba** que arriba del tablero la franja dice **"Motor conectado"** con el
    punto verde, y que en el escritorio quedaron dos íconos: **EHS** y **Reparar EHS**.
 
 Si algo falla, la ventana lo dice en rojo y **no se pierde nada**: se corrige lo que
@@ -68,8 +69,8 @@ La franja de arriba dice cuándo fue el último.
 
 ## 4. Al encender el equipo
 
-No hay que hacer nada. Docker Desktop y el tablero arrancan solos al iniciar sesión
-(el instalador dejó los dos configurados). El motor tarda uno o dos minutos en estar
+No hay que hacer nada. El tablero arranca solo al iniciar sesión y, si Docker Desktop no
+está abierto, lo abre él mismo. El motor tarda uno o dos minutos en estar
 listo: si se abre EHS antes, sale "El motor de datos todavía no responde" y la página
 lo vuelve a intentar sola cada 15 segundos.
 
@@ -78,7 +79,7 @@ lo vuelve a intentar sola cada 15 segundos.
 | Qué se ve | Qué hacer |
 |---|---|
 | "Ni docker ni podman estan disponibles" | Docker Desktop no está instalado: IT (sección 1) |
-| "docker esta instalado pero no responde" | Abrir Docker Desktop, esperar *Engine running* y volver a correr `INSTALAR-EHS.cmd`. Si nunca llega a *Engine running*: IT |
+| "docker esta instalado pero no responde" | El instalador ya intentó abrirlo tres minutos. Abrir Docker Desktop a mano (la primera vez, aceptar sus términos), esperar *Engine running* y volver a correr `INSTALAR-EHS.cmd`. Si nunca llega: IT |
 | "Docker responde 'acceso denegado': la cuenta … no esta en el grupo local docker-users" | IT agrega la cuenta a `docker-users`; se cierra sesión y se vuelve a instalar |
 | "Una directiva de IT (…) impide correr los scripts de EHS" | La política de ejecución del equipo es `AllSigned` o `Restricted`: IT |
 | "El puerto 14330 ya lo usa otro programa" | Casi siempre un EHS anterior instalado **sin Docker** (plan B). `DESINSTALAR-EHS.cmd` con doble clic no lo retira porque necesita administrador: IT corre, en PowerShell como Administrador, el `desinstalar.ps1` de la carpeta donde se instaló ese EHS. Si no es EHS, avisar |
@@ -111,8 +112,11 @@ El 23 de septiembre de 2026, en el equipo de Samuel (Windows 11, Docker Desktop
 | `actualizar.ps1` (aplicar una versión nueva) | ✅ |
 | Desinstalar y reinstalar | ✅ |
 
-Lo que **no** se probó todavía: el modo nativo en un equipo real, y Podman o Rancher
-Desktop en lugar de Docker Desktop (el instalador los detecta, pero no se han corrido).
+Lo que **no** se probó todavía: el modo nativo en un equipo real; Podman o Rancher
+Desktop en lugar de Docker Desktop (el instalador los detecta, pero no se han corrido); y
+que el instalador o el tablero abran Docker Desktop cuando está cerrado: la lógica se
+probó con otro programa, pero cerrar Docker en el equipo de prueba habría detenido los
+demás contenedores que corren ahí.
 
 ## 7. Actualizar, desinstalar, dónde queda cada cosa
 
@@ -123,7 +127,7 @@ Aplica las migraciones que falten y reinicia el tablero. Sin administrador.
 
 **Desinstalar:** doble clic en `DESINSTALAR-EHS.cmd`. Con Docker toma un último respaldo
 y **conserva** el dato (el volumen del motor, `ehs-datos` y la configuración), así que
-volver a instalar recupera todo. Devuelve Docker Desktop a su ajuste anterior de arranque.
+volver a instalar recupera todo. No cambia ningún ajuste de Docker Desktop.
 Con el plan B (nativo) hace falta PowerShell como Administrador, desinstala SQL Server y el
 dato queda solo en el último `.bak`: reinstalar no lo restaura solo.
 
