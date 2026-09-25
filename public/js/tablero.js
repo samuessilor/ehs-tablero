@@ -429,8 +429,7 @@ var Tablero = (function () {
     var cerrados = t.anios.filter(function (a) {
       return a.cerrado;
     });
-    if (!cerrados.length)
-      return 'Sin cierres anteriores cargados todavía para este ámbito.';
+    if (!cerrados.length) return 'Sin cierres anteriores cargados todavía para este ámbito.';
     var ult = cerrados[cerrados.length - 1];
     var pri = cerrados[0];
     var txt = '';
@@ -508,7 +507,10 @@ var Tablero = (function () {
       }).join('');
       // A = el año anterior al último, B = el último: lo que se pidió en la reunión
       // ("2025 contra 2026, como hoy") sin fijar el año en el código.
-      sel.value = sel.dataset.cual === 'A' ? ANIOS_CONTRASTE[ANIOS_CONTRASTE.length - 2] : ANIOS_CONTRASTE[ANIOS_CONTRASTE.length - 1];
+      sel.value =
+        sel.dataset.cual === 'A'
+          ? ANIOS_CONTRASTE[ANIOS_CONTRASTE.length - 2]
+          : ANIOS_CONTRASTE[ANIOS_CONTRASTE.length - 1];
       sel.dataset.listo = '1';
       sel.addEventListener('change', function () {
         pintarContraste(kpi, tablaId);
@@ -519,8 +521,16 @@ var Tablero = (function () {
   async function pintarContraste(kpi, tablaId) {
     var selects = selectsContraste(kpi);
     if (!selects.length) return;
-    var anioA = Number(selects.filter(function (s) { return s.dataset.cual === 'A'; })[0].value);
-    var anioB = Number(selects.filter(function (s) { return s.dataset.cual === 'B'; })[0].value);
+    var anioA = Number(
+      selects.filter(function (s) {
+        return s.dataset.cual === 'A';
+      })[0].value
+    );
+    var anioB = Number(
+      selects.filter(function (s) {
+        return s.dataset.cual === 'B';
+      })[0].value
+    );
     var tabla = $(tablaId);
 
     if (anioA === anioB) {
@@ -528,19 +538,43 @@ var Tablero = (function () {
       return;
     }
 
-    var r = await api('contraste-mensual', { ambito: S.ambito, kpi: kpi, anioA: anioA, anioB: anioB });
-    if (!r || r.meses.every(function (m) { return m.valorA === null && m.valorB === null; })) {
+    var r = await api('contraste-mensual', {
+      ambito: S.ambito,
+      kpi: kpi,
+      anioA: anioA,
+      anioB: anioB,
+    });
+    if (
+      !r ||
+      r.meses.every(function (m) {
+        return m.valorA === null && m.valorB === null;
+      })
+    ) {
       tabla.innerHTML =
         '<div class="vacio"><span class="chip sinmeta">sin dato</span>' +
-        '<p>Este ámbito no tiene lecturas de ' + Fmt.esc(r ? r.kpi : kpi) + ' en ' + anioA + ' ni en ' + anioB + '.</p></div>';
+        '<p>Este ámbito no tiene lecturas de ' +
+        Fmt.esc(r ? r.kpi : kpi) +
+        ' en ' +
+        anioA +
+        ' ni en ' +
+        anioB +
+        '.</p></div>';
       return;
     }
 
     var dec = r.dec;
     tabla.innerHTML =
       '<table class="matriz"><tr><th>Mes</th>' +
-      '<th class="num">' + anioA + '</th><th class="num">YTD ' + anioA + '</th>' +
-      '<th class="num">' + anioB + '</th><th class="num">YTD ' + anioB + '</th>' +
+      '<th class="num">' +
+      anioA +
+      '</th><th class="num">YTD ' +
+      anioA +
+      '</th>' +
+      '<th class="num">' +
+      anioB +
+      '</th><th class="num">YTD ' +
+      anioB +
+      '</th>' +
       '<th class="num">Δ mensual</th></tr>' +
       r.meses
         .map(function (m) {
@@ -864,7 +898,12 @@ var Tablero = (function () {
     );
 
     await pintarTrayectoriaPropia(
-      { sub: '#subAguaTray', grafico: '#gAguaTray', graficoRaw: 'gAguaTray', nota: '#notaAguaTray' },
+      {
+        sub: '#subAguaTray',
+        grafico: '#gAguaTray',
+        graficoRaw: 'gAguaTray',
+        nota: '#notaAguaTray',
+      },
       'agua_por_lente'
     );
     await pintarTrayectoriaPropia(

@@ -29,7 +29,11 @@
   }
 
   var COMBO = {
-    agua_por_lente: { endpoint: 'agua-mensual', dibujar: Graficos.aguaCombo, campoConsumo: 'consumo_m3' },
+    agua_por_lente: {
+      endpoint: 'agua-mensual',
+      dibujar: Graficos.aguaCombo,
+      campoConsumo: 'consumo_m3',
+    },
     energia_por_lente: {
       endpoint: 'energia-mensual',
       dibujar: Graficos.energiaCombo,
@@ -47,7 +51,11 @@
       if (ult.var_por_lente_pct != null) {
         return (
           'El consumo por lente ' +
-          (ult.var_por_lente_pct < 0 ? 'baja' : ult.var_por_lente_pct > 0 ? 'sube' : 'se mantiene') +
+          (ult.var_por_lente_pct < 0
+            ? 'baja'
+            : ult.var_por_lente_pct > 0
+              ? 'sube'
+              : 'se mantiene') +
           ' ' +
           Fmt.pctDirecto(Math.abs(ult.var_por_lente_pct)).replace('+', '') +
           ' contra ' +
@@ -68,7 +76,13 @@
       ', ' +
       (k.estado === 'cumple' ? 'dentro de la meta de ' : 'por encima de la meta de ') +
       Fmt.meta(k.meta, k.dec) +
-      (brecha == null ? '.' : ' (' + Fmt.num(brecha, 1) + ' % ' + (k.estado === 'cumple' ? 'por debajo' : 'por encima') + ').')
+      (brecha == null
+        ? '.'
+        : ' (' +
+          Fmt.num(brecha, 1) +
+          ' % ' +
+          (k.estado === 'cumple' ? 'por debajo' : 'por encima') +
+          ').')
     );
   }
 

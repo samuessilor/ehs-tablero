@@ -177,7 +177,8 @@ async function atender(req, res, url) {
         return true;
       }
       const r = await datos.trayectoriaAnual({ kpi, ambito });
-      if (!r) return (errores.noEncontrado(res, `El scorecard no publica ${kpi} para ${ambito}.`), true);
+      if (!r)
+        return (errores.noEncontrado(res, `El scorecard no publica ${kpi} para ${ambito}.`), true);
       return (json(res, r), true);
     }
 
@@ -203,7 +204,8 @@ async function atender(req, res, url) {
         return true;
       }
       const r = await datos.contrasteMensual({ ambito, kpi, anioA, anioB });
-      if (!r) return (errores.noEncontrado(res, `Sin datos para comparar ${anioA} y ${anioB}.`), true);
+      if (!r)
+        return (errores.noEncontrado(res, `Sin datos para comparar ${anioA} y ${anioB}.`), true);
       return (json(res, r), true);
     }
 

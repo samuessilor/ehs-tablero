@@ -957,7 +957,8 @@ module.exports = {
 
     const porMes = new Map();
     for (const f of filas) {
-      if (!porMes.has(f.num_mes)) porMes.set(f.num_mes, { mes: f.num_mes, nombre_mes: f.nombre_mes });
+      if (!porMes.has(f.num_mes))
+        porMes.set(f.num_mes, { mes: f.num_mes, nombre_mes: f.nombre_mes });
       const fila = porMes.get(f.num_mes);
       const sufijo = f.anio === anioA ? 'A' : 'B';
       const valor = num(f.mensual);
