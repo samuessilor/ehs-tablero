@@ -25,7 +25,11 @@ const crypto = require('crypto');
 const conexion = require('../src/datos/conexion_sql');
 
 const DIR_MIGRACIONES = path.join(__dirname, '..', 'migraciones');
-const ARCHIVO_DATOS_SEMILLA = '0008_carga_inicial.sql';
+/* Datos propios de este sitio (Servioptica), no esquema generico: una
+   instalacion nueva en un sitio real no debe arrancar con ellos ya cargados.
+   0012 se suma a 0008 con el mismo criterio — historico y Peru son del mismo
+   tipo de dato que la carga inicial 2026, solo que llegaron despues. */
+const ARCHIVOS_DATOS_SEMILLA = new Set(['0008_carga_inicial.sql', '0012_ehs_historico_peru_accidente.sql']);
 
 /* Separador de lotes al estilo sqlcmd/SSMS: 'go' solo en su propia linea (con
    espacio opcional alrededor). No es T-SQL: el driver nunca veria ese token si se
@@ -36,7 +40,7 @@ function listarMigraciones({ conDatosSemilla }) {
   return fs
     .readdirSync(DIR_MIGRACIONES)
     .filter((f) => f.endsWith('.sql'))
-    .filter((f) => conDatosSemilla || f !== ARCHIVO_DATOS_SEMILLA)
+    .filter((f) => conDatosSemilla || !ARCHIVOS_DATOS_SEMILLA.has(f))
     .sort();
 }
 
