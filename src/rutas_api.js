@@ -6,7 +6,19 @@
 const datos = require('./datos');
 const errores = require('./errores');
 
-const AMBITOS = ['celta', 'estrella', 'agencias', 'nacional_labs', 'nacional'];
+const AMBITOS = [
+  'celta',
+  'estrella',
+  'agencias',
+  'nacional_labs',
+  'nacional',
+  'peru',
+  'colombia_peru',
+];
+/* Ambitos que tienen fila propia en ref.dim_sitio y por lo tanto pueden tener
+   trayectoria (ehs.scorecard_anual) o contraste anio contra anio: todos menos
+   'nacional_labs', que nunca la tuvo (ver adaptador_sql.js, META_DE_AMBITO). */
+const AMBITOS_CON_HISTORIA = AMBITOS.filter((a) => a !== 'nacional_labs');
 const KPIS = [
   'agua_por_lente',
   'energia_por_lente',
@@ -154,12 +166,44 @@ async function atender(req, res, url) {
 
     if (ruta === '/api/ehs/trayectoria-anual') {
       const kpi = q.get('kpi') || 'residuos_por_lente';
-      if (!KPIS.includes(kpi)) {
-        errores.parametroInvalido(res, `KPI desconocido: ${kpi}.`, { validos: KPIS });
+      const ambito = q.get('ambito') || 'nacional';
+      if (!KPIS.includes(kpi) || !AMBITOS_CON_HISTORIA.includes(ambito)) {
+        errores.parametroInvalido(res, 'Ambito o KPI desconocido.', {
+          ambito,
+          kpi,
+          validos_ambito: AMBITOS_CON_HISTORIA,
+          validos_kpi: KPIS,
+        });
         return true;
       }
-      const r = await datos.trayectoriaAnual({ kpi });
-      if (!r) return (errores.noEncontrado(res, `El scorecard no publica ${kpi}.`), true);
+      const r = await datos.trayectoriaAnual({ kpi, ambito });
+      if (!r) return (errores.noEncontrado(res, `El scorecard no publica ${kpi} para ${ambito}.`), true);
+      return (json(res, r), true);
+    }
+
+    if (ruta === '/api/ehs/contraste-mensual') {
+      const ambito = q.get('ambito') || 'nacional';
+      const kpi = q.get('kpi') || 'residuos_por_lente';
+      const anioA = entero(q, 'anioA', null, 2023, 2100);
+      const anioB = entero(q, 'anioB', null, 2023, 2100);
+      if (!AMBITOS_CON_HISTORIA.includes(ambito) || !KPIS.includes(kpi)) {
+        errores.parametroInvalido(res, 'Ambito o KPI desconocido.', {
+          ambito,
+          kpi,
+          validos_ambito: AMBITOS_CON_HISTORIA,
+          validos_kpi: KPIS,
+        });
+        return true;
+      }
+      if (!anioA || !anioB || Number.isNaN(anioA) || Number.isNaN(anioB)) {
+        errores.parametroInvalido(res, 'Faltan anioA y/o anioB, o no son validos.', {
+          anioA: q.get('anioA'),
+          anioB: q.get('anioB'),
+        });
+        return true;
+      }
+      const r = await datos.contrasteMensual({ ambito, kpi, anioA, anioB });
+      if (!r) return (errores.noEncontrado(res, `Sin datos para comparar ${anioA} y ${anioB}.`), true);
       return (json(res, r), true);
     }
 

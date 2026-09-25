@@ -88,18 +88,36 @@ go
    vez de inventar un desglose que no existe, se declara una cuarta magnitud
    numeradora de residuos_por_lente: el mismo mecanismo generico de
    ref.kpi_magnitud que ya evita que "residuos suma tres magnitudes" sea un
-   caso especial en el codigo — aqui simplemente suma una mas, donde exista. */
+   caso especial en el codigo — aqui simplemente suma una mas, donde exista.
+
+   Columna nueva requerida_colombia: ehs.v_corte_publicado (migracion 0006)
+   calcula "esperadas" como sitios-que-capturan x TODAS las magnitudes de
+   ref.dim_magnitud, asumiendo que cada sitio reporta cada magnitud. Eso deja
+   de ser cierto con residuo_total_kg: Celta/Estrella/Agencias jamas la
+   capturan (usan el desglose de tres), solo Peru y el historico. Sin esta
+   columna, ningun mes de Colombia volveria a verse completo — el propio mes
+   de julio 2026 que ya estaba publicado se habria "despublicado" con esta
+   misma migracion. La columna marca que magnitudes SI son parte del reporte
+   mensual regular de Colombia (todas menos esta) y la vista de abajo cuenta
+   solo esas. */
+if not exists (select 1 from sys.columns
+               where object_id = object_id('ref.dim_magnitud') and name = 'requerida_colombia')
+    alter table ref.dim_magnitud add requerida_colombia bit not null constraint df_magnitud_requerida default 1;
+go
+
 merge ref.dim_magnitud as d
 using (values
-    ('residuo_total_kg', 'Residuo total (sin desglose)', 'kg', 'ehs', 500.0, 41760.0, 10)
-) as o (magnitud_id, magnitud, unidad, area, valor_min, valor_max, orden)
+    ('residuo_total_kg', 'Residuo total (sin desglose)', 'kg', 'ehs', 500.0, 41760.0, 10, 0)
+) as o (magnitud_id, magnitud, unidad, area, valor_min, valor_max, orden, requerida_colombia)
    on d.magnitud_id = o.magnitud_id
  when matched then update set
       d.magnitud = o.magnitud, d.unidad = o.unidad,
-      d.valor_min = o.valor_min, d.valor_max = o.valor_max, d.orden = o.orden
+      d.valor_min = o.valor_min, d.valor_max = o.valor_max, d.orden = o.orden,
+      d.requerida_colombia = o.requerida_colombia
  when not matched then insert
-      (magnitud_id, magnitud, unidad, area, valor_min, valor_max, orden)
-      values (o.magnitud_id, o.magnitud, o.unidad, o.area, o.valor_min, o.valor_max, o.orden);
+      (magnitud_id, magnitud, unidad, area, valor_min, valor_max, orden, requerida_colombia)
+      values (o.magnitud_id, o.magnitud, o.unidad, o.area, o.valor_min, o.valor_max, o.orden,
+              o.requerida_colombia);
 go
 
 merge ref.kpi_magnitud as d
@@ -109,6 +127,75 @@ using (values
    on d.kpi_id = o.kpi_id and d.magnitud_id = o.magnitud_id and d.rol = o.rol
  when not matched then insert (kpi_id, magnitud_id, rol)
       values (o.kpi_id, o.magnitud_id, o.rol);
+go
+
+/* --------------------------------------- v_corte_publicado y v_captura_estado
+   Las dos vistas de la migracion 0010 cuentan "esperadas" como sitios x TODAS
+   las magnitudes de area='ehs' — correcto mientras esa fuera la lista completa
+   de lo que Colombia captura cada mes. Con residuo_total_kg (arriba) eso deja
+   de ser cierto: se agrega el filtro requerida_colombia=1 para que las dos
+   vistas sigan esperando exactamente lo mismo que esperaban antes de esta
+   migracion. Mismo cuerpo que 0010, un solo cambio en cada "esperadas". */
+create or alter view ehs.v_corte_publicado
+as
+    with esperadas as (
+        select total = (select count(*) from ref.dim_sitio
+                         where activo = 1 and en_nacional = 1)
+                     * (select count(*) from ref.dim_magnitud
+                         where area = 'ehs' and requerida_colombia = 1)
+    ),
+    por_mes as (
+        select f.anio,
+               f.num_mes,
+               lecturas = count(*),
+               completo = case when count(*) >= (select total from esperadas)
+                               then 1 else 0 end
+          from ehs.hecho_lectura_mensual l
+          join ref.dim_fecha f    on f.fecha = l.fecha
+          join ref.dim_sitio s    on s.sitio_id = l.sitio_id
+                                 and s.activo = 1 and s.en_nacional = 1
+          join ref.dim_magnitud g on g.magnitud_id = l.magnitud_id
+                                 and g.area = 'ehs' and g.requerida_colombia = 1
+         group by f.anio, f.num_mes
+    ),
+    primer_hueco as (
+        select a.anio, primero = min(m.num_mes)
+          from (select distinct anio from por_mes) a
+         cross join (select distinct num_mes from ref.dim_fecha) m
+          left join por_mes p
+                 on p.anio = a.anio and p.num_mes = m.num_mes and p.completo = 1
+         where p.num_mes is null
+         group by a.anio
+    )
+    select p.anio,
+           corte        = case when isnull(h.primero, 13) > 1
+                               then cast(isnull(h.primero, 13) - 1 as tinyint) end,
+           ultimo_visto = max(p.num_mes),
+           en_curso     = case when max(p.num_mes) > isnull(h.primero, 13) - 1
+                               then max(p.num_mes) end,
+           esperadas_por_mes = (select total from esperadas)
+      from por_mes p
+      left join primer_hueco h on h.anio = p.anio
+     group by p.anio, h.primero;
+go
+
+create or alter view ehs.v_captura_estado
+as
+    select f.anio,
+           f.num_mes,
+           s.sitio_id,
+           s.sitio                        as sitio_nombre,
+           count(l.lectura_id)            as capturadas,
+           (select count(*) from ref.dim_magnitud
+             where area = 'ehs' and requerida_colombia = 1)  as esperadas,
+           max(l.capturado_en)            as ultima_captura,
+           max(l.capturado_por)           as ultimo_capturador
+      from ref.dim_fecha f
+     cross join ref.dim_sitio s
+      left join ehs.hecho_lectura_mensual l
+             on l.fecha = f.fecha and l.sitio_id = s.sitio_id
+     where s.activo = 1 and s.en_nacional = 1
+     group by f.anio, f.num_mes, s.sitio_id, s.sitio;
 go
 
 /* --------------------------------------------------------------- v_ambito ---

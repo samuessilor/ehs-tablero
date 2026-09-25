@@ -22,10 +22,12 @@ var Tablero = (function () {
     { id: 'datos', rotulo: '06 Datos' },
   ];
   var AMBITOS = [
-    { id: 'nacional', rotulo: 'Nacional + Ag.' },
+    { id: 'colombia_peru', rotulo: 'Colombia + Perú' },
+    { id: 'nacional', rotulo: 'Colombia' },
     { id: 'nacional_labs', rotulo: 'Nacional Labs' },
     { id: 'celta', rotulo: 'Celta' },
     { id: 'estrella', rotulo: 'La Estrella' },
+    { id: 'peru', rotulo: 'TOPSA (Perú)' },
     { id: 'agencias', rotulo: 'Agencias' },
   ];
   var ROTULO_ESTADO = {
@@ -353,7 +355,11 @@ var Tablero = (function () {
           : 'Ningún indicador incumple todos los meses del año.')
     );
 
-    var tray = await api('trayectoria-anual', { kpi: S.kpi });
+    // perimetro fijo en colombia_peru a proposito, no S.ambito: este panel siempre
+    // referencia el scorecard mas amplio (Colombia + Peru), nunca el ambito elegido
+    // arriba — asi lo explica textoTrayectoria ("perímetro más amplio que el de
+    // este tablero").
+    var tray = await api('trayectoria-anual', { kpi: S.kpi, ambito: 'colombia_peru' });
     $('#subTray').textContent = tray.kpi + ' · perímetro ' + tray.perimetro;
     Graficos.trayectoria('gTray', tray);
     $('#notaTray').innerHTML = nota(textoTrayectoria(tray));
@@ -410,6 +416,71 @@ var Tablero = (function () {
         ', y no se compara de igual a igual contra años completos.';
     }
     return txt;
+  }
+
+  /* Igual que textoTrayectoria, pero para los paneles "Histórico" de cada recurso
+   * (Agua/Energía/Residuos): ahi el perímetro ES el ámbito elegido arriba, no uno
+   * más amplio — la frase de textoTrayectoria ("más amplio que este tablero") no
+   * aplicaría y confundiría en vez de aclarar. */
+  function textoTrayectoriaPropia(t) {
+    var cerrados = t.anios.filter(function (a) {
+      return a.cerrado;
+    });
+    if (!cerrados.length)
+      return 'Sin cierres anteriores cargados todavía para este ámbito.';
+    var ult = cerrados[cerrados.length - 1];
+    var pri = cerrados[0];
+    var txt = '';
+    if (ult.meta !== null) {
+      txt +=
+        'El cierre de ' +
+        ult.anio +
+        ' (' +
+        Fmt.num(ult.real, t.dec) +
+        ') ' +
+        (ult.real > ult.meta ? 'quedó por encima de su meta de ' : 'cumplió su meta de ') +
+        Fmt.meta(ult.meta, t.dec) +
+        '. ';
+    }
+    if (cerrados.length >= 2) {
+      txt +=
+        'Entre ' +
+        pri.anio +
+        ' y ' +
+        ult.anio +
+        ' ' +
+        (ult.real > pri.real ? 'subió' : ult.real < pri.real ? 'bajó' : 'se mantuvo') +
+        ' de ' +
+        Fmt.num(pri.real, t.dec) +
+        ' a ' +
+        Fmt.num(ult.real, t.dec) +
+        '. ';
+    }
+    if (t.en_curso) {
+      txt +=
+        '<b>La barra rayada no es un cierre</b>: son ' +
+        t.en_curso.hasta_mes +
+        ' meses de ' +
+        t.en_curso.anio +
+        ', ' +
+        Fmt.num(t.en_curso.ytd, t.dec) +
+        ', y no se compara de igual a igual contra años completos.';
+    }
+    return txt || 'Sin cierres anteriores cargados todavía para este ámbito.';
+  }
+
+  /** Panel "Histórico" (cierres año contra año) de un recurso, para el ámbito elegido. */
+  async function pintarTrayectoriaPropia(ids, kpi) {
+    var tray = await api('trayectoria-anual', { kpi: kpi, ambito: S.ambito });
+    if (!tray) {
+      $(ids.sub).textContent = '';
+      $(ids.grafico).innerHTML = '';
+      $(ids.nota).innerHTML = nota('Sin cierres anteriores cargados todavía para este ámbito.');
+      return;
+    }
+    $(ids.sub).textContent = tray.perimetro;
+    Graficos.trayectoria(ids.graficoRaw, tray);
+    $(ids.nota).innerHTML = nota(textoTrayectoriaPropia(tray));
   }
 
   async function pintarMatrizSitios(pan) {
@@ -704,6 +775,20 @@ var Tablero = (function () {
             '</b>.'
           : 'Ninguno supera la suya al corte.')
     );
+
+    await pintarTrayectoriaPropia(
+      { sub: '#subAguaTray', grafico: '#gAguaTray', graficoRaw: 'gAguaTray', nota: '#notaAguaTray' },
+      'agua_por_lente'
+    );
+    await pintarTrayectoriaPropia(
+      {
+        sub: '#subEnergiaTray',
+        grafico: '#gEnergiaTray',
+        graficoRaw: 'gEnergiaTray',
+        nota: '#notaEnergiaTray',
+      },
+      'energia_por_lente'
+    );
   }
 
   /* ---------------------------------------------------------------- ambiental --- */
@@ -743,6 +828,16 @@ var Tablero = (function () {
     Graficos.composicionResiduos('gComp', comp, kRes.meta);
     $('#notaComp').innerHTML = nota(textoComposicion(comp, kRes));
     pintarAcumuladoComp(comp);
+
+    await pintarTrayectoriaPropia(
+      {
+        sub: '#subResiduosTray',
+        grafico: '#gResiduosTray',
+        graficoRaw: 'gResiduosTray',
+        nota: '#notaResiduosTray',
+      },
+      'residuos_por_lente'
+    );
   }
 
   function pintarAcumuladoComp(comp) {
@@ -899,7 +994,8 @@ var Tablero = (function () {
         'Un mes en cero no borra un caso anterior.'
     );
 
-    var tray = await api('trayectoria-anual', { kpi: 'frequency_rate' });
+    // mismo criterio que gTray en Panorama: perimetro fijo, no el ambito elegido
+    var tray = await api('trayectoria-anual', { kpi: 'frequency_rate', ambito: 'colombia_peru' });
     $('#subTraySeg').textContent = tray.kpi + ' · perímetro ' + tray.perimetro;
     Graficos.trayectoria('gTraySeg', tray);
     $('#notaTraySeg').innerHTML = nota(textoTrayectoria(tray));

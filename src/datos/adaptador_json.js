@@ -336,21 +336,21 @@ module.exports = {
    * corte, rotulado como lo que es. Comparar un acumulado de siete meses contra cierres
    * de anio completo sin decirlo seria el error clasico de este tipo de tabla.
    */
-  async trayectoriaAnual({ kpi }) {
+  async trayectoriaAnual({ kpi, ambito = 'nacional' }) {
     const { d } = base();
     if (!d.kpis[kpi]) return null;
-    const sc = (d.scorecard || {}).colombia_peru || {};
+    const sc = (d.scorecard || {})[ambito] || {};
     const serie = sc[kpi];
     if (!serie) return null;
-    const cmNacional = d.contraMeta.nacional || [];
-    const ultimo = cmNacional[cmNacional.length - 1];
+    const cmAmbito = d.contraMeta[ambito] || [];
+    const ultimo = cmAmbito[cmAmbito.length - 1];
     return {
       ...cabecera(d),
       kpi_id: kpi,
       kpi: d.kpis[kpi].nombre,
       unidad: d.kpis[kpi].unidad,
       dec: d.kpis[kpi].dec,
-      perimetro: 'COLOMBIA y PERU',
+      perimetro: d.ambitos[ambito] || ambito,
       anios: Object.keys(serie)
         .sort()
         .map((a) => ({
@@ -359,17 +359,61 @@ module.exports = {
           real: serie[a].real,
           cerrado: serie[a].real !== null,
         })),
-      en_curso: ultimo
-        ? {
-            anio: d.anio,
-            hasta_mes: d.corte,
-            hasta: d.corteNombre,
-            ytd: ultimo.kpis[kpi].valor,
-            meta: ultimo.kpis[kpi].meta,
-            estado: ultimo.kpis[kpi].estado,
-            ambito: d.ambitos.nacional,
-          }
-        : null,
+      en_curso:
+        ultimo && ultimo.kpis[kpi]
+          ? {
+              anio: d.anio,
+              hasta_mes: d.corte,
+              hasta: d.corteNombre,
+              ytd: ultimo.kpis[kpi].valor,
+              meta: ultimo.kpis[kpi].meta,
+              estado: ultimo.kpis[kpi].estado,
+              ambito: d.ambitos[ambito] || ambito,
+            }
+          : null,
+    };
+  },
+
+  /**
+   * Contraste mes a mes entre dos anios elegidos. El interinato (este adaptador)
+   * solo trae detalle mensual del anio publicado (d.serie) — no un historico
+   * completo por anio, que es justo lo que solo la base SQL tiene desde la
+   * migracion 0012. Se responde con lo que hay: el anio publicado con su dato
+   * real, y el otro con los meses en null (nunca inventado), para que la vista
+   * "Contraste mensual" siga siendo honesta tambien en modo interinato.
+   */
+  async contrasteMensual({ ambito, kpi, anioA, anioB }) {
+    const { d } = base();
+    if (!d.kpis[kpi]) return null;
+
+    const porAnio = {};
+    for (const anio of [anioA, anioB]) {
+      if (anio === d.anio && d.serie[ambito]) {
+        porAnio[anio] = new Map(d.serie[ambito].map((p) => [p.mes, p]));
+      }
+    }
+
+    return {
+      ambito,
+      kpi_id: kpi,
+      kpi: d.kpis[kpi].nombre,
+      unidad: d.kpis[kpi].unidad,
+      dec: d.kpis[kpi].dec,
+      anioA,
+      anioB,
+      meses: Array.from({ length: 12 }, (_, i) => {
+        const mes = i + 1;
+        const pA = porAnio[anioA]?.get(mes);
+        const pB = porAnio[anioB]?.get(mes);
+        return {
+          mes,
+          nombre_mes: pA?.nombre || pB?.nombre || null,
+          valorA: pA ? pA.mensual[kpi] : null,
+          ytdA: pA ? pA.ytd[kpi] : null,
+          valorB: pB ? pB.mensual[kpi] : null,
+          ytdB: pB ? pB.ytd[kpi] : null,
+        };
+      }),
     };
   },
 

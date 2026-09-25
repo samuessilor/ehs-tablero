@@ -121,6 +121,8 @@ const META_DE_AMBITO = {
   agencias: 'agencias',
   nacional: 'nacional',
   nacional_labs: null,
+  peru: 'peru',
+  colombia_peru: 'colombia_peru',
 };
 
 /* El valor tal como lo publica la vista.
@@ -840,20 +842,23 @@ module.exports = {
    * corte, rotulado como lo que es. Comparar un acumulado de siete meses contra cierres
    * de anio completo sin decirlo seria el error clasico de este tipo de tabla.
    */
-  async trayectoriaAnual({ kpi }) {
+  async trayectoriaAnual({ kpi, ambito = 'nacional' }) {
     const ctx = await contexto();
 
     const { sql, req } = await peticion();
     const r = await req
       .input('anio', sql.SmallInt, ctx.anio)
       .input('mes', sql.TinyInt, ctx.corte)
-      .input('ambito', sql.VarChar(20), 'nacional')
+      .input('ambito', sql.VarChar(20), ambito)
       .input('kpi', sql.VarChar(40), kpi).query(`
-        -- el perimetro del scorecard es el sitio de tipo Consolidado (COLOMBIA y PERU):
-        -- no es un laboratorio ni una agencia, es la suma que reporta corporativo
-        declare @perimetro varchar(20) = (select top 1 sitio_id from ref.dim_sitio
-                                           where tipo = 'Consolidado' order by sitio_id);
-
+        /* El perimetro de la trayectoria es el propio @ambito: cada uno que puede
+           tenerla (celta, estrella, agencias, peru, nacional/Colombia,
+           colombia_peru) tiene su propia fila en ref.dim_sitio con ese mismo id,
+           exactamente para esto — ehs.scorecard_anual y ehs.meta cuelgan de ese
+           id via FK. Antes esto adivinaba el perimetro buscando el UNICO sitio de
+           tipo 'Consolidado', que dejo de ser unico en cuanto 'nacional' (Colombia)
+           gano su propia fila (migracion 0011): con dos Consolidado, "top 1 order
+           by sitio_id" solo acertaba por alfabeto. */
         declare @ytd table (kpi_id varchar(40) not null primary key, valor decimal(38,6) null);
         insert @ytd (kpi_id, valor)
         select v.kpi_id, ${VALOR_RECUPERADO}
@@ -864,12 +869,12 @@ module.exports = {
 
         select k.kpi, k.unidad, k.formato,
                perimetro = (select nombre_corporativo from ref.dim_sitio
-                             where sitio_id = @perimetro)
+                             where sitio_id = @ambito)
           from ref.dim_kpi k where k.kpi_id = @kpi and k.area = 'ehs';
 
         select sc.anio, sc.meta, sc.real_ytd
           from ehs.scorecard_anual sc
-         where sc.sitio_id = @perimetro and sc.kpi_id = @kpi
+         where sc.sitio_id = @ambito and sc.kpi_id = @kpi
          order by sc.anio;
 
         select ytd = y.valor,
@@ -877,11 +882,11 @@ module.exports = {
                estado = ${ESTADO},
                ambito = ${NOMBRE_AMBITO}
           from @ytd y
-          -- la barra de 2026 se mide contra la meta del PERIMETRO del scorecard, igual
-          -- que los cierres de 2023 a 2025 de esta misma grafica
+          -- la barra del ano en curso se mide contra la meta vigente del MISMO
+          -- ambito, igual que los cierres historicos de esta misma grafica
           left join ehs.meta mt
                  on mt.anio = @anio and mt.vigente = 1
-                and mt.ambito_id = @perimetro and mt.kpi_id = y.kpi_id;
+                and mt.ambito_id = @ambito and mt.kpi_id = y.kpi_id;
       `);
 
     const [[def], anios, [curso] = []] = r.recordsets;
@@ -911,6 +916,69 @@ module.exports = {
             ambito: curso.ambito,
           }
         : null,
+    };
+  },
+
+  /**
+   * Contraste mes a mes entre dos anios elegidos, para el mismo ambito y KPI: el
+   * valor de cada mes (ehs.v_kpi_mensual) y el acumulado hasta ese mes
+   * (ehs.v_kpi_ytd), lado a lado. No se inventa el mes que todavia no tiene
+   * lectura: si un anio no llega hasta diciembre, esos meses quedan null.
+   */
+  async contrasteMensual({ ambito, kpi, anioA, anioB }) {
+    const { sql, req } = await peticion();
+    const r = await req
+      .input('ambito', sql.VarChar(20), ambito)
+      .input('kpi', sql.VarChar(40), kpi)
+      .input('anioA', sql.SmallInt, anioA)
+      .input('anioB', sql.SmallInt, anioB).query(`
+        declare @meses table (num_mes tinyint primary key, nombre_mes varchar(12));
+        insert @meses select distinct num_mes, mes from ref.dim_fecha;
+
+        select mes.num_mes, mes.nombre_mes, anios.anio,
+               mensual = case when mm.valor is null then null else round(mm.valor, 6) end,
+               ytd     = case when yy.valor is null then null else round(yy.valor, 6) end
+          from @meses mes
+         cross join (values (@anioA), (@anioB)) as anios(anio)
+          left join ehs.v_kpi_mensual mm
+                 on mm.anio = anios.anio and mm.num_mes = mes.num_mes
+                and mm.ambito_id = @ambito and mm.kpi_id = @kpi
+          left join ehs.v_kpi_ytd yy
+                 on yy.anio = anios.anio and yy.num_mes_corte = mes.num_mes
+                and yy.ambito_id = @ambito and yy.kpi_id = @kpi
+         order by mes.num_mes, anios.anio;
+
+        select k.kpi, k.unidad, k.formato from ref.dim_kpi k
+         where k.kpi_id = @kpi and k.area = 'ehs';
+      `);
+
+    const [filas, [def]] = r.recordsets;
+    if (!def) return null;
+
+    const porMes = new Map();
+    for (const f of filas) {
+      if (!porMes.has(f.num_mes)) porMes.set(f.num_mes, { mes: f.num_mes, nombre_mes: f.nombre_mes });
+      const fila = porMes.get(f.num_mes);
+      const sufijo = f.anio === anioA ? 'A' : 'B';
+      const valor = num(f.mensual);
+      fila['valor' + sufijo] = valor;
+      /* ehs.v_kpi_ytd no sabe cual es "el corte": para un anio que solo capturo
+         hasta julio, sigue publicando un YTD para agosto..diciembre (el mismo
+         acumulado de julio, repetido) porque matematicamente nada nuevo se sumo.
+         Aqui se recorta a null en cuanto el mes ya no tiene su propio valor
+         mensual, para no dar a entender que agosto tiene un cierre que no tiene. */
+      fila['ytd' + sufijo] = valor === null ? null : num(f.ytd);
+    }
+
+    return {
+      ambito,
+      kpi_id: kpi,
+      kpi: def.kpi,
+      unidad: def.unidad,
+      dec: decimales(def.formato),
+      anioA,
+      anioB,
+      meses: [...porMes.values()].sort((a, b) => a.mes - b.mes),
     };
   },
 
