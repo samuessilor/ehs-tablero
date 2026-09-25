@@ -26,9 +26,15 @@
    3. La correccion del accidente: AT 2026 (la hoja del Excel vigente) dice
       mayo. El manager de la implementacion confirmo por escrito y en la
       reunion del 24-sep-2026 que el accidente real fue en julio, y que no
-      hay ningun otro en el ano — se corrige con ehs.sp_corregir_lectura
-      (migracion 0009), no con un UPDATE silencioso, para que quede en
-      ehs.v_correcciones como cualquier otra correccion.
+      hay ningun otro en el ano. Es un UPDATE directo (no
+      ehs.sp_corregir_lectura): esa correccion es parte de dejar bien la
+      carga inicial antes de salir a produccion, no una correccion en vivo
+      sobre un mes ya publicado — por eso Samuel pidio (24-sep-2026, ya en
+      produccion) que no aparezca como franja en el tablero. Sigue quedando
+      trazable en hecho_lectura_mensual_hist (el trigger de la migracion 0004
+      archiva cualquier UPDATE) y en origen/modificado_por de la propia fila;
+      lo unico que no pasa es por ehs.v_correcciones, que solo muestra
+      correcciones con motivo (las de "Consultar y corregir").
    4. La meta 2026 de Colombia (Celta+Estrella+Agencias, sin Peru): el libro
       de Excel sigue en 7,5 / 1,5 / 126 (KPIs 2026!F14:H14). El manager dio
       una cifra distinta en la reunion — 5,18 / 1,27 / 134,9 — que no esta en
@@ -518,30 +524,36 @@ using (values
 go
 
 /* --------------------------------------------------- correccion del accidente
-   Ver el punto 3 del encabezado. Se corrige con el mismo procedimiento que
-   usaria cualquier persona desde "Consultar y corregir": queda en
-   ehs.v_correcciones con motivo, quien y cuando, igual que cualquier otra
-   correccion — nunca un UPDATE silencioso sobre un dato que se reporta a
-   corporativo. */
-exec ehs.sp_corregir_lectura
-    @fecha = '2026-05-01',
-    @sitio_id = 'celta',
-    @magnitud_id = 'accidentes_dafw',
-    @valor_nuevo = 0,
-    @motivo = 'Reunion con el manager de la implementacion, 24-sep-2026: el accidente con dias perdidos de Celta no fue en mayo, fue en julio, y es el unico del ano.',
-    @corregido_por = 'migracion 0012 (confirmado en reunion 24-sep-2026)';
+   Ver el punto 3 del encabezado. NO se usa ehs.sp_corregir_lectura: ese
+   procedimiento es para cuando alguien corrige un dato YA PUBLICADO desde
+   "Consultar y corregir", y su historia (con motivo) es justamente lo que
+   ehs.v_correcciones muestra como franja en el tablero — una alerta operativa
+   para quien esta viendo el corte de un mes ya en curso. Esto es distinto:
+   es parte de dejar bien la carga inicial ANTES de salir a produccion (igual
+   que 0008 nunca paso por "Consultar y corregir" para sus 189 lecturas). Por
+   eso es un UPDATE simple, sin motivo_correccion: el trigger
+   ehs.tr_lectura_mensual_hist igual archiva el valor anterior en
+   hecho_lectura_mensual_hist (con motivo NULL), pero ehs.v_correcciones
+   filtra "where motivo is not null" — no aparece como franja. La razon del
+   cambio queda igual de trazable: aqui, en el archivo de la migracion, y en
+   origen/modificado_por de la propia fila. */
+update ehs.hecho_lectura_mensual
+   set valor = 0,
+       origen = 'KPI''s EHS 2026.xlsx / indicadores mensuales LABS (corregido: reunion 24-sep-2026, el accidente fue en julio, no en mayo)',
+       modificado_por = 'migracion 0012',
+       modificado_en = sysdatetime()
+ where fecha = '2026-05-01' and sitio_id = 'celta' and magnitud_id = 'accidentes_dafw';
 go
 
 /* Julio ya tiene una fila en 0 (parte de la carga inicial 2026, migracion
-   0008: la hoja AT 2026 de donde salio tambien decia cero) — no se inserta,
-   se corrige, con el mismo procedimiento de arriba. */
-exec ehs.sp_corregir_lectura
-    @fecha = '2026-07-01',
-    @sitio_id = 'celta',
-    @magnitud_id = 'accidentes_dafw',
-    @valor_nuevo = 1,
-    @motivo = 'Reunion con el manager de la implementacion, 24-sep-2026: el accidente con dias perdidos de Celta fue en julio, no en mayo.',
-    @corregido_por = 'migracion 0012 (confirmado en reunion 24-sep-2026)';
+   0008: la hoja AT 2026 de donde salio tambien decia cero) — se corrige con
+   el mismo criterio de arriba. */
+update ehs.hecho_lectura_mensual
+   set valor = 1,
+       origen = 'KPI''s EHS 2026.xlsx / indicadores mensuales LABS (corregido: reunion 24-sep-2026, el accidente fue en julio, no en mayo)',
+       modificado_por = 'migracion 0012',
+       modificado_en = sysdatetime()
+ where fecha = '2026-07-01' and sitio_id = 'celta' and magnitud_id = 'accidentes_dafw';
 go
 
 /* -------------------------------------------------------- meta 2026 Colombia

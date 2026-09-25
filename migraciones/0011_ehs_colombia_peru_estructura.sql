@@ -223,5 +223,17 @@ as
      where activo = 1 and en_colombia_peru = 1;
 go
 
+/* --------------------------------------------------------- maximo 2 decimales
+   Regla nueva del area (reunion 24-sep-2026, ya en produccion): en todo el
+   proyecto, maximo 2 decimales. ref.dim_kpi.formato (migracion 0008) es la
+   UNICA fuente de cuantos decimales muestra cada KPI — la lee
+   adaptador_sql.js/decimales() para tarjetas, tablas, tooltips, CSV y
+   reporte. Tres KPI venian en 3 decimales ('0.000'); residuos_por_lente ya
+   estaba en 1 ('0.0') y no se toca, porque 1 <= 2. */
+update ref.dim_kpi set formato = '0.00'
+ where kpi_id in ('agua_por_lente', 'energia_por_lente', 'frequency_rate')
+   and formato = '0.000';
+go
+
 print 'Migracion 0011: Peru operativo, Colombia + Peru real, Colombia con fila propia para su trayectoria.';
 go

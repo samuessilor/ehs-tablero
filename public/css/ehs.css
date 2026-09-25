@@ -1,8 +1,12 @@
 /* Sistema visual del tablero EHS - extraido tal cual de la propuesta 1 aprobada. */
 
 :root {
-  --tinta: #0b2239;
-  --inst: #0b3c5d;
+  /* Negro corporativo Servioptica (reunion 24-sep-2026: "cambia el azul, lo
+     oscuro, por negro"). --tinta y --inst eran azul marino; el resto de la
+     paleta de estado/categoria (cumple, riesgo, incumple, amb, seg) no cambio,
+     no era lo que se senalo. */
+  --tinta: #14161a;
+  --inst: #1c1f24;
   --amb: #21a0a0;
   --seg: #3d5a80;
   --cumple: #2e7d5b;
@@ -63,11 +67,11 @@ svg {
   position: sticky;
   top: 0;
   z-index: 60;
-  background: linear-gradient(178deg, #0b2239 0%, #0b3c5d 100%);
+  background: linear-gradient(178deg, #0e0f11 0%, #202329 100%);
   color: #fff;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow:
-    0 1px 0 rgba(11, 34, 57, 0.2),
+    0 1px 0 rgba(0, 0, 0, 0.2),
     0 8px 22px -14px rgba(11, 34, 57, 0.55);
 }
 .rail-in {
@@ -1132,7 +1136,7 @@ main {
   align-items: center;
   gap: 16px;
   flex-wrap: wrap;
-  background: linear-gradient(96deg, #0b2239 0%, #0b3c5d 72%, #12506f 100%);
+  background: linear-gradient(96deg, #0e0f11 0%, #202329 72%, #2b2f36 100%);
   border-radius: 3px;
   padding: 11px 16px;
   color: #fff;
@@ -1220,7 +1224,7 @@ main {
 }
 .aguacab .chip.riesgo {
   background: #d98324;
-  color: #0b2239;
+  color: #14161a;
 }
 .aguacab .chip.incumple {
   background: #c0392b;
@@ -1936,7 +1940,7 @@ details.infodato[open] > summary::before {
   content: '\2212 ';
 }
 details.infodato > summary:hover {
-  color: var(--inst, #0b3c5d);
+  color: var(--inst, #1c1f24);
 }
 details.infodato > div {
   margin-top: 4px;
@@ -1971,7 +1975,7 @@ details.infodato > div {
   line-height: 1.55;
 }
 .correccion b {
-  color: var(--tinta, #0b2239);
+  color: var(--tinta, #14161a);
 }
 .correccion .cambio {
   font: 700 13px/1.4 var(--mono, monospace);

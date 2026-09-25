@@ -613,7 +613,7 @@ var Graficos = (function () {
         campoRatio: 'kwh_por_lente',
         unidadConsumo: 'kWh',
         unidadRatio: 'kWh',
-        decRatio: 3,
+        decRatio: 2,
       });
     },
 

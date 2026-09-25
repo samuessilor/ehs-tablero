@@ -753,7 +753,7 @@ var Tablero = (function () {
         campoConsumo: 'consumo_kwh',
         decConsumo: 0,
         campoRatio: 'kwh_por_lente',
-        decRatio: 3,
+        decRatio: 2,
       }
     );
 
