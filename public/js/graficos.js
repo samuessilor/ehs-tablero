@@ -534,7 +534,11 @@ var Graficos = (function () {
               precision: 0,
               text: ['por encima del techo', 'con margen'],
               textStyle: { color: C.tenue, fontSize: 9, fontFamily: MONO },
-              inRange: { color: ['#DCEEE4', '#F2F6F8', '#F6DCD8', '#C0392B'] },
+              // el verde del extremo "excelente" estaba casi blanco (#DCEEE4, apenas se
+              // distinguia de la celda vecina) y el rojo del otro extremo si se notaba
+              // fuerte — se sube la saturacion del verde para que la escala se lea pareja
+              // en los dos sentidos, sin tocar el rojo ni el centro
+              inRange: { color: ['#7FD1A3', '#F2F6F8', '#F6DCD8', '#C0392B'] },
               formatter: function (v) {
                 return Fmt.num(v, 0) + ' %';
               },
@@ -731,6 +735,10 @@ var Graficos = (function () {
             backgroundColor: 'rgba(11,34,57,.95)',
             borderWidth: 0,
             padding: [8, 11],
+            // el texto de "en curso" se salia de la caja: extraCssText fuerza el
+            // ancho maximo y el salto de linea en el contenedor real del tooltip,
+            // no solo en el div de adentro (que por si solo no bastaba)
+            extraCssText: 'max-width:220px;white-space:normal;line-height:1.4',
             textStyle: { color: '#EAF2F7', fontSize: 11.5 },
             formatter: function (ps) {
               var a = r.anios[ps[0].dataIndex];
@@ -751,9 +759,9 @@ var Graficos = (function () {
                   a.meta === null ? 'no publicada' : Fmt.meta(a.meta, dec)
                 ) +
                 (enCurso
-                  ? '<div style="margin-top:5px;opacity:.75;max-width:230px">No es un cierre: son ' +
+                  ? '<div style="margin-top:5px;opacity:.75">Van ' +
                     r.en_curso.hasta_mes +
-                    ' meses. No se compara de igual a igual.</div>'
+                    ' meses, no es un cierre.</div>'
                   : '')
               );
             },

@@ -21,15 +21,32 @@ var Tablero = (function () {
     { id: 'calidad', rotulo: '05 Calidad del dato' },
     { id: 'datos', rotulo: '06 Datos' },
   ];
-  var AMBITOS = [
-    { id: 'colombia_peru', rotulo: 'Colombia + Perú' },
-    { id: 'nacional', rotulo: 'Colombia' },
-    { id: 'nacional_labs', rotulo: 'Nacional Labs' },
-    { id: 'celta', rotulo: 'Celta' },
-    { id: 'estrella', rotulo: 'La Estrella' },
-    { id: 'peru', rotulo: 'TOPSA (Perú)' },
-    { id: 'agencias', rotulo: 'Agencias' },
+  // Dos subgrupos, tal como se pidio ("vistas individuales y grupales junto a
+  // Colombia"): arriba los consolidados (suman mas de un sitio), abajo cada sitio
+  // por su cuenta. AMBITOS sigue siendo la lista plana de siempre — el mismo orden
+  // de antes — para no tocar leerUrl/escribirUrl ni el resto de los usos existentes.
+  var GRUPOS_AMBITO = [
+    {
+      titulo: 'Consolidados',
+      items: [
+        { id: 'colombia_peru', rotulo: 'Colombia + Perú' },
+        { id: 'nacional', rotulo: 'Colombia' },
+        { id: 'nacional_labs', rotulo: 'Nacional Labs' },
+      ],
+    },
+    {
+      titulo: 'Laboratorios y agencias',
+      items: [
+        { id: 'celta', rotulo: 'Celta' },
+        { id: 'estrella', rotulo: 'La Estrella' },
+        { id: 'peru', rotulo: 'TOPSA (Perú)' },
+        { id: 'agencias', rotulo: 'Agencias' },
+      ],
+    },
   ];
+  var AMBITOS = GRUPOS_AMBITO.reduce(function (acc, g) {
+    return acc.concat(g.items);
+  }, []);
   var ROTULO_ESTADO = {
     cumple: 'Cumple',
     riesgo: 'En riesgo',
@@ -132,8 +149,31 @@ var Tablero = (function () {
         '</span></button>'
       );
     }).join('');
-    $('#segSitio').innerHTML = AMBITOS.map(function (a) {
-      return '<button type="button" data-ambito="' + a.id + '">' + a.rotulo + '</button>';
+    // Dos subgrupos con su propio rotulo chiquito arriba (consolidados / sitios),
+    // en vez de una sola fila de 7 botones sin distincion — pedido explicito: "en
+    // el filtro de sitio meter sub secciones de las opciones".
+    $('#segSitio').innerHTML = GRUPOS_AMBITO.map(function (g) {
+      return (
+        '<div class="seg-grupo">' +
+        '<span class="seg-grupo-titulo">' +
+        g.titulo +
+        '</span>' +
+        '<div class="seg" role="radiogroup" aria-label="' +
+        g.titulo +
+        '">' +
+        g.items
+          .map(function (a) {
+            return (
+              '<button type="button" role="radio" data-ambito="' +
+              a.id +
+              '">' +
+              a.rotulo +
+              '</button>'
+            );
+          })
+          .join('') +
+        '</div></div>'
+      );
     }).join('');
     $('#segMes').innerHTML = Fmt.mesCorto
       .map(function (m, i) {
@@ -168,11 +208,14 @@ var Tablero = (function () {
     document.querySelectorAll('#navVistas button').forEach(function (b) {
       b.setAttribute('aria-selected', String(b.dataset.vista === S.vista));
     });
+    // aria-checked, no aria-pressed: ehs.css solo estiliza ".seg button[aria-checked]"
+    // (son controles de radiogroup, no botones de si/no) — con aria-pressed el botón
+    // elegido de Sitio o Mes nunca se veía resaltado, aunque el estado sí cambiara.
     document.querySelectorAll('#segSitio button').forEach(function (b) {
-      b.setAttribute('aria-pressed', String(b.dataset.ambito === S.ambito));
+      b.setAttribute('aria-checked', String(b.dataset.ambito === S.ambito));
     });
     document.querySelectorAll('#segMes button').forEach(function (b) {
-      b.setAttribute('aria-pressed', String(parseInt(b.dataset.mes, 10) === S.mes));
+      b.setAttribute('aria-checked', String(parseInt(b.dataset.mes, 10) === S.mes));
     });
     VISTAS.forEach(function (v) {
       var sec = document.getElementById('v-' + v.id);
