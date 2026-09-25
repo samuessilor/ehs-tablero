@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <meta name="robots" content="noindex,nofollow" />
 <title><%= titulo %></title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" />
 <link rel="stylesheet" href="/css/ehs.css" />
 <link rel="icon" href="data:," />
 </head>
@@ -27,14 +30,16 @@
       <div id="segSitio" role="group" aria-label="Sitio"></div>
     </div>
 
-    <div class="ctl">
-      <label class="et" for="segMes">Mes de corte</label>
-      <div class="seg" id="segMes" role="group" aria-label="Mes de corte"></div>
-    </div>
+    <div class="rail-derecha">
+      <div class="ctl">
+        <label class="et" for="segMes">Mes de corte</label>
+        <div class="seg" id="segMes" role="group" aria-label="Mes de corte"></div>
+      </div>
 
-    <div class="ctl rail-derecha">
-      <span class="et">Última actualización</span>
-      <span style="font-family:var(--mono);font-size:11px;color:#D6E4EE" id="actualizadoEn"><%= actualizadoEn || '—' %></span>
+      <div class="ctl">
+        <span class="et">Última actualización</span>
+        <span style="font-family:var(--mono);font-size:11px;color:#D6E4EE" id="actualizadoEn"><%= actualizadoEn || '—' %></span>
+      </div>
     </div>
   </div>
 

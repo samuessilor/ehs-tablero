@@ -46,7 +46,14 @@
        abrir una pestaña por recurso. -->
   <section class="vista" id="v-agua" role="tabpanel" aria-labelledby="tab-agua" hidden>
 
-    <div class="subgrupo"><h2>Agua</h2><span class="sub">consumo, producción y ratio por lente</span></div>
+    <nav class="subnav" aria-label="Ir a">
+      <a href="#sub-agua">Agua</a>
+      <a href="#sub-energia">Energía</a>
+      <a href="#sub-historico">Histórico</a>
+      <a href="#sub-contraste">Contraste mensual</a>
+    </nav>
+
+    <div class="subgrupo" id="sub-agua"><h2>Agua</h2><span class="sub">consumo, producción y ratio por lente</span></div>
 
     <section class="panel c7">
       <header><span class="ix">01</span><h2>Producción contra consumo por lente</h2><span class="sub" id="subAguaCombo"></span></header>
@@ -65,12 +72,12 @@
       <div class="cuerpo tablabox" id="tAgua"></div>
     </section>
 
-    <section class="panel c5">
+    <section class="panel c5" id="panelAguaDiario" hidden>
       <header><span class="ix">04</span><h2>Detalle diario del mes</h2><span class="sub" id="subAguaDiario"></span></header>
       <div class="cuerpo" id="cajaAguaDiario"></div>
     </section>
 
-    <div class="subgrupo"><h2>Energía</h2><span class="sub">consumo, producción y ratio por lente</span></div>
+    <div class="subgrupo" id="sub-energia"><h2>Energía</h2><span class="sub">consumo, producción y ratio por lente</span></div>
 
     <section class="panel c7">
       <header><span class="ix">05</span><h2>Producción contra consumo por lente</h2><span class="sub" id="subEnergiaCombo"></span></header>
@@ -98,7 +105,7 @@
       <div class="cuerpo" id="notaEnergiaSitios"></div>
     </section>
 
-    <div class="subgrupo"><h2>Histórico</h2><span class="sub">contra los cierres de años anteriores, del ámbito elegido arriba</span></div>
+    <div class="subgrupo" id="sub-historico"><h2>Histórico</h2><span class="sub">contra los cierres de años anteriores, del ámbito elegido arriba</span></div>
 
     <section class="panel c6">
       <header><span class="ix">09</span><h2>Agua · contra el año anterior</h2><span class="sub" id="subAguaTray"></span></header>
@@ -112,7 +119,7 @@
       <div class="cuerpo" id="notaEnergiaTray"></div>
     </section>
 
-    <div class="subgrupo"><h2>Contraste mensual</h2><span class="sub">dos años elegidos, mes a mes, del ámbito elegido arriba</span></div>
+    <div class="subgrupo" id="sub-contraste"><h2>Contraste mensual</h2><span class="sub">dos años elegidos, mes a mes, del ámbito elegido arriba</span></div>
 
     <section class="panel c6">
       <header>
@@ -123,6 +130,7 @@
           <select class="contraste-anio" data-kpi="agua_por_lente" data-cual="B"></select>
         </span>
       </header>
+      <div class="grafico alto" id="gContrasteAgua"></div>
       <div class="cuerpo tablabox" id="tContrasteAgua"></div>
     </section>
 
@@ -135,6 +143,7 @@
           <select class="contraste-anio" data-kpi="energia_por_lente" data-cual="B"></select>
         </span>
       </header>
+      <div class="grafico alto" id="gContrasteEnergia"></div>
       <div class="cuerpo tablabox" id="tContrasteEnergia"></div>
     </section>
   </section>
@@ -181,6 +190,7 @@
           <select class="contraste-anio" data-kpi="residuos_por_lente" data-cual="B"></select>
         </span>
       </header>
+      <div class="grafico alto" id="gContrasteResiduos"></div>
       <div class="cuerpo tablabox" id="tContrasteResiduos"></div>
     </section>
   </section>

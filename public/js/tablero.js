@@ -103,7 +103,9 @@ var Tablero = (function () {
       filaFicha('Libro', h.libro) +
       filaFicha('Celda', h.celda, true) +
       filaFicha('Valor actual', h.valor_actual) +
-      filaFicha('Debería ir', h.valor_esperado);
+      filaFicha('Debería ir', h.valor_esperado) +
+      filaFicha('Posible causa', h.posible_causa) +
+      filaFicha('Cómo resolver', h.como_resolver);
     if (!filas) return '';
     return (
       '<details class="infodato"><summary>Ficha para depurar</summary>' +
@@ -112,15 +114,42 @@ var Tablero = (function () {
       '</dl></details>'
     );
   }
+  // Los avisos son automaticos (ehs.v_calidad_avisos), no un texto a mano por caso: la
+  // causa/resolucion es una por TIPO de chequeo, no por instancia.
+  var CAUSA_AVISO = {
+    valor_negativo: {
+      causa:
+        'La magnitud no puede ser negativa: probablemente un signo de menos o una resta mal puesta al capturar.',
+      resolucion: 'Revisar la celda de origen en el libro y volver a capturar el valor correcto.',
+    },
+    denominador_invalido: {
+      causa:
+        'unidades_buenas u horas_fijos llegó en cero ese mes/sitio, y los indicadores que dividen por esa magnitud no se pueden calcular.',
+      resolucion:
+        'Confirmar con el área si el sitio realmente no operó ese mes o si falta cargar el dato.',
+    },
+    salto_atipico: {
+      causa:
+        'El valor cambió de forma brusca contra el mes anterior: puede ser un evento real (parada, pico de producción) o un error de captura.',
+      resolucion: 'Contrastar con el área si el salto es real; si no, corregir el dato de origen.',
+    },
+    mes_incompleto: {
+      causa: 'No todos los sitios/magnitudes tienen lectura ese mes.',
+      resolucion: 'Completar la captura de las lecturas que faltan.',
+    },
+  };
   function fichaAviso(a) {
     var sitio = AMBITOS.filter(function (s) {
       return s.id === a.sitio;
     })[0];
+    var causa = CAUSA_AVISO[a.codigo];
     var filas =
       filaFicha('Código', a.codigo, true) +
       filaFicha('Mes', a.mes ? 'Mes ' + a.mes : '') +
       filaFicha('Sitio', sitio ? sitio.rotulo : a.sitio) +
-      filaFicha('Métrica', a.metrica, true);
+      filaFicha('Métrica', a.metrica, true) +
+      filaFicha('Posible causa', causa ? causa.causa : '') +
+      filaFicha('Cómo resolver', causa ? causa.resolucion : '');
     if (!filas) return '';
     return (
       '<details class="infodato"><summary>Ficha para depurar</summary>' +
@@ -129,15 +158,29 @@ var Tablero = (function () {
       '</dl></details>'
     );
   }
+  // Cache por URL, vigente mientras dure la pagina: cambiar de vista no vuelve a pedir
+  // lo mismo (ej. 'panorama' lo piden cuatro vistas con los mismos parametros), y dos
+  // llamadas identicas en paralelo comparten la misma promesa en vez de duplicar el
+  // viaje de red. Una correccion real recarga la pagina (/corregir es otra pantalla),
+  // asi que no hace falta invalidar nada aqui.
+  var cacheApi = {};
   async function api(recurso, params) {
     var q = new URLSearchParams();
     if (S.anio) q.set('anio', S.anio);
     Object.keys(params || {}).forEach(function (k) {
       if (params[k] !== null && params[k] !== undefined) q.set(k, params[k]);
     });
-    var r = await fetch('/api/ehs/' + recurso + (q.toString() ? '?' + q.toString() : ''));
-    if (!r.ok) throw new Error(recurso + ' -> ' + r.status);
-    return r.json();
+    var url = '/api/ehs/' + recurso + (q.toString() ? '?' + q.toString() : '');
+    if (!cacheApi[url]) {
+      cacheApi[url] = fetch(url).then(function (r) {
+        if (!r.ok) throw new Error(recurso + ' -> ' + r.status);
+        return r.json();
+      });
+      cacheApi[url].catch(function () {
+        delete cacheApi[url];
+      });
+    }
+    return cacheApi[url];
   }
 
   /* --------------------------------------------------------- el estado en la URL --- */
@@ -381,14 +424,24 @@ var Tablero = (function () {
       })[0] || pan.kpi[2];
     S.kpi = foco.kpi_id;
 
-    var serie = await api('serie-mensual', { ambito: S.ambito, kpi: S.kpi });
+    // De aqui en adelante todo depende solo de pan/S.kpi/S.mes, ya resueltos: se pide
+    // en paralelo en vez de en fila (eran cuatro viajes de red uno detras de otro).
+    var previos = await Promise.all([
+      api('serie-mensual', { ambito: S.ambito, kpi: S.kpi }),
+      api('kpi-por-sitio', { mes: S.mes, kpi: S.kpi }),
+      api('trayectoria-anual', { kpi: S.kpi, ambito: 'colombia_peru' }),
+      pintarMatrizSitios(pan),
+    ]);
+    var serie = previos[0];
+    var porSitio = previos[1];
+    var tray = previos[2];
+
     serie.dec = foco.dec;
     $('#hFoco').textContent = foco.kpi + ' en el tiempo';
     $('#subFoco').textContent = pan.ambito.nombre + ' · acumulado a ' + mesElegido(pan);
-    Graficos.serieKpi('gFoco', serie);
+    Graficos.serieKpi('gFoco', serie, S.mes);
     $('#notaFoco').innerHTML = nota(textoContraMeta(foco));
 
-    var porSitio = await api('kpi-por-sitio', { mes: S.mes, kpi: S.kpi });
     $('#subSitios').textContent = foco.kpi + ' · acumulado a ' + mesElegido(pan);
     Graficos.porSitio('gSitios', porSitio, foco.dec);
     var fuera = porSitio.sitios.filter(function (s) {
@@ -442,13 +495,10 @@ var Tablero = (function () {
     // perimetro fijo en colombia_peru a proposito, no S.ambito: este panel siempre
     // referencia el scorecard mas amplio (Colombia + Peru), nunca el ambito elegido
     // arriba — asi lo explica textoTrayectoria ("perímetro más amplio que el de
-    // este tablero").
-    var tray = await api('trayectoria-anual', { kpi: S.kpi, ambito: 'colombia_peru' });
+    // este tablero"). tray ya se pidio arriba, en paralelo con serie/porSitio.
     $('#subTray').textContent = tray.kpi + ' · perímetro ' + tray.perimetro;
     Graficos.trayectoria('gTray', tray);
     $('#notaTray').innerHTML = nota(textoTrayectoria(tray));
-
-    await pintarMatrizSitios(pan);
   }
 
   function textoTrayectoria(t) {
@@ -613,9 +663,14 @@ var Tablero = (function () {
       })[0].value
     );
     var tabla = $(tablaId);
+    // gContrasteAgua a partir de tContrasteAgua: mismo sufijo, el chart vive junto a
+    // la tabla que ya existia (ver dashboard.ejs).
+    var graficoIdRaw = tablaId.slice(1).replace(/^t/, 'g');
+    var grafico = $('#' + graficoIdRaw);
 
     if (anioA === anioB) {
       tabla.innerHTML = '<div class="vacio"><p>Elige dos años distintos para comparar.</p></div>';
+      if (grafico) grafico.innerHTML = '';
       return;
     }
 
@@ -640,8 +695,11 @@ var Tablero = (function () {
         ' ni en ' +
         anioB +
         '.</p></div>';
+      if (grafico) grafico.innerHTML = '';
       return;
     }
+
+    if (grafico) Graficos.contraste(graficoIdRaw, r, anioA, anioB);
 
     var dec = r.dec;
     tabla.innerHTML =
@@ -812,7 +870,7 @@ var Tablero = (function () {
     }
 
     $(ids.subCombo).textContent = datos.ambito.nombre + ' · ' + datos.anio;
-    cfg.dibujarCombo(ids.comboRaw, datos.filas);
+    cfg.dibujarCombo(ids.comboRaw, datos.filas, cfg.meta, S.mes);
     $(ids.notaCombo).innerHTML = nota(cfg.notaCombo);
 
     var f =
@@ -880,8 +938,27 @@ var Tablero = (function () {
   }
 
   async function pintarAgua() {
-    var agua = await api('agua-mensual', { ambito: S.ambito });
-    var diario = await api('agua-diaria', { mes: S.mes, sitio: S.ambito });
+    // Las cinco peticiones de esta vista solo dependen de S.mes/S.ambito, ninguna del
+    // resultado de otra: se piden todas en paralelo (eran hasta 5 viajes en fila).
+    var previos = await Promise.all([
+      api('agua-mensual', { ambito: S.ambito }),
+      api('agua-diaria', { mes: S.mes, sitio: S.ambito }),
+      api('panorama', { mes: S.mes, ambito: S.ambito }),
+      api('energia-mensual', { ambito: S.ambito }),
+      api('kpi-por-sitio', { mes: S.mes, kpi: 'energia_por_lente' }),
+    ]);
+    var agua = previos[0];
+    var diario = previos[1];
+    var pan = previos[2];
+    var energia = previos[3];
+    var porSitioEnergia = previos[4];
+
+    var kAgua = pan.kpi.filter(function (k) {
+      return k.kpi_id === 'agua_por_lente';
+    })[0];
+    var kEne = pan.kpi.filter(function (k) {
+      return k.kpi_id === 'energia_por_lente';
+    })[0];
 
     pintarHojaMensual(
       {
@@ -899,10 +976,11 @@ var Tablero = (function () {
       {
         nombreRecurso: 'agua',
         dibujarCombo: Graficos.aguaCombo,
+        meta: kAgua ? kAgua.meta : null,
         notaCombo:
           'Dos causas distintas mueven el consumo por lente: lo que se gasta y lo que se produce. ' +
-          'El eje doble deja ver cuál de las dos manda en cada mes, y el máximo y el mínimo quedan ' +
-          'anotados dentro del propio gráfico.',
+          'El eje doble deja ver cuál de las dos manda en cada mes, la línea punteada es la meta y ' +
+          'el máximo y el mínimo quedan anotados dentro del propio gráfico.',
         colConsumo: 'Consumo m³',
         colRatio: 'l/lente',
         campoConsumo: 'consumo_m3',
@@ -912,25 +990,15 @@ var Tablero = (function () {
       }
     );
 
-    $('#subAguaDiario').textContent = diario.disponible
-      ? diario.dias.length + ' lecturas'
-      : 'próximamente';
-    $('#cajaAguaDiario').innerHTML = diario.disponible
-      ? ''
-      : '<div class="vacio"><span class="chip pend">próximamente</span>' +
-        '<p>El área sí lleva el registro diario y esta vista ya está construida para leerlo: ' +
-        'se enciende sola en cuanto el registro entre. Estado que informa el servidor: ' +
-        '<b>' +
-        Fmt.esc(diario.estado) +
-        '</b>.</p></div>';
+    // Panel opcional: solo ocupa espacio cuando hay registro diario real que mostrar.
+    // Se enciende solo en cuanto el area empiece a cargarlo, sin placeholder de "proximamente".
+    $('#panelAguaDiario').toggleAttribute('hidden', !diario.disponible);
+    if (diario.disponible) {
+      $('#subAguaDiario').textContent = diario.dias.length + ' lecturas';
+      $('#cajaAguaDiario').innerHTML = '';
+    }
 
     // --------------------------------------------------------------- energía ---
-    var pan = await api('panorama', { mes: S.mes, ambito: S.ambito });
-    var kEne = pan.kpi.filter(function (k) {
-      return k.kpi_id === 'energia_por_lente';
-    })[0];
-
-    var energia = await api('energia-mensual', { ambito: S.ambito });
     pintarHojaMensual(
       {
         subCombo: '#subEnergiaCombo',
@@ -947,9 +1015,11 @@ var Tablero = (function () {
       {
         nombreRecurso: 'energía',
         dibujarCombo: Graficos.energiaCombo,
+        meta: kEne ? kEne.meta : null,
         notaCombo:
           'Igual que con el agua: lo que sube o baja el consumo por lente puede ser el gasto o ' +
-          'la producción, y el eje doble separa cuál de las dos manda cada mes.',
+          'la producción, el eje doble separa cuál de las dos manda cada mes y la línea punteada ' +
+          'es la meta.',
         colConsumo: 'Consumo kWh',
         colRatio: 'kWh/lente',
         campoConsumo: 'consumo_kwh',
@@ -959,7 +1029,6 @@ var Tablero = (function () {
       }
     );
 
-    var porSitioEnergia = await api('kpi-por-sitio', { mes: S.mes, kpi: 'energia_por_lente' });
     $('#subEnergiaSitios').textContent = 'acumulado a ' + mesElegido(pan);
     Graficos.porSitio('gEnergiaSitios', porSitioEnergia, kEne ? kEne.dec : 3);
     var fueraEne = porSitioEnergia.sitios.filter(function (s) {
@@ -1013,7 +1082,7 @@ var Tablero = (function () {
     var res = await api('serie-mensual', { ambito: S.ambito, kpi: 'residuos_por_lente' });
     res.dec = kRes.dec;
     $('#subResiduos').textContent = pan.ambito.nombre;
-    Graficos.serieKpi('gResiduos', res);
+    Graficos.serieKpi('gResiduos', res, S.mes);
     $('#notaResiduos').innerHTML = nota(textoContraMeta(kRes));
 
     var porSitio = await api('kpi-por-sitio', { mes: S.mes, kpi: 'residuos_por_lente' });
@@ -1155,7 +1224,7 @@ var Tablero = (function () {
     var fr = await api('serie-mensual', { ambito: S.ambito, kpi: 'frequency_rate' });
     fr.dec = seg[0].dec;
     $('#subFR').textContent = pan.ambito.nombre;
-    Graficos.serieKpi('gFR', fr);
+    Graficos.serieKpi('gFR', fr, S.mes);
     $('#notaFR').innerHTML = nota(
       textoContraMeta(seg[0]) +
         ' El denominador son las horas-hombre de personal fijo más temporal.'
@@ -1203,7 +1272,7 @@ var Tablero = (function () {
     );
 
     $('#subAcc').textContent = pan.ambito.nombre;
-    Graficos.serieKpi('gAcc', acc);
+    Graficos.serieKpi('gAcc', acc, S.mes);
     $('#notaAcc').innerHTML = nota(
       'Los accidentes son un conteo acumulado del año: la línea solo puede subir o sostenerse. ' +
         'Un mes en cero no borra un caso anterior.'
@@ -1599,8 +1668,7 @@ var Tablero = (function () {
         Fmt.mesLargo[S.mes - 1] +
         ' ' +
         S.anio +
-        '</b></span>' +
-        '<span>META <b>TECHO · CUMPLIR ES QUEDAR POR DEBAJO</b></span>';
+        '</b></span>';
 
       if (S.vista === 'panorama') await pintarPanorama();
       else if (S.vista === 'agua') await pintarAgua();

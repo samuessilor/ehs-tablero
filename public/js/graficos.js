@@ -17,8 +17,11 @@ var Graficos = (function () {
   'use strict';
 
   var C = {
-    tinta: '#0B2239',
-    inst: '#0B3C5D',
+    // Negro corporativo Servioptica (reunion 24-sep-2026): ehs.css ya cambio --tinta/
+    // --inst de azul marino a negro, esta paleta se habia quedado con los valores
+    // viejos y las graficas seguian en azul mientras el resto del tablero ya no.
+    tinta: '#14161A',
+    inst: '#1C1F24',
     amb: '#21A0A0',
     ambSuave: '#8FCACA',
     cumple: '#2E7D5B',
@@ -97,8 +100,18 @@ var Graficos = (function () {
         textStyle: { color: '#EAF2F7', fontSize: 11.5, fontFamily: SANS },
         axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(11,34,57,.05)' } },
       },
-      animationDuration: 420,
+      animationDuration: 480,
       animationEasing: 'cubicOut',
+      // cada barra/punto entra con un pequeño retraso en cascada en vez de saltar
+      // toda la serie de una vez: mismo dato, se lee mas cuidado.
+      animationDelay: function (idx) {
+        return idx * 16;
+      },
+      // las instancias de grafica se reusan (setOption sobre la misma instancia al
+      // cambiar de sitio/mes, ver pintar()): sin esto la actualizacion salta sin
+      // transicion. Mismo timing que la entrada, para que se sienta igual de cuidado.
+      animationDurationUpdate: 380,
+      animationEasingUpdate: 'cubicOut',
     };
     if (!sinToolbox) {
       o.toolbox = {
@@ -169,6 +182,15 @@ var Graficos = (function () {
     };
   }
 
+  /** El mes elegido arriba (MES DE CORTE) se destaca en la barra; el resto se atenua
+   *  para que salte a la vista cual es, sin perder el resto de la serie de contexto. */
+  function colorMesBarra(mesActivo) {
+    if (!mesActivo) return C.ambSuave;
+    return function (p) {
+      return p.dataIndex + 1 === mesActivo ? C.amb : 'rgba(143,202,202,.4)';
+    };
+  }
+
   function filaTooltip(color, etiqueta, valor) {
     return (
       '<div style="display:flex;align-items:center;gap:7px;margin-top:3px">' +
@@ -204,6 +226,9 @@ var Graficos = (function () {
     var ratio = Fmt.mesMini.map(function (_, i) {
       return porMes[i + 1] ? porMes[i + 1][cfg.campoRatio] : null;
     });
+    // meta es opcional: sin ella la grafica se ve igual que siempre, con ella el ratio
+    // suma su propio techo, igual que serieKpi.
+    var rotuloMeta = 'meta ' + Fmt.meta(cfg.meta, cfg.decRatio) + ' ' + cfg.unidadRatio;
     pintar(
       id,
       base({
@@ -211,7 +236,10 @@ var Graficos = (function () {
         xAxis: ejeMeses(),
         yAxis: [
           { type: 'value', name: 'lentes' },
-          { type: 'value', splitLine: { show: false }, scale: true },
+          Object.assign(
+            { splitLine: { show: false }, scale: true },
+            ejeValorConTecho(cfg.unidadRatio, cfg.meta)
+          ),
         ],
         tooltip: {
           trigger: 'axis',
@@ -258,37 +286,41 @@ var Graficos = (function () {
             name: 'Lentes procesados',
             type: 'bar',
             data: lentes,
-            itemStyle: { color: C.ambSuave, borderRadius: [2, 2, 0, 0] },
+            itemStyle: { color: colorMesBarra(cfg.mesActivo), borderRadius: [2, 2, 0, 0] },
             barMaxWidth: 24,
           },
-          {
-            name: 'Consumo por lente (' + cfg.unidadRatio + '/lente)',
-            type: 'line',
-            yAxisIndex: 1,
-            data: ratio,
-            symbol: 'circle',
-            symbolSize: 6,
-            itemStyle: { color: C.tinta, borderColor: '#fff', borderWidth: 1.5 },
-            lineStyle: { color: C.tinta, width: 2.2 },
-            z: 5,
-            // el pico se anota DENTRO del grafico: es la lectura que el area busca
-            markPoint: {
-              symbol: 'pin',
-              symbolSize: 46,
-              label: {
-                fontSize: 9,
-                color: '#fff',
-                fontFamily: MONO,
-                formatter: function (p) {
-                  return Fmt.num(p.value, cfg.decRatio);
+          Object.assign(
+            {
+              name: 'Consumo por lente (' + cfg.unidadRatio + '/lente)',
+              type: 'line',
+              yAxisIndex: 1,
+              data: ratio,
+              symbol: 'circle',
+              symbolSize: 6,
+              itemStyle: { color: C.tinta, borderColor: '#fff', borderWidth: 1.5 },
+              lineStyle: { color: C.tinta, width: 2.2 },
+              z: 5,
+              // el pico se anota DENTRO del grafico: es la lectura que el area busca
+              markPoint: {
+                symbol: 'pin',
+                symbolSize: 46,
+                label: {
+                  fontSize: 9,
+                  color: '#fff',
+                  fontFamily: MONO,
+                  formatter: function (p) {
+                    return Fmt.num(p.value, cfg.decRatio);
+                  },
                 },
+                data: [
+                  { type: 'max', name: 'maximo', itemStyle: { color: C.riesgo } },
+                  { type: 'min', name: 'minimo', itemStyle: { color: C.cumple } },
+                ],
               },
-              data: [
-                { type: 'max', name: 'maximo', itemStyle: { color: C.riesgo } },
-                { type: 'min', name: 'minimo', itemStyle: { color: C.cumple } },
-              ],
             },
-          },
+            // como vamos contra la meta: la misma linea+banda de techo que usa serieKpi
+            techo(cfg.meta, rotuloMeta)
+          ),
         ],
       })
     );
@@ -303,7 +335,7 @@ var Graficos = (function () {
      * Es la grafica principal y la unica que responde la pregunta de si una desviacion
      * es de un mes o viene de atras.
      */
-    serieKpi: function (id, r) {
+    serieKpi: function (id, r, mesActivo) {
       var dec = r.dec === undefined ? 2 : r.dec;
       var rotulo = (r.es_referencia ? 'referencia ' : 'meta ') + Fmt.meta(r.meta, dec);
       pintar(
@@ -354,7 +386,7 @@ var Graficos = (function () {
               data: r.meses.map(function (m) {
                 return m.valor;
               }),
-              itemStyle: { color: C.ambSuave, borderRadius: [2, 2, 0, 0] },
+              itemStyle: { color: colorMesBarra(mesActivo), borderRadius: [2, 2, 0, 0] },
               barMaxWidth: 24,
               emphasis: { itemStyle: { color: C.amb } },
             },
@@ -537,8 +569,11 @@ var Graficos = (function () {
               // el verde del extremo "excelente" estaba casi blanco (#DCEEE4, apenas se
               // distinguia de la celda vecina) y el rojo del otro extremo si se notaba
               // fuerte — se sube la saturacion del verde para que la escala se lea pareja
-              // en los dos sentidos, sin tocar el rojo ni el centro
-              inRange: { color: ['#7FD1A3', '#F2F6F8', '#F6DCD8', '#C0392B'] },
+              // en los dos sentidos, sin tocar el rojo ni el centro. Ajuste posterior: un
+              // verde solido (#7FD1A3) se leia plano — se pasa a un verde de aprobacion
+              // (el mismo tono de --cumple) con transparencia, para que se note que es un
+              // estado bueno sin tapar el numero que trae encima.
+              inRange: { color: ['rgba(46,125,91,.42)', '#F2F6F8', '#F6DCD8', '#C0392B'] },
               formatter: function (v) {
                 return Fmt.num(v, 0) + ' %';
               },
@@ -600,24 +635,28 @@ var Graficos = (function () {
     },
 
     /** El agua: produccion en barras y consumo por lente en linea, con los picos marcados. */
-    aguaCombo: function (id, filas) {
+    aguaCombo: function (id, filas, meta, mesActivo) {
       comboProduccion(id, filas, {
         campoConsumo: 'consumo_m3',
         campoRatio: 'l_por_lente',
         unidadConsumo: 'm³',
         unidadRatio: 'l',
         decRatio: 2,
+        meta: meta,
+        mesActivo: mesActivo,
       });
     },
 
     /** Lo mismo que aguaCombo, para energía. */
-    energiaCombo: function (id, filas) {
+    energiaCombo: function (id, filas, meta, mesActivo) {
       comboProduccion(id, filas, {
         campoConsumo: 'consumo_kwh',
         campoRatio: 'kwh_por_lente',
         unidadConsumo: 'kWh',
         unidadRatio: 'kWh',
         decRatio: 2,
+        meta: meta,
+        mesActivo: mesActivo,
       });
     },
 
@@ -848,6 +887,121 @@ var Graficos = (function () {
           ),
         ],
       });
+    },
+
+    /**
+     * Contraste mensual: dos años elegidos, mes a mes, del mismo ámbito y KPI — "cómo
+     * vamos este año contra el anterior", con la misma vara. Barras lado a lado para el
+     * mes puntual y una línea de YTD por año para el acumulado, que es como se evalúa
+     * de verdad a nivel gerencial: no el mes suelto, el año hasta donde vamos.
+     */
+    contraste: function (id, r, anioA, anioB) {
+      var dec = r.dec;
+      pintar(
+        id,
+        base({
+          legend: { top: 0, left: 'center', icon: 'roundRect' },
+          xAxis: ejeMeses(
+            r.meses.map(function (m) {
+              return (m.nombre_mes || '').slice(0, 3) || Fmt.mesCorto[m.mes - 1];
+            })
+          ),
+          yAxis: { type: 'value', name: r.unidad },
+          tooltip: {
+            trigger: 'axis',
+            confine: true,
+            backgroundColor: 'rgba(11,34,57,.95)',
+            borderWidth: 0,
+            padding: [8, 11],
+            textStyle: { color: '#EAF2F7', fontSize: 11.5 },
+            formatter: function (ps) {
+              var m = r.meses[ps[0].dataIndex];
+              var html = '<b>' + (m.nombre_mes || Fmt.mesLargo[m.mes - 1]) + '</b>';
+              html += filaTooltip(
+                C.ambSuave,
+                String(anioA),
+                m.valorA === null ? 'sin dato' : Fmt.num(m.valorA, dec) + ' ' + r.unidad
+              );
+              html += filaTooltip(
+                C.amb,
+                String(anioB),
+                m.valorB === null ? 'sin dato' : Fmt.num(m.valorB, dec) + ' ' + r.unidad
+              );
+              if (m.valorA !== null && m.valorB !== null && m.valorA !== 0) {
+                html += filaTooltip(
+                  'transparent',
+                  'Δ del mes',
+                  Fmt.pctDirecto(((m.valorB - m.valorA) / m.valorA) * 100)
+                );
+              }
+              html += filaTooltip(
+                C.tinta,
+                'YTD ' + anioA,
+                m.ytdA === null ? 'sin dato' : Fmt.num(m.ytdA, dec)
+              );
+              html += filaTooltip(
+                C.inst,
+                'YTD ' + anioB,
+                m.ytdB === null ? 'sin dato' : Fmt.num(m.ytdB, dec)
+              );
+              if (m.ytdA !== null && m.ytdB !== null && m.ytdA !== 0) {
+                html += filaTooltip(
+                  'transparent',
+                  'Δ YTD, como vamos',
+                  Fmt.pctDirecto(((m.ytdB - m.ytdA) / m.ytdA) * 100)
+                );
+              }
+              return html;
+            },
+          },
+          series: [
+            {
+              name: String(anioA),
+              type: 'bar',
+              data: r.meses.map(function (m) {
+                return m.valorA;
+              }),
+              itemStyle: { color: C.ambSuave, borderRadius: [2, 2, 0, 0] },
+              barMaxWidth: 16,
+            },
+            {
+              name: String(anioB),
+              type: 'bar',
+              data: r.meses.map(function (m) {
+                return m.valorB;
+              }),
+              itemStyle: { color: C.amb, borderRadius: [2, 2, 0, 0] },
+              barMaxWidth: 16,
+            },
+            {
+              name: 'YTD ' + anioA,
+              type: 'line',
+              data: r.meses.map(function (m) {
+                return m.ytdA;
+              }),
+              symbol: 'circle',
+              symbolSize: 5,
+              itemStyle: { color: C.tinta },
+              lineStyle: { color: C.tinta, width: 1.6, type: [5, 4] },
+              connectNulls: false,
+              z: 5,
+            },
+            {
+              name: 'YTD ' + anioB,
+              type: 'line',
+              data: r.meses.map(function (m) {
+                return m.ytdB;
+              }),
+              symbol: 'circle',
+              symbolSize: 6,
+              itemStyle: { color: C.inst, borderColor: '#fff', borderWidth: 1.5 },
+              lineStyle: { color: C.inst, width: 2.4 },
+              connectNulls: false,
+              z: 6,
+            },
+          ],
+        })
+      );
     },
   };
 })();

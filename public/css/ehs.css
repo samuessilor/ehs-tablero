@@ -17,7 +17,10 @@
   --sup: #ffffff;
   --borde: #e2e8ee;
   --tenue: #64748b;
-  --sans: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  /* Antes 'Inter': tipografia de IA por defecto en casi cualquier producto. IBM Plex
+     Sans se carga como webfont (ver <link> en el head de cada vista) para que el
+     cambio se note de verdad y no caiga en el mismo Segoe UI de siempre. */
+  --sans: 'IBM Plex Sans', 'Segoe UI', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono', 'Cascadia Mono', 'Consolas', 'Segoe UI Mono', ui-monospace, monospace;
   --cond: 'Bahnschrift', 'Segoe UI Semibold', 'Segoe UI', system-ui, sans-serif;
 }
@@ -1093,6 +1096,41 @@ main {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--tenue);
+}
+.subgrupo[id] {
+  scroll-margin-top: 92px;
+}
+
+/* Ir directo a Agua, Energia, Historico o Contraste: sin esto, Energia queda
+   despues de cuatro paneles de Agua y es facil no encontrarla. */
+.subnav {
+  grid-column: span 12;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 2px;
+}
+.subnav a {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--tinta);
+  text-decoration: none;
+  padding: 6px 14px;
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  background: var(--sup);
+  transition:
+    background 0.14s ease,
+    color 0.14s ease,
+    border-color 0.14s ease;
+}
+.subnav a:hover {
+  background: var(--tinta);
+  border-color: var(--tinta);
+  color: #fff;
 }
 
 /* ============================ VISTA DE DATOS ============================= */
@@ -2610,7 +2648,9 @@ body.cargando .body {
   color: var(--incumple);
 }
 .cap-marca.raro {
-  color: var(--riesgo);
+  /* var(--riesgo) puro (#D98324) da ~2.6:1 de contraste sobre blanco a 9px: ilegible.
+     Mismo tono ambar, mas oscuro, para que se lea sin perder el color de "raro". */
+  color: #92400e;
 }
 
 .cap-leyenda {
