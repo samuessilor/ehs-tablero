@@ -375,22 +375,21 @@ module.exports = {
   },
 
   /**
-   * Contraste mes a mes entre dos anios elegidos. El interinato (este adaptador)
-   * solo trae detalle mensual del anio publicado (d.serie) — no un historico
-   * completo por anio, que es justo lo que solo la base SQL tiene desde la
-   * migracion 0012. Se responde con lo que hay: el anio publicado con su dato
-   * real, y el otro con los meses en null (nunca inventado), para que la vista
-   * "Contraste mensual" siga siendo honesta tambien en modo interinato.
+   * Contraste mes a mes entre dos anios elegidos. d.historicoMensual trae 2023-2026
+   * para los 7 ambitos, exportado de la misma base SQL que ya reconcilio la sesion
+   * (analisis/construir_json_desde_sql.js) — no una segunda derivacion desde Excel,
+   * para que modo JSON y modo SQL no puedan divergir. Un anio/ambito sin ese dato
+   * responde con los meses en null, nunca inventado.
    */
   async contrasteMensual({ ambito, kpi, anioA, anioB }) {
     const { d } = base();
     if (!d.kpis[kpi]) return null;
 
+    const historico = d.historicoMensual || {};
     const porAnio = {};
     for (const anio of [anioA, anioB]) {
-      if (anio === d.anio && d.serie[ambito]) {
-        porAnio[anio] = new Map(d.serie[ambito].map((p) => [p.mes, p]));
-      }
+      const filas = historico[ambito] && historico[ambito][anio];
+      if (filas) porAnio[anio] = new Map(filas.map((p) => [p.mes, p]));
     }
 
     return {
