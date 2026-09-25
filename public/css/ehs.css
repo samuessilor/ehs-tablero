@@ -512,6 +512,22 @@ main {
   color: var(--tenue);
   text-align: right;
 }
+.panel > header .sub.contraste-sel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: none;
+}
+.contraste-sel select {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--tinta);
+  background: var(--sup);
+  border: 1px solid var(--borde);
+  border-radius: 2px;
+  padding: 2px 4px;
+  min-width: 56px;
+}
 .body {
   padding: 11px;
 }

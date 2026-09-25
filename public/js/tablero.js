@@ -59,6 +59,9 @@ var Tablero = (function () {
   function $(sel) {
     return document.querySelector(sel);
   }
+  function $all(sel) {
+    return Array.prototype.slice.call(document.querySelectorAll(sel));
+  }
   function chip(estado, texto) {
     return (
       '<span class="chip ' +
@@ -483,6 +486,90 @@ var Tablero = (function () {
     $(ids.nota).innerHTML = nota(textoTrayectoriaPropia(tray));
   }
 
+  /* ------------------------------------------------------------ contraste mensual ---
+   * Dos años elegidos, mes a mes, para el ámbito de arriba (pedido en la reunión del
+   * 24-sep-2026: "yo pueda colocar aquí el año que yo quiera confrontar"). Los
+   * selectores de año se llenan una sola vez (ANIOS_CONTRASTE, fijo: es el rango que
+   * carga la migración 0012); cambiar cualquiera de los dos vuelve a pedir y repintar
+   * solo esa tabla, no toda la vista.
+   */
+  var ANIOS_CONTRASTE = [2023, 2024, 2025, 2026];
+
+  function selectsContraste(kpi) {
+    return $all('select.contraste-anio[data-kpi="' + kpi + '"]');
+  }
+
+  function prepararSelectsContraste(kpi, tablaId) {
+    var selects = selectsContraste(kpi);
+    if (!selects.length || selects[0].dataset.listo) return;
+    selects.forEach(function (sel) {
+      sel.innerHTML = ANIOS_CONTRASTE.map(function (a) {
+        return '<option value="' + a + '">' + a + '</option>';
+      }).join('');
+      // A = el año anterior al último, B = el último: lo que se pidió en la reunión
+      // ("2025 contra 2026, como hoy") sin fijar el año en el código.
+      sel.value = sel.dataset.cual === 'A' ? ANIOS_CONTRASTE[ANIOS_CONTRASTE.length - 2] : ANIOS_CONTRASTE[ANIOS_CONTRASTE.length - 1];
+      sel.dataset.listo = '1';
+      sel.addEventListener('change', function () {
+        pintarContraste(kpi, tablaId);
+      });
+    });
+  }
+
+  async function pintarContraste(kpi, tablaId) {
+    var selects = selectsContraste(kpi);
+    if (!selects.length) return;
+    var anioA = Number(selects.filter(function (s) { return s.dataset.cual === 'A'; })[0].value);
+    var anioB = Number(selects.filter(function (s) { return s.dataset.cual === 'B'; })[0].value);
+    var tabla = $(tablaId);
+
+    if (anioA === anioB) {
+      tabla.innerHTML = '<div class="vacio"><p>Elige dos años distintos para comparar.</p></div>';
+      return;
+    }
+
+    var r = await api('contraste-mensual', { ambito: S.ambito, kpi: kpi, anioA: anioA, anioB: anioB });
+    if (!r || r.meses.every(function (m) { return m.valorA === null && m.valorB === null; })) {
+      tabla.innerHTML =
+        '<div class="vacio"><span class="chip sinmeta">sin dato</span>' +
+        '<p>Este ámbito no tiene lecturas de ' + Fmt.esc(r ? r.kpi : kpi) + ' en ' + anioA + ' ni en ' + anioB + '.</p></div>';
+      return;
+    }
+
+    var dec = r.dec;
+    tabla.innerHTML =
+      '<table class="matriz"><tr><th>Mes</th>' +
+      '<th class="num">' + anioA + '</th><th class="num">YTD ' + anioA + '</th>' +
+      '<th class="num">' + anioB + '</th><th class="num">YTD ' + anioB + '</th>' +
+      '<th class="num">Δ mensual</th></tr>' +
+      r.meses
+        .map(function (m) {
+          var delta =
+            m.valorA != null && m.valorB != null && m.valorA !== 0
+              ? ((m.valorB - m.valorA) / m.valorA) * 100
+              : null;
+          return (
+            '<tr><th>' +
+            Fmt.esc(m.nombre_mes || Fmt.mesLargo[m.mes - 1]) +
+            '</th><td class="num">' +
+            Fmt.num(m.valorA, dec) +
+            '</td><td class="num">' +
+            Fmt.num(m.ytdA, dec) +
+            '</td><td class="num">' +
+            Fmt.num(m.valorB, dec) +
+            '</td><td class="num">' +
+            Fmt.num(m.ytdB, dec) +
+            '</td><td class="num ' +
+            signoClase(delta) +
+            '">' +
+            Fmt.pctDirecto(delta) +
+            '</td></tr>'
+          );
+        })
+        .join('') +
+      '</table>';
+  }
+
   async function pintarMatrizSitios(pan) {
     // Siempre los cinco ambitos y en el mismo orden. Antes era [el elegido] + los tres
     // sitios: con Celta elegido, Celta salia dos veces y faltaban los agregados.
@@ -789,6 +876,11 @@ var Tablero = (function () {
       },
       'energia_por_lente'
     );
+
+    prepararSelectsContraste('agua_por_lente', '#tContrasteAgua');
+    prepararSelectsContraste('energia_por_lente', '#tContrasteEnergia');
+    await pintarContraste('agua_por_lente', '#tContrasteAgua');
+    await pintarContraste('energia_por_lente', '#tContrasteEnergia');
   }
 
   /* ---------------------------------------------------------------- ambiental --- */
@@ -838,6 +930,9 @@ var Tablero = (function () {
       },
       'residuos_por_lente'
     );
+
+    prepararSelectsContraste('residuos_por_lente', '#tContrasteResiduos');
+    await pintarContraste('residuos_por_lente', '#tContrasteResiduos');
   }
 
   function pintarAcumuladoComp(comp) {
