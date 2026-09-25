@@ -14,17 +14,33 @@
      impresa o guardada como PDF desde el propio diálogo de impresión del navegador —
      por eso no hay generación de PDF en el servidor: el navegador ya sabe hacerlo, y
      un renderizador aparte solo duplicaría esa capacidad para producir el mismo papel. */
-  .rep-acciones { display: flex; gap: 10px; margin: 0 0 18px; }
+  .rep-acciones { display: flex; gap: 10px; margin: 0 0 18px; align-items: center; }
+  .rep-kpi { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(12, 1fr); gap: 14px; margin: 0 0 18px; }
+  .rep-kpi-titulo { grid-column: 1 / -1; display: flex; align-items: baseline; gap: 10px; padding: 6px 0 2px; border-top: 2px solid var(--borde); }
+  .rep-kpi-titulo:first-child { border-top: none; }
+  .rep-kpi-titulo h2 { margin: 0; font-family: var(--cond); font-size: 17px; }
+  .rep-kpi-titulo .sub { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; color: var(--tenue); text-transform: uppercase; }
+  .rep-texto { font-size: 12.5px; line-height: 1.55; color: var(--tinta); }
   .rep-tabla { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   .rep-tabla th, .rep-tabla td { padding: 7px 10px; border-bottom: 1px solid var(--borde); text-align: left; }
   .rep-tabla th { font-family: var(--mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--tenue); }
   .rep-tabla td.num { text-align: right; font-variant-numeric: tabular-nums; }
   .rep-referencia { font-size: 10.5px; color: var(--tenue); }
+  .rep-modal { position: fixed; inset: 0; z-index: 100; display: none; background: rgba(10,10,12,.55); align-items: center; justify-content: center; }
+  .rep-modal.abierto { display: flex; }
+  .rep-modal-caja { background: var(--sup); border-radius: 4px; max-width: 460px; width: calc(100% - 32px); max-height: 80vh; overflow: auto; padding: 20px 22px; }
+  .rep-modal-caja h2 { margin: 0 0 4px; font-family: var(--cond); font-size: 17px; }
+  .rep-modal-caja .sub { font-size: 12px; color: var(--tenue); margin: 0 0 14px; }
+  .rep-check { display: flex; align-items: center; gap: 9px; padding: 7px 0; border-bottom: 1px solid var(--borde); font-size: 13px; }
+  .rep-check input { width: 16px; height: 16px; }
+  .rep-modal-pie { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
+  .rep-modal-link { font-size: 11.5px; color: var(--inst); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; }
   @media print {
-    header.rail, .rep-acciones, footer.pie script, .no-imprimir { display: none !important; }
+    header.rail, .rep-acciones, .rep-modal, footer.pie script, .no-imprimir { display: none !important; }
     body { background: #fff; }
     main.body { max-width: none; padding: 0; }
-    .panel { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; }
+    .panel, .rep-kpi-titulo { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; }
+    .rep-kpi[data-excluido] { display: none !important; }
   }
 </style>
 </head>
@@ -57,8 +73,9 @@
 <% } else { %>
 
   <div class="rep-acciones no-imprimir">
-    <button type="button" class="cap-boton" onclick="window.print()">Imprimir / guardar como PDF</button>
+    <button type="button" class="cap-boton" id="btnDescargar">Descargar / imprimir</button>
     <a class="cap-boton cap-boton-suave" href="/api/ehs/detalle?formato=csv">Descargar el detalle en CSV</a>
+    <a class="cap-boton cap-boton-suave" href="/api/ehs/detalle?formato=excel">Descargar el detalle en Excel</a>
   </div>
 
   <section class="panel c12">
@@ -70,7 +87,7 @@
           <tr>
             <th>Indicador</th>
             <th class="num">Acumulado (YTD)</th>
-            <th class="num">Meta 2026</th>
+            <th class="num">Meta</th>
             <th class="num">Brecha</th>
             <th>Estado</th>
           </tr>
@@ -103,6 +120,32 @@
     </div>
   </section>
 
+  <%
+    /* Un bloque "01 mensual/YTD/meta + 02 contra el año anterior" por cada KPI que
+       de verdad tiene dato en este ámbito — Peru, por ejemplo, no reporta
+       accidentes/frequency_rate todavia, y un bloque vacío no informa nada. */
+    var kpisConDato = pan.kpi.filter(function (k) { return k.valor !== null; });
+  %>
+  <% kpisConDato.forEach(function (k) { %>
+  <div class="rep-kpi" data-kpi="<%= k.kpi_id %>" id="bloque-<%= k.kpi_id %>">
+    <div class="rep-kpi-titulo">
+      <h2><%= k.kpi %></h2>
+      <span class="sub"><%= k.unidad %></span>
+    </div>
+    <section class="panel c7">
+      <header><span class="ix">01</span><h2>Mensual, YTD y meta</h2><span class="sub" id="sub1-<%= k.kpi_id %>"></span></header>
+      <div class="grafico alto" id="g1-<%= k.kpi_id %>"></div>
+    </section>
+    <section class="panel c5">
+      <header><span class="ix">02</span><h2>Contra el año anterior</h2><span class="sub" id="sub2-<%= k.kpi_id %>"></span></header>
+      <div class="grafico alto" id="g2-<%= k.kpi_id %>"></div>
+    </section>
+    <section class="panel c12">
+      <div class="cuerpo rep-texto" id="texto-<%= k.kpi_id %>"></div>
+    </section>
+  </div>
+  <% }); %>
+
   <footer class="pie">
     <div class="pie-in">
       <div><span class="et">Fuente</span><b><%= pan.fuente %></b></div>
@@ -110,14 +153,37 @@
       <div><span class="et">Generado</span><b><%= generadoEn %></b></div>
     </div>
     <p class="pie-nota">
-      Todo el cálculo de esta página lo produce el código a partir del dato servido por
-      <code>/api/ehs/panorama</code>. Ninguna cifra está escrita a mano.
+      Todo el análisis de esta página lo produce el código a partir del dato servido por
+      <code>/api/ehs/*</code>. Ninguna conclusión ni ninguna cifra está escrita a mano.
     </p>
   </footer>
+
+  <div class="rep-modal no-imprimir" id="modalDescarga">
+    <div class="rep-modal-caja">
+      <h2>Qué incluir</h2>
+      <p class="sub">Todo viene preseleccionado. Quita lo que no quieras y descarga.</p>
+      <div id="listaCheck">
+        <% kpisConDato.forEach(function (k) { %>
+        <label class="rep-check">
+          <input type="checkbox" checked data-kpi="<%= k.kpi_id %>" />
+          <%= k.kpi %>
+        </label>
+        <% }); %>
+      </div>
+      <div class="rep-modal-pie">
+        <button type="button" class="rep-modal-link" id="btnCancelar">Cancelar</button>
+        <button type="button" class="cap-boton" id="btnConfirmar">Descargar</button>
+      </div>
+    </div>
+  </div>
 
 <% } %>
 
 </main>
+<script src="/vendor/echarts.min.js"></script>
+<script src="/js/formato.js"></script>
+<script src="/js/graficos.js"></script>
 <script src="/js/franja_estado.js"></script>
+<script src="/js/reporte.js"></script>
 </body>
 </html>
