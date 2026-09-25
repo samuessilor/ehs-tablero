@@ -2245,6 +2245,36 @@ body.cargando .body {
 .hall li.grave b {
   color: var(--incumple);
 }
+.hall details.infodato {
+  margin-top: 7px;
+}
+.hall .ficha {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 5px 12px;
+  margin: 0;
+}
+.hall .ficha dt {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--tenue);
+  padding-top: 1px;
+}
+.hall .ficha dd {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.5;
+  color: #334654;
+}
+.hall .ficha code {
+  font-family: var(--mono);
+  font-size: 10px;
+  background: rgba(11, 34, 57, 0.06);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
 
 /* --- descarga del crudo ------------------------------------------------- */
 .descarga {

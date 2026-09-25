@@ -91,6 +91,44 @@ var Tablero = (function () {
   function nota(html) {
     return '<div class="nota">' + html + '</div>';
   }
+  function filaFicha(etiqueta, valor, comoCodigo) {
+    if (valor === undefined || valor === null || valor === '') return '';
+    var v = Fmt.esc(valor);
+    return '<dt>' + etiqueta + '</dt><dd>' + (comoCodigo ? '<code>' + v + '</code>' : v) + '</dd>';
+  }
+  // Detalle para depurar: de donde sale el dato, que celda es, que trae hoy y que
+  // deberia traer. Colapsado por defecto (details.infodato) para no alargar la lista.
+  function fichaHallazgo(h) {
+    var filas =
+      filaFicha('Libro', h.libro) +
+      filaFicha('Celda', h.celda, true) +
+      filaFicha('Valor actual', h.valor_actual) +
+      filaFicha('Debería ir', h.valor_esperado);
+    if (!filas) return '';
+    return (
+      '<details class="infodato"><summary>Ficha para depurar</summary>' +
+      '<dl class="ficha">' +
+      filas +
+      '</dl></details>'
+    );
+  }
+  function fichaAviso(a) {
+    var sitio = AMBITOS.filter(function (s) {
+      return s.id === a.sitio;
+    })[0];
+    var filas =
+      filaFicha('Código', a.codigo, true) +
+      filaFicha('Mes', a.mes ? 'Mes ' + a.mes : '') +
+      filaFicha('Sitio', sitio ? sitio.rotulo : a.sitio) +
+      filaFicha('Métrica', a.metrica, true);
+    if (!filas) return '';
+    return (
+      '<details class="infodato"><summary>Ficha para depurar</summary>' +
+      '<dl class="ficha">' +
+      filas +
+      '</dl></details>'
+    );
+  }
   async function api(recurso, params) {
     var q = new URLSearchParams();
     if (S.anio) q.set('anio', S.anio);
@@ -1271,7 +1309,9 @@ var Tablero = (function () {
             Fmt.esc(h.detalle) +
             ' ' +
             Fmt.esc(h.impacto) +
-            '</p></div></li>'
+            '</p>' +
+            fichaHallazgo(h) +
+            '</div></li>'
           );
         })
         .join('') +
@@ -1323,7 +1363,9 @@ var Tablero = (function () {
             ) +
             '<div><p>' +
             Fmt.esc(a.mensaje) +
-            '</p></div></li>'
+            '</p>' +
+            fichaAviso(a) +
+            '</div></li>'
           );
         })
         .join('') +
