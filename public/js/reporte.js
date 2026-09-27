@@ -140,7 +140,12 @@
       }
     }
 
-    var tray = await api('trayectoria-anual', { kpi: kpiId, ambito: ambito });
+    // frequency_rate y accidentes_dafw solo tienen historico cargado con perimetro
+    // fijo colombia_peru (igual que gTray en Panorama y Seguridad, ver tablero.js):
+    // pedirlo con el ambito del reporte devolvia 404 y el panel se ocultaba solo.
+    var ambitoTray =
+      kpiId === 'frequency_rate' || kpiId === 'accidentes_dafw' ? 'colombia_peru' : ambito;
+    var tray = await api('trayectoria-anual', { kpi: kpiId, ambito: ambitoTray });
     var textoTray = '';
     if (tray) {
       $('#sub2-' + kpiId).textContent = tray.perimetro || '';

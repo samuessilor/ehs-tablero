@@ -718,12 +718,17 @@ var Graficos = (function () {
      * el KPI del mes, asi que la grafica explica el indicador en vez de acompanarlo.
      */
     composicionResiduos: function (id, r, meta) {
-      var nombre = { peligroso: 'Peligroso', aprovechable: 'Aprovechable', ordinario: 'Ordinario' };
-      var color = { peligroso: C.incumple, aprovechable: C.amb, ordinario: C.inst };
-      // r.partes trae ademas 'total' (el acumulado de las tres, no una parte real del
-      // residuo): sin filtrarlo se apilaba una cuarta barra sin nombre ni color propio
-      // (heredaba el primer color del tema, el mismo teal de "Aprovechable"), doblando
-      // la altura visible y pareciendo dos barras de aprovechable.
+      // 'total' es la unica parte que trae Peru (residuo sin desglose): necesita su
+      // propio nombre/color para no quedar sin mapear (antes se filtraba junto con el
+      // 'total' fantasma que SI hay que descartar en Colombia/Estrella/Celta/Agencias
+      // - ver adaptador_sql.js -, dejando a Peru con una gráfica vacia).
+      var nombre = {
+        peligroso: 'Peligroso',
+        aprovechable: 'Aprovechable',
+        ordinario: 'Ordinario',
+        total: 'Total',
+      };
+      var color = { peligroso: C.incumple, aprovechable: C.amb, ordinario: C.inst, total: C.amb };
       var partes = r.partes.filter(function (p) {
         return nombre[p];
       });

@@ -60,6 +60,13 @@
       left: 0;
       right: 0;
       bottom: 4px;
+      /* .pie-nota (heredada) trae max-width:74ch: sin anularlo aqui, la caja se
+         angosta a ese ancho y con left/right fijos queda pegada a la izquierda en
+         vez de ocupar toda la hoja - text-align:center solo centraba el texto
+         DENTRO de esa caja angosta, no la caja en la hoja. Verificado con
+         emulacion de medio "print": sin este max-width, left=0 y width=el ancho
+         completo de la pagina. */
+      max-width: none;
       text-align: center;
     }
   }

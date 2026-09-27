@@ -1135,15 +1135,23 @@ var Tablero = (function () {
   }
 
   function pintarAcumuladoComp(comp) {
-    var nombre = { peligroso: 'Peligroso', aprovechable: 'Aprovechable', ordinario: 'Ordinario' };
+    // 'total' es la unica parte que trae Peru (residuo sin desglose): con nombre y
+    // color propios en vez de filtrarse, para no dejar la lista vacia y sin poder
+    // calcular "mayor" (reduce sobre un arreglo vacio revienta). El 'total' fantasma
+    // que SI hay que descartar en Colombia/Celta/Estrella/Agencias ya no llega desde
+    // la SQL (adaptador_sql.js, residuosComposicion).
+    var nombre = {
+      peligroso: 'Peligroso',
+      aprovechable: 'Aprovechable',
+      ordinario: 'Ordinario',
+      total: 'Total',
+    };
     var color = {
       peligroso: Graficos.colores.incumple,
       aprovechable: Graficos.colores.amb,
       ordinario: Graficos.colores.inst,
+      total: Graficos.colores.amb,
     };
-    // 'total' es una magnitud legitima de Peru (residuo sin desglose), pero
-    // ref.kpi_magnitud la registra para el KPI entero: sin este filtro, un ambito sin
-    // esa magnitud (Colombia) recibia una cuarta "parte" en 0, sin nombre ni color.
     var acumulado = comp.acumulado.filter(function (a) {
       return nombre[a.parte];
     });
@@ -1195,14 +1203,17 @@ var Tablero = (function () {
     if (n < 2) return 'Un solo mes con dato: todavía no hay contra qué comparar la composición.';
     var ult = comp.meses[n - 1];
     var ant = comp.meses[n - 2];
+    // 'total' es la unica parte que trae Peru (residuo sin desglose): con nombre
+    // propio para poder compararla, en vez de filtrarla y dejar comp.partes vacio
+    // (reduce sobre un arreglo vacio revienta). El 'total' fantasma que SI hay que
+    // descartar en Colombia/Celta/Estrella/Agencias ya no llega desde la SQL
+    // (adaptador_sql.js, residuosComposicion).
     var nombre = {
       peligroso: 'el peligroso',
       aprovechable: 'el aprovechable',
       ordinario: 'el ordinario',
+      total: 'el total',
     };
-    // 'total' (magnitud propia de Peru, sin desglose) puede venir en comp.partes para
-    // ambitos que no la capturan, en 0 - filtrado para no comparar contra una parte
-    // que no existe en este ambito ni tiene nombre para mostrar.
     var salto = comp.partes
       .filter(function (p) {
         return nombre[p];
