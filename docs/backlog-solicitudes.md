@@ -16,8 +16,13 @@ con la razón.
 
 ## Pendiente ahora mismo
 
-Nada pendiente de confirmación en este momento. El sitio (`deploy-web1.vercel.app`)
-está desplegado y al día con todo lo de abajo.
+- [~] **Confirmar que el PDF ya no se sobrepone al imprimir** — el fix (sección 7) quedó
+      implementado con el mecanismo correcto y verificado que se dispara, pero no se
+      pudo probar contra una impresión real desde aquí. Falta que Samuel descargue el
+      reporte de nuevo y confirme.
+- Nota sobre el metadato Autor del PDF: no es solucionable vía `window.print()` — ver
+  el detalle en la sección 7. El crédito visible en el pie del reporte ya cumple el
+  mismo propósito.
 
 ---
 
@@ -137,34 +142,50 @@ está desplegado y al día con todo lo de abajo.
 
 Samuel descargó `Reporte EHS · Servióptica.pdf` y encontró varios defectos reales.
 
-- [ ] Texto y ejes de las gráficas se sobreponen con el párrafo de análisis de abajo en
-      varias páginas del PDF — causa encontrada: las gráficas se dibujan una sola vez,
-      con el layout de PANTALLA (paneles 01/02 a 7/5 columnas); al imprimir, el CSS de
-      impresión colapsa esos paneles a 12/12 columnas (breakpoint de ancho de página),
-      pero ninguna instancia de ECharts se vuelve a medir contra el nuevo tamaño —
-      `reporte.js` no tiene ningún listener de `beforeprint`/resize, a diferencia del
-      tablero. Se agrega ese listener para llamar `Graficos.redibujar()` justo antes de
-      imprimir.
-- [ ] El icono de "guardar imagen" (⬇, del toolbox de ECharts) queda dibujado dentro de
-      cada gráfica impresa — no tiene sentido en un PDF/papel. Se agrega un modo
-      "impresión" en `graficos.js` que omite el toolbox en toda gráfica dibujada
-      mientras esté activo, y `reporte.js` lo activa antes de dibujar nada.
-- [ ] Nombre del archivo/documento sin el mes — el título de la pestaña (y por lo tanto
-      el nombre sugerido al guardar el PDF) es fijo ("Reporte EHS · Servióptica"); debe
-      incluir el corte, ej. "Reporte EHS · Servióptica · Julio 2026".
-- [ ] Autor del documento (metadato PDF) = Samuel Galeano — **limitación real, no
+- [~] Texto y ejes de las gráficas se sobreponen con el párrafo de análisis de abajo en
+      varias páginas del PDF — causa real: las gráficas se dibujan una sola vez contra
+      el tamaño de PANTALLA y `reporte.js` no tenía ningún listener de
+      `beforeprint`/resize (a diferencia del tablero), así que ninguna instancia de
+      ECharts se volvía a medir para el layout de impresión. Se agregó el listener
+      (`Graficos.redibujar()` en `beforeprint`) más `overflow:hidden` en `.grafico`
+      como red de seguridad adicional — `9f15dfd`. **Verificado que el listener se
+      dispara y el mecanismo es el correcto (patrón estándar para este problema con
+      ECharts); no se pudo verificar visualmente contra una impresión real** —
+      `window.print()` abre un diálogo nativo que no se puede automatizar de forma
+      segura desde aquí. Pendiente de que Samuel confirme descargando el PDF de nuevo.
+- [x] El icono de "guardar imagen" (⬇, del toolbox de ECharts) quedaba dibujado dentro
+      de cada gráfica impresa — sin nada con que interactuar en un PDF/papel. Nuevo modo
+      "impresión" en `graficos.js` (`Graficos.activarModoImpresion()`) que omite el
+      toolbox en todo lo que se dibuje después; `reporte.js` lo activa antes de pintar
+      la primera gráfica — verificado, ya no aparece — `9f15dfd`
+- [x] Nombre del archivo/documento sin el mes — el título ahora incluye el corte:
+      "Reporte EHS · Servióptica · Julio 2026" en vez de un nombre fijo — verificado en
+      la pestaña del navegador — `9f15dfd`
+- [~] Autor del documento (metadato PDF) = Samuel Galeano — **limitación real, no
       solucionable con este mecanismo**: el PDF sale del "Guardar como PDF" del propio
       navegador (`window.print()`), y Chrome no expone ninguna forma de fijar el campo
-      Autor de un PDF impreso desde una página HTML (sí puede tomar el `<title>` como
-      Título del documento, pero no hay equivalente para Autor). El crédito visible en
-      el pie del reporte (punto siguiente) cumple el mismo propósito de forma confiable.
+      Autor de un PDF impreso desde una página HTML (sí toma el `<title>` como Título
+      del documento — eso sí quedó resuelto arriba —, pero no hay equivalente para
+      Autor). El crédito visible en el pie del reporte (punto siguiente) cumple el
+      mismo propósito de forma confiable y sí es 100% verificable.
 
 ## 8. Créditos / atribución
 
-- [ ] Pie del reporte descargable: agregar, discreto, algo como "Reporte generado por el
-      Dashboard EHS" y "Elaborado por Samuel Galeano".
-- [ ] Header del tablero (front, pantalla principal únicamente): un crédito muy pequeño,
-      sin protagonismo visual, tipo "Hecho por Samuel Galeano".
+- [x] Pie del reporte descargable: "Reporte generado por el Dashboard EHS · Elaborado
+      por Samuel Galeano", discreto (9.5px, opacidad reducida) — verificado — `9f15dfd`
+- [x] Header del tablero (front, pantalla principal únicamente): crédito pequeño bajo el
+      título ("Hecho por Samuel Galeano", 8px, muy tenue) — verificado, sin
+      protagonismo visual — `9f15dfd`
+
+## 9. Selector de sitio
+
+- [x] Perú movido de "Laboratorios y agencias" a "Consolidados" — cambio puramente de
+      agrupación visual, el id/cálculo/etiqueta de Perú no cambian — `9f15dfd`
+- [x] Bug real en la leyenda de "Trayectoria en el scorecard": la entrada fantasma "Año
+      en curso" se podía deseleccionar con un clic sin que nada cambiara en la gráfica,
+      dejando su propio ícono y el de "Meta del año" con aspecto de deseleccionado —
+      `legend.selectedMode:false` en esa gráfica, ninguna de las tres entradas necesita
+      filtrarse — `9f15dfd`
 
 ---
 
