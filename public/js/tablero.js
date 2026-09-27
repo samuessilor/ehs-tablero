@@ -230,7 +230,11 @@ var Tablero = (function () {
     } catch (err) {
       cont.innerHTML =
         '<p class="aviso-tabla-error">No se pudo cargar la tabla. Intenta de nuevo.</p>';
-      cont.parentElement.dataset.cargada = '0';
+      // en cont, no en cont.parentElement (el <details>): wireTablasAviso lee
+      // cont.dataset.cargada para decidir si reintenta al volver a abrir. Con el
+      // flag puesto en el elemento equivocado, "Intenta de nuevo" no reintentaba
+      // nada - colapsar y reabrir el desplegable no volvia a pedir el dato.
+      cont.dataset.cargada = '0';
       console.error(err);
     }
   }

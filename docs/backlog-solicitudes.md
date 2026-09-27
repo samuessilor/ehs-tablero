@@ -723,6 +723,26 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       acotado (`delete from ehs.scorecard_anual where anio = 2023`) contra la base real
       — pendiente de que lo pida expresamente.
 
+## 20. Auditoría de calidad de esta ronda (27-sep-2026, ronda 4, cierre)
+
+- [x] **Revisión propia del diff completo de las 5 secciones anteriores** (`80aa844`
+      a `59f7015`, 8 archivos) antes de cerrar la ronda. Un hallazgo real: en
+      `cargarTablaAviso` (sección 17), el `catch` reseteaba
+      `cont.parentElement.dataset.cargada = '0'` — el `<details>`, no el `<div
+      class="aviso-tabla">` que `wireTablasAviso` en verdad revisa
+      (`cont.dataset.cargada`). Efecto: si la tabla de un aviso fallaba al cargar,
+      "Intenta de nuevo" no reintentaba nada — colapsar y reabrir el desplegable se
+      quedaba mostrando el mismo error para siempre, sólo un reload de página lo
+      arreglaba. Corregido (`cont.dataset.cargada`, no `cont.parentElement...`) y
+      verificado con un fallo de red simulado en el navegador: primera apertura falla
+      y muestra el error, cerrar y reabrir sí reintenta y esta vez carga la tabla real
+      — sin errores de consola ajenos a la prueba.
+- [x] **Resto de la ronda revisado sin más hallazgos**: `graficos.js` (comboProduccion,
+      porSitio, residuosCombo), `ehs.css` (variables usadas todas existen), los dos
+      adaptadores y `rutas_api.js` (filtro de 2024 consistente en los tres), y
+      `dashboard.ejs` (numeración de paneles reconciliada tras insertar el panel 03 de
+      residuos).
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante
