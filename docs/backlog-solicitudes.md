@@ -575,6 +575,18 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       1,5s, mientras que un scroll instantáneo sí funciona — una limitación conocida
       de entornos de automatización con el compositor de la pestaña. Es la propiedad
       CSS estándar; pendiente que Samuel lo confirme en un navegador real — `df1bb17`
+      **Segundo intento (27-sep-2026, ronda 4), más aislado**: se repitió la prueba
+      limpiando el hash de la URL primero (para no repetir un clic sobre un ancla que
+      ya era el hash vigente, que algunos navegadores ignoran) y con un clic real del
+      mouse, no sintético — mismo resultado, cero movimiento incluso después de 1s. Se
+      aisló la causa: un scroll por rueda del mouse (`computer.scroll`, evento nativo)
+      sí mueve `window.scrollY` con normalidad en la misma pestaña; es específicamente
+      el scroll disparado por navegación de ancla o por JS (`scrollIntoView`/
+      `scrollTo`) el que no se mueve nada, ni instantáneo ni animado. Refuerza que es
+      una restricción del navegador controlado por CDP/la extensión (probablemente
+      falta de "activación de usuario" para ese tipo de scroll en pestañas
+      automatizadas), no un defecto del CSS — que es exactamente la técnica estándar
+      de la plataforma y no tiene por qué comportarse distinto en un navegador real.
 
 ## 16. Consumo total visible mes a mes + meta del combo (27-sep-2026, ronda 4)
 
