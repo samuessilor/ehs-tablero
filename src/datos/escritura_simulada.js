@@ -24,7 +24,14 @@
  * pantalla, la sentencia que se ejecutaria contra su servidor. Las dos audiencias
  * miran la misma pieza.
  */
-const { MAGNITUDES, SITIOS, examinarLote, examinarCorreccion } = require('../validacion');
+const {
+  MAGNITUDES,
+  SITIOS,
+  RANGO,
+  MOTIVO_MINIMO_CORRECCION,
+  examinarLote,
+  advertenciaCero,
+} = require('../validacion');
 
 /** Literal de cadena en T-SQL: la comilla simple se duplica. */
 function txt(v) {
@@ -152,16 +159,43 @@ async function corregirLectura({ anio, mes, sitio, magnitud, valor, motivo, corr
     throw e;
   }
 
-  const r = examinarCorreccion({ magnitud, valor, motivo });
-  if (r.motivoInvalido) {
-    const e = new Error(r.motivoInvalido);
+  // motivo/valor ya llegaron examinados por rutas_correccion.js (normalizarCorreccion),
+  // que corrio examinarCorreccion sobre el TEXTO original que escribio la persona y de
+  // ahi saco este 'valor' ya como numero. Pasar ese numero por examinarCorreccion OTRA
+  // VEZ aqui rechazaba correcciones validas: esMilesAmbiguo hace String(valor), y
+  // cualquier numero con exactamente tres decimales (8.076, 9.614, 500.125 - formas muy
+  // comunes de una lectura real) se ve identico a un punto de miles ambiguo una vez
+  // perdida la forma de texto original. Aqui solo se revalida lo que de verdad aplica a
+  // un numero ya limpio: rango y motivo, igual que haria sp_corregir_lectura del lado
+  // del servidor.
+  const motivoTexto = motivo == null ? '' : String(motivo).trim();
+  if (motivoTexto.length < MOTIVO_MINIMO_CORRECCION) {
+    const e = new Error(
+      `El motivo tiene que explicar algo, no solo llenar el campo (mínimo ${MOTIVO_MINIMO_CORRECCION} caracteres).`
+    );
     e.codigo = 'motivo_invalido';
     throw e;
   }
-  if (r.error) {
-    const e = new Error(r.error);
+  const n = Number(valor);
+  if (!Number.isFinite(n)) {
+    const e = new Error(`El valor no es un número: ${valor}.`);
     e.codigo = 'valor_invalido';
     throw e;
+  }
+  if (n < 0) {
+    const e = new Error('Valor negativo. Ninguna de las nueve magnitudes puede serlo.');
+    e.codigo = 'valor_invalido';
+    throw e;
+  }
+  const rango = RANGO[magnitud];
+  let advertencia = advertenciaCero(magnitud, n);
+  if (!advertencia && rango) {
+    const [min, max] = rango;
+    if (n > max) {
+      advertencia = `Supera el máximo histórico de ${magnitud} con holgura (${max}). Confirma que es correcto.`;
+    } else if (n > 0 && n < min) {
+      advertencia = `Queda por debajo del mínimo histórico de ${magnitud} (${min}). Confirma que es correcto.`;
+    }
   }
 
   const fecha = `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-01`;
@@ -169,7 +203,7 @@ async function corregirLectura({ anio, mes, sitio, magnitud, valor, motivo, corr
     modo: 'simulado',
     persistido: false,
     corregida: false,
-    advertencia: r.advertencia || null,
+    advertencia: advertencia || null,
     sentencia:
       `exec ehs.sp_corregir_lectura @fecha = ${txt(fecha)}, @sitio_id = ${txt(sitio)}, ` +
       `@magnitud_id = ${txt(magnitud)}, @valor_nuevo = ${txt(valor)}, ` +

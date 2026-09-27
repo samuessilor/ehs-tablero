@@ -120,6 +120,23 @@ module.exports = {
       return;
     }
 
+    // Mismo caso que el de arriba, pero lanzado en JS en vez de por la base: los
+    // adaptadores de escritura (escritura_simulada.js, escritura_sql.js) tambien
+    // rechazan con un mensaje pensado para quien usa el tablero ("El motivo tiene que
+    // explicar algo...", "Valor negativo..."). Sin esta rama caian en el 500 generico
+    // de mas abajo igual que un error de programacion, y el mensaje se perdia — el
+    // mismo defecto que "regla_de_la_base" ya resuelve para el lado de la base.
+    const validacionEscritura = new Set([
+      'falta_capturador',
+      'falta_corrector',
+      'motivo_invalido',
+      'valor_invalido',
+    ]);
+    if (err && validacionEscritura.has(err.codigo)) {
+      responder(res, 400, err.codigo, err.message, null);
+      return;
+    }
+
     responder(
       res,
       explicables[codigo] || 500,
