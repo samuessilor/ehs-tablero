@@ -1011,8 +1011,6 @@ module.exports = {
     const { sql, req } = await peticion();
     const r = await req.input('anio', sql.SmallInt, anio).input('corte', sql.TinyInt, ctx.corte)
       .query(`
-        declare @magnitudes int = (select count(*) from ref.dim_magnitud where area = 'ehs');
-
         -- todo cuenta hasta el corte publicado. Un mes que se este capturando ahora mismo
         -- no es un defecto de calidad, es un mes a medias, y quien lo dice es
         -- ehs.v_corte_publicado.en_curso, no un aviso de "mes incompleto"
@@ -1023,10 +1021,16 @@ module.exports = {
           join ref.dim_fecha f on f.fecha = l.fecha
          where f.anio = @anio and f.num_mes <= @corte;
 
+        -- 'lecturas' es el conteo real de filas (una lectura = un sitio + una magnitud
+        -- + un mes), no sitios x @magnitudes: esa multiplicacion asumia que TODO sitio
+        -- captura TODAS las magnitudes del area, lo cual nunca fue cierto (Peru captura
+        -- 4 de las 10 - agua/energia/unidades/residuo_total, no el desglose de residuos
+        -- ni accidentalidad) y por mes daba un numero fijo (40) que ni siquiera sumaba
+        -- contra el total real de la tarjeta de arriba (217, no 280 = 40 x 7 meses).
         select mes = f.num_mes,
                sitios = count(distinct l.sitio_id),
-               magnitudes = @magnitudes,
-               lecturas = count(distinct l.sitio_id) * @magnitudes
+               magnitudes = count(distinct l.magnitud_id),
+               lecturas = count(*)
           from ehs.hecho_lectura_mensual l
           join ref.dim_fecha f on f.fecha = l.fecha
          where f.anio = @anio and f.num_mes <= @corte
