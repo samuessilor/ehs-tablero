@@ -38,12 +38,30 @@
   .rep-check input { width: 16px; height: 16px; }
   .rep-modal-pie { display: flex; gap: 10px; margin-top: 16px; justify-content: flex-end; }
   .rep-modal-link { font-size: 11.5px; color: var(--inst); background: none; border: none; cursor: pointer; padding: 0; text-decoration: underline; }
+  .pie-credito-fija { font-size: 9.5px; opacity: .7; color: var(--tenue); }
   @media print {
     header.rail, .rep-acciones, .rep-modal, footer.pie script, .no-imprimir { display: none !important; }
     body { background: #fff; }
-    main.body { max-width: none; padding: 0; }
+    /* espacio de sobra para el credito fijo del pie, en todas las paginas */
+    main.body { max-width: none; padding: 0 0 26px; }
     .panel, .rep-kpi-titulo { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; }
     .rep-kpi[data-excluido] { display: none !important; }
+    /* Un panel de una sola grafica (sin "02 contra el año anterior", ej. Frequency
+       rate/Accidentes DAFW cuando el ambito no tiene cierre historico) quedaba muy
+       pegado al titulo de la siguiente magnitud: el margen inferior no alcanzaba a
+       leerse como separacion real entre dos secciones distintas. */
+    .rep-kpi { margin-bottom: 30px; }
+    .rep-kpi-titulo { margin-top: 6px; padding-top: 10px; }
+    footer.pie { margin-top: 24px; padding-top: 14px; }
+    /* credito discreto, repetido al pie de CADA hoja impresa - no solo de la ultima,
+       que es donde caia por estar al final del documento en el flujo normal. */
+    .pie-credito-fija {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 4px;
+      text-align: center;
+    }
   }
 </style>
 </head>
@@ -90,7 +108,7 @@
             <th>Indicador</th>
             <th class="num">Acumulado (YTD)</th>
             <th class="num">Meta</th>
-            <th class="num">Brecha</th>
+            <th class="num">Brecha vs. meta</th>
             <th>Estado</th>
           </tr>
         </thead>
@@ -158,7 +176,7 @@
       Todo el análisis de esta página lo produce el código a partir del dato servido por
       <code>/api/ehs/*</code>. Ninguna conclusión ni ninguna cifra está escrita a mano.
     </p>
-    <p class="pie-nota" style="font-size:9.5px;opacity:.7">
+    <p class="pie-nota pie-credito-fija">
       Reporte generado por el Dashboard EHS · Elaborado por Samuel Galeano
     </p>
   </footer>
