@@ -603,9 +603,18 @@ var Tablero = (function () {
     return txt || 'Sin cierres anteriores cargados todavía para este ámbito.';
   }
 
-  /** Panel "Histórico" (cierres año contra año) de un recurso, para el ámbito elegido. */
+  /** Panel "Histórico" (cierres año contra año) de un recurso, para el ámbito elegido.
+   *  Nacional Labs nunca tuvo historia propia cargada (es un agregado sin meta ni
+   *  serie anual, ver AMBITOS_CON_HISTORIA en rutas_api.js): la API responde 400 en
+   *  vez de un JSON vacio, y sin capturarlo aqui la excepcion se comia el resto de la
+   *  funcion que llama a esta - el panel de abajo (contraste mensual) tampoco pintaba. */
   async function pintarTrayectoriaPropia(ids, kpi) {
-    var tray = await api('trayectoria-anual', { kpi: kpi, ambito: S.ambito });
+    var tray;
+    try {
+      tray = await api('trayectoria-anual', { kpi: kpi, ambito: S.ambito });
+    } catch {
+      tray = null;
+    }
     if (!tray) {
       $(ids.sub).textContent = '';
       $(ids.grafico).innerHTML = '';
@@ -675,12 +684,20 @@ var Tablero = (function () {
       return;
     }
 
-    var r = await api('contraste-mensual', {
-      ambito: S.ambito,
-      kpi: kpi,
-      anioA: anioA,
-      anioB: anioB,
-    });
+    // Nacional Labs nunca tuvo historia propia (ver pintarTrayectoriaPropia arriba):
+    // la API responde 400 en vez de un JSON vacio, y sin capturarlo la excepcion se
+    // comia el resto de la funcion que llama a esta.
+    var r;
+    try {
+      r = await api('contraste-mensual', {
+        ambito: S.ambito,
+        kpi: kpi,
+        anioA: anioA,
+        anioB: anioB,
+      });
+    } catch {
+      r = null;
+    }
     if (
       !r ||
       r.meses.every(function (m) {
