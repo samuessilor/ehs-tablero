@@ -203,6 +203,15 @@ var Graficos = (function () {
     };
   }
 
+  /** El ultimo mes de `campo` que trae dato real (no null), para rotular solo ahi el
+   *  cierre YTD de una linea en vez de encimar un numero en cada punto. */
+  function ultimoConDato(meses, campo) {
+    for (var i = meses.length - 1; i >= 0; i--) {
+      if (meses[i][campo] !== null && meses[i][campo] !== undefined) return i;
+    }
+    return -1;
+  }
+
   function filaTooltip(color, etiqueta, valor) {
     return (
       '<div style="display:flex;align-items:center;gap:7px;margin-top:3px">' +
@@ -355,7 +364,11 @@ var Graficos = (function () {
      */
     serieKpi: function (id, r, mesActivo) {
       var dec = r.dec === undefined ? 2 : r.dec;
-      var rotulo = (r.es_referencia ? 'referencia ' : 'meta ') + Fmt.meta(r.meta, dec);
+      // "(acum.)" porque el techo se traza sobre "Acumulado del año", no sobre "Del
+      // mes": en frequency rate un solo accidente en un mes de pocas horas dispara la
+      // barra mensual muy por encima de la meta aunque el acumulado la cumpla, y sin
+      // esta aclaracion en el propio grafico se leia como una alerta grave que no era.
+      var rotulo = (r.es_referencia ? 'referencia ' : 'meta ') + Fmt.meta(r.meta, dec) + ' (acum.)';
       pintar(
         id,
         base({
@@ -438,6 +451,19 @@ var Graficos = (function () {
       var nombres = r.sitios.map(function (s) {
         return s.sitio.replace('Laboratorio ', '').replace('Consolidado ', '');
       });
+      // El eje se calcula SOLO con las barras (el dato real), nunca con la meta: una
+      // meta muy alta en un solo sitio (ej. 6,20 de La Estrella en frequency rate)
+      // estiraba el eje y aplastaba el resto de las barras contra el cero. Antes esto
+      // solo se notaba al apagar "Meta del sitio" desde la leyenda (ahi si se
+      // recalculaba sin la meta); ahora la vista con la meta activa es la misma que
+      // con la meta apagada, tal como se pidio - una marca fuera de este rango queda
+      // en el borde, no estira todo el grafico para que quepa.
+      var maxBarra = Math.max.apply(
+        null,
+        r.sitios.map(function (s) {
+          return s.valor || 0;
+        })
+      );
       pintar(
         id,
         base({
@@ -445,7 +471,7 @@ var Graficos = (function () {
           // marca vertical era la meta - no aparecia en ningun lado.
           legend: { top: 0, left: 'center', icon: 'roundRect' },
           grid: { left: 4, right: 74, top: 34, bottom: 4, containLabel: true },
-          xAxis: { type: 'value', name: r.unidad },
+          xAxis: { type: 'value', name: r.unidad, max: maxBarra > 0 ? maxBarra * 1.18 : undefined },
           yAxis: {
             type: 'category',
             data: nombres,
@@ -694,6 +720,13 @@ var Graficos = (function () {
     composicionResiduos: function (id, r, meta) {
       var nombre = { peligroso: 'Peligroso', aprovechable: 'Aprovechable', ordinario: 'Ordinario' };
       var color = { peligroso: C.incumple, aprovechable: C.amb, ordinario: C.inst };
+      // r.partes trae ademas 'total' (el acumulado de las tres, no una parte real del
+      // residuo): sin filtrarlo se apilaba una cuarta barra sin nombre ni color propio
+      // (heredaba el primer color del tema, el mismo teal de "Aprovechable"), doblando
+      // la altura visible y pareciendo dos barras de aprovechable.
+      var partes = r.partes.filter(function (p) {
+        return nombre[p];
+      });
       var meses = r.meses.map(function (m) {
         return m.mes;
       });
@@ -717,7 +750,7 @@ var Graficos = (function () {
             formatter: function (ps) {
               var m = r.meses[ps[0].dataIndex];
               var html = '<b>' + m.nombre_mes + '</b>';
-              r.partes.forEach(function (p) {
+              partes.forEach(function (p) {
                 html += filaTooltip(
                   color[p],
                   nombre[p],
@@ -737,7 +770,7 @@ var Graficos = (function () {
               return html;
             },
           },
-          series: r.partes.map(function (p, i) {
+          series: partes.map(function (p, i) {
             var s = {
               name: nombre[p],
               type: 'bar',
@@ -749,7 +782,7 @@ var Graficos = (function () {
               barMaxWidth: 30,
               emphasis: { focus: 'series' },
             };
-            if (i === r.partes.length - 1) {
+            if (i === partes.length - 1) {
               s.itemStyle = { color: color[p], borderRadius: [2, 2, 0, 0] };
               Object.assign(s, techo(meta, 'techo ' + Fmt.meta(meta, 1)));
             }
@@ -768,10 +801,13 @@ var Graficos = (function () {
       var anios = r.anios.map(function (a) {
         return String(a.anio);
       });
-      var reales = r.anios.map(function (a) {
+      var idxEnCurso = -1;
+      var datoEnCurso = null;
+      var reales = r.anios.map(function (a, i) {
         if (a.real !== null) return { value: a.real };
         if (r.en_curso && a.anio === r.en_curso.anio) {
-          return {
+          idxEnCurso = i;
+          datoEnCurso = {
             value: r.en_curso.ytd,
             itemStyle: {
               color: COLOR_ESTADO[r.en_curso.estado] || C.amb,
@@ -785,6 +821,7 @@ var Graficos = (function () {
               },
             },
           };
+          return datoEnCurso;
         }
         return null;
       });
@@ -885,19 +922,21 @@ var Graficos = (function () {
           series: series,
         })
       );
-      // "Cierre del año" y "Meta del año" se pueden ocultar desde la leyenda como
-      // en el resto del tablero. "Año en curso" es una serie fantasma (sin datos:
-      // solo existe para el swatch) - dejarla apagar no ocultaba nada real y
-      // dejaba su icono y el de "Meta del año" con aspecto de deseleccionado. En
-      // vez de desactivar toda la leyenda (lo que tambien tapaba el clic de las
-      // dos series reales), se vuelve a seleccionar sola apenas alguien la apaga.
+      // "Año en curso" es una serie fantasma (sin datos propios) solo para tener su
+      // propio icono en la leyenda - la barra rayada en si vive dentro de "Cierre
+      // del año" (es su ultimo punto). Apagar el icono fantasma no ocultaba esa
+      // barra real: quedaba la sensacion de "esto no funciona, la barra sigue ahi".
+      // Ahora el clic reescribe el punto de "Cierre del año" que le corresponde
+      // (a null para ocultarlo, al dato original para devolverlo) via setOption con
+      // merge por nombre de serie, asi el icono SI controla la barra que promete.
       // .off() antes de .on() evita apilar handlers: pintar() reusa la instancia.
-      if (inst && r.en_curso) {
+      if (inst && r.en_curso && idxEnCurso !== -1) {
         inst.off('legendselectchanged');
         inst.on('legendselectchanged', function (e) {
-          if (e.name === 'Año en curso' && !e.selected['Año en curso']) {
-            inst.dispatchAction({ type: 'legendSelect', name: 'Año en curso' });
-          }
+          if (e.name !== 'Año en curso') return;
+          var nuevaReales = reales.slice();
+          nuevaReales[idxEnCurso] = e.selected['Año en curso'] ? datoEnCurso : null;
+          inst.setOption({ series: [{ name: 'Cierre del año', data: nuevaReales }] });
         });
       }
     },
@@ -997,12 +1036,12 @@ var Graficos = (function () {
                 );
               }
               html += filaTooltip(
-                C.tinta,
+                C.tenue,
                 'YTD ' + anioA,
                 m.ytdA === null ? 'sin dato' : Fmt.num(m.ytdA, dec)
               );
               html += filaTooltip(
-                C.inst,
+                C.tinta,
                 'YTD ' + anioB,
                 m.ytdB === null ? 'sin dato' : Fmt.num(m.ytdB, dec)
               );
@@ -1036,6 +1075,8 @@ var Graficos = (function () {
               barMaxWidth: 16,
             },
             {
+              // gris tenue + linea punteada: el anio de referencia. Antes usaba
+              // C.tinta, casi identico a C.inst de la otra linea - no se distinguian.
               name: 'YTD ' + anioA,
               type: 'line',
               data: r.meses.map(function (m) {
@@ -1043,12 +1084,32 @@ var Graficos = (function () {
               }),
               symbol: 'circle',
               symbolSize: 5,
-              itemStyle: { color: C.tinta },
-              lineStyle: { color: C.tinta, width: 1.6, type: [5, 4] },
+              itemStyle: { color: C.tenue },
+              lineStyle: { color: C.tenue, width: 1.6, type: [5, 4] },
               connectNulls: false,
               z: 5,
+              // el ultimo YTD real de cada linea queda rotulado en el propio grafico:
+              // es la comparacion que importa (como vamos), sin depender de pasar el
+              // mouse por encima.
+              label: {
+                show: true,
+                formatter: function (p) {
+                  return p.dataIndex === ultimoConDato(r.meses, 'ytdA')
+                    ? Fmt.num(p.value, dec)
+                    : '';
+                },
+                position: 'top',
+                fontSize: 10,
+                fontFamily: MONO,
+                color: C.tenue,
+              },
             },
             {
+              // negro corporativo solido: el mismo color que usa el resto del
+              // tablero para "la linea que importa" (Acumulado del año en
+              // serieKpi/comboProduccion). El ambar anterior quedaba muy
+              // llamativo para un reporte serio; el negro es visible, distinto
+              // del gris de la otra linea, y no compite por atencion.
               name: 'YTD ' + anioB,
               type: 'line',
               data: r.meses.map(function (m) {
@@ -1056,10 +1117,23 @@ var Graficos = (function () {
               }),
               symbol: 'circle',
               symbolSize: 6,
-              itemStyle: { color: C.inst, borderColor: '#fff', borderWidth: 1.5 },
-              lineStyle: { color: C.inst, width: 2.4 },
+              itemStyle: { color: C.tinta, borderColor: '#fff', borderWidth: 1.5 },
+              lineStyle: { color: C.tinta, width: 2.4 },
               connectNulls: false,
               z: 6,
+              label: {
+                show: true,
+                formatter: function (p) {
+                  return p.dataIndex === ultimoConDato(r.meses, 'ytdB')
+                    ? Fmt.num(p.value, dec)
+                    : '';
+                },
+                position: 'bottom',
+                fontSize: 10,
+                fontFamily: MONO,
+                fontWeight: 700,
+                color: C.tinta,
+              },
             },
           ],
         })

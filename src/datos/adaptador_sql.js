@@ -787,6 +787,12 @@ module.exports = {
          order by k.num_mes, k.orden;
 
         -- acumulado del anio: suma kilos, suma lentes, divide al final
+        -- 'residuo_total_kg' es numerador legitimo de residuos_por_lente (Peru no
+        -- trae el desglose peligroso/aprovechable/ordinario, solo un total), pero
+        -- ref.kpi_magnitud lo registra para el KPI entero, no por ambito: sin el
+        -- exists de abajo, Colombia (que nunca captura esa magnitud) igual recibia
+        -- una cuarta "parte" en kg=0 - sin nombre ni color propio en el cliente,
+        -- que se apilaba como una barra extra encima de "Aprovechable".
         select parte = replace(replace(km.magnitud_id, 'residuo_', ''), '_kg', ''),
                kg = coalesce(sum(k.kg), 0),
                g_lente = case when coalesce(@lbp_anio, 0) = 0 then null
@@ -797,6 +803,7 @@ module.exports = {
           join ref.dim_magnitud g on g.magnitud_id = km.magnitud_id
           left join @kg k on k.magnitud_id = km.magnitud_id
          where km.kpi_id = 'residuos_por_lente' and km.rol = 'numerador'
+           and exists (select 1 from @kg k2 where k2.magnitud_id = km.magnitud_id)
          group by km.magnitud_id, g.orden
          order by g.orden;
       `);

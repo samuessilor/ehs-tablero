@@ -900,6 +900,15 @@ var Tablero = (function () {
     $(ids.notaVar).innerHTML = nota(textoVariacion(f));
 
     $(ids.subTabla).textContent = datos.filas.length + ' meses con dato';
+    // Los meses sin lectura todavia se dejan como fila de referencia (sin dato, no
+    // ausentes): el ano completo se ve de una vez, igual que ya hace el grafico combo.
+    var filasTabla = Fmt.mesLargo.map(function (nombreMes, i) {
+      var mes = i + 1;
+      var real = datos.filas.filter(function (x) {
+        return x.mes === mes;
+      })[0];
+      return real || { mes: mes, nombre_mes: nombreMes };
+    });
     $(ids.tabla).innerHTML =
       '<table class="matriz"><tr><th>Mes</th><th class="num">' +
       cfg.colConsumo +
@@ -907,7 +916,7 @@ var Tablero = (function () {
       '<th class="num">' +
       cfg.colRatio +
       '</th><th class="num">Δ total</th><th class="num">Δ por lente</th></tr>' +
-      datos.filas
+      filasTabla
         .map(function (r) {
           return (
             '<tr><th>' +
@@ -1132,12 +1141,18 @@ var Tablero = (function () {
       aprovechable: Graficos.colores.amb,
       ordinario: Graficos.colores.inst,
     };
-    var mayor = comp.acumulado.reduce(function (a, b) {
+    // 'total' es una magnitud legitima de Peru (residuo sin desglose), pero
+    // ref.kpi_magnitud la registra para el KPI entero: sin este filtro, un ambito sin
+    // esa magnitud (Colombia) recibia una cuarta "parte" en 0, sin nombre ni color.
+    var acumulado = comp.acumulado.filter(function (a) {
+      return nombre[a.parte];
+    });
+    var mayor = acumulado.reduce(function (a, b) {
       return b.part > a.part ? b : a;
     });
     $('#subAcumComp').textContent = 'acumulado del año';
     $('#cajaAcumComp').innerHTML =
-      comp.acumulado
+      acumulado
         .map(function (a) {
           return (
             '<div class="parte">' +
@@ -1180,18 +1195,24 @@ var Tablero = (function () {
     if (n < 2) return 'Un solo mes con dato: todavía no hay contra qué comparar la composición.';
     var ult = comp.meses[n - 1];
     var ant = comp.meses[n - 2];
+    var nombre = {
+      peligroso: 'el peligroso',
+      aprovechable: 'el aprovechable',
+      ordinario: 'el ordinario',
+    };
+    // 'total' (magnitud propia de Peru, sin desglose) puede venir en comp.partes para
+    // ambitos que no la capturan, en 0 - filtrado para no comparar contra una parte
+    // que no existe en este ambito ni tiene nombre para mostrar.
     var salto = comp.partes
+      .filter(function (p) {
+        return nombre[p];
+      })
       .map(function (p) {
         return { parte: p, delta: (ult[p + '_g_lente'] || 0) - (ant[p + '_g_lente'] || 0) };
       })
       .reduce(function (a, b) {
         return Math.abs(b.delta) > Math.abs(a.delta) ? b : a;
       });
-    var nombre = {
-      peligroso: 'el peligroso',
-      aprovechable: 'el aprovechable',
-      ordinario: 'el ordinario',
-    };
     return (
       'La altura total de cada barra <b>es</b> el indicador de ese mes, así que la gráfica no acompaña ' +
       'al KPI: lo explica. Entre ' +
