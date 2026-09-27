@@ -564,11 +564,23 @@ var Graficos = (function () {
               // markPoint/markLine, no para el data de una serie normal - ahi
               // ECharts lo toma como categoria literal y no dibuja nada (verificado:
               // el punto nunca se resolvia, ningun rotulo aparecia). Se usa el mismo
-              // numero ya calculado para el eje (ejeMax). symbol:'none' porque este
-              // punto es solo un ancla para el rotulo, no un dato mas que mostrar.
+              // numero ya calculado para el eje (ejeMax). Este punto es solo un ancla
+              // para el rotulo, no un dato mas que mostrar - pero en ECharts el label
+              // de una serie se cuelga del elemento grafico del simbolo, asi que un
+              // simbolo invisible se lleva el rotulo con el. Probado en vivo, los dos
+              // fallan igual (dato correcto - confirmado con getOption() - pero CERO
+              // texto dibujado): symbol:'none' y itemStyle.opacity:0. Lo que si
+              // funciona es un simbolo REAL pintado del mismo color que el fondo del
+              // panel (--sup, blanco fijo, sin variante oscura): visualmente
+              // invisible, pero sigue siendo un simbolo de verdad para que el label
+              // tenga donde colgarse. align:'right' + distance grande alinea las
+              // brechas de todos los sitios en una sola columna con el borde derecho
+              // parejo, pegada a la esquina donde esta el icono de descargar imagen.
               name: 'Brecha',
               type: 'scatter',
-              symbol: 'none',
+              symbol: 'circle',
+              symbolSize: 6,
+              itemStyle: { color: '#fff' },
               silent: true,
               data: r.sitios.map(function (s, i) {
                 if (s.brecha_pct === null) return null;
@@ -577,7 +589,8 @@ var Graficos = (function () {
               label: {
                 show: true,
                 position: 'right',
-                distance: 4,
+                distance: 20,
+                align: 'right',
                 fontSize: 10.5,
                 fontFamily: MONO,
                 color: C.tinta,

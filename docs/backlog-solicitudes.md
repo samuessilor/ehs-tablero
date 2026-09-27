@@ -654,6 +654,29 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       propio en `app/` — la fuente (`analisis/web_json.py`, fuera del repo `app/`)
       queda corregida en disco.
 
+## 18. Brecha % en `porSitio` no se dibujaba (27-sep-2026, ronda 4, cierre de la tarea #94)
+
+- [x] **La columna fija de brecha (Imagen #45, "02 Cada sitio contra su propia meta")
+      quedó con la posición X correcta pero sin texto** — la sesión anterior ya había
+      movido el ancla de la serie 'Brecha' a una coordenada fija (`ejeMax`, el mismo
+      borde derecho del eje), pero el punto se dibujaba con `symbol:'none'` para no
+      mostrar un dato visual de más, y quedó sin verificar si el rótulo seguía
+      apareciendo. No aparecía. Causa raíz, verificada en vivo con `getOption()` y
+      pruebas controladas: en ECharts, el label de una serie se cuelga del elemento
+      gráfico del símbolo — sin símbolo (`symbol:'none'`) o con el símbolo
+      completamente transparente (`itemStyle.opacity:0`, probado aparte, mismo
+      resultado) no hay dónde colgar el texto y no se dibuja nada, aunque el dato sea
+      perfecto. Se probaron los dos por separado antes de encontrar lo que sí
+      funciona: un símbolo real, pintado del mismo blanco fijo del fondo del panel
+      (`--sup`, sin variante oscura) — visualmente invisible, pero sigue siendo un
+      símbolo de verdad. De paso se alinearon las tres brechas de cada sitio en una
+      sola columna de borde derecho parejo (`align:'right'`), en vez de solo compartir
+      la misma `distance`. Verificado en navegador en las tres instancias que
+      comparten esta función (`gSitios` en Panorama, `gEnergiaSitios` en Agua y
+      Energía, `gResSitios` en Ambiental): los tres muestran el porcentaje correcto
+      (contrastado contra `/api/ehs/kpi-por-sitio`), en la esquina, cerca del ícono de
+      descargar imagen, sin errores de consola.
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante
