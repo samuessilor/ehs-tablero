@@ -778,12 +778,17 @@ module.exports = {
 
         select nombre = ${NOMBRE_AMBITO};
 
+        -- suma_kg/suma_g_lente (no total_kg/total_g_lente): 'total' es tambien un
+        -- valor real de "parte" (residuo_total_kg de Peru, sin desglose), y el cliente
+        -- guarda cada parte como fila[parte + '_kg'] - con el nombre viejo, la fila del
+        -- mes de un ambito combinado (Colombia + Peru) pisaba esta suma agregada con el
+        -- kg de la sola parte 'total' de Peru en cuanto esa parte tambien aparecia.
         select mes = k.num_mes, k.nombre_mes,
                parte = replace(replace(k.magnitud_id, 'residuo_', ''), '_kg', ''),
                lentes = l.lbp,
-               total_kg = t.total_kg,
-               total_g_lente = case when t.total_kg = 0 then 0
-                                    else t.total_kg * 1000 / nullif(l.lbp, 0) end,
+               suma_kg = t.total_kg,
+               suma_g_lente = case when t.total_kg = 0 then 0
+                                   else t.total_kg * 1000 / nullif(l.lbp, 0) end,
                kg = k.kg,
                g_lente = case when l.lbp = 0 then null else k.kg * 1000 / l.lbp end,
                part = case when t.total_kg = 0 then null else k.kg / t.total_kg end
@@ -825,8 +830,8 @@ module.exports = {
           mes: f.mes,
           nombre_mes: f.nombre_mes,
           lentes: num(f.lentes),
-          total_kg: num(f.total_kg),
-          total_g_lente: num(f.total_g_lente),
+          suma_kg: num(f.suma_kg),
+          suma_g_lente: num(f.suma_g_lente),
         };
         porMes.set(f.mes, fila);
       }

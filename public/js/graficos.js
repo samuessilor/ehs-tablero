@@ -464,6 +464,10 @@ var Graficos = (function () {
           return s.valor || 0;
         })
       );
+      // "queda en el borde" hay que forzarlo: ECharts no recorta un scatter fuera del
+      // rango del eje contra el borde, lo deja de dibujar - sin este tope, la marca de
+      // La Estrella (6,20) sencillamente desaparecia en vez de quedar visible al borde.
+      var ejeMax = maxBarra > 0 ? maxBarra * 1.18 : null;
       pintar(
         id,
         base({
@@ -471,7 +475,7 @@ var Graficos = (function () {
           // marca vertical era la meta - no aparecia en ningun lado.
           legend: { top: 0, left: 'center', icon: 'roundRect' },
           grid: { left: 4, right: 74, top: 34, bottom: 4, containLabel: true },
-          xAxis: { type: 'value', name: r.unidad, max: maxBarra > 0 ? maxBarra * 1.18 : undefined },
+          xAxis: { type: 'value', name: r.unidad, max: ejeMax || undefined },
           yAxis: {
             type: 'category',
             data: nombres,
@@ -550,7 +554,12 @@ var Graficos = (function () {
               itemStyle: { color: C.tinta },
               z: 6,
               data: r.sitios.map(function (s, i) {
-                return s.meta === null ? null : { value: [s.meta, i] };
+                if (s.meta === null) return null;
+                // recorta SOLO el punto dibujado: el tooltip de arriba sigue leyendo
+                // s.meta sin recortar, asi que la cifra real no se pierde al pasar el
+                // mouse aunque la marca quede pegada al borde derecho.
+                var x = ejeMax !== null ? Math.min(s.meta, ejeMax) : s.meta;
+                return { value: [x, i] };
               }),
             },
           ],
@@ -737,9 +746,11 @@ var Graficos = (function () {
         ordinario: C.inst,
         total: C.tenue,
       };
-      var partes = r.partes.filter(function (p) {
-        return nombre[p];
-      });
+      // Sin filtro de nombre[p]: adaptador_sql.js ya garantiza que r.partes solo trae
+      // magnitudes con dato real para el ambito (ver el 'exists' de residuosComposicion),
+      // y el mapa de arriba ya cubre las 4 posibles - filtrar aqui era una defensa que
+      // nunca se activaba, sobre un fix que ya resolvio el problema en la raiz.
+      var partes = r.partes;
       var meses = r.meses.map(function (m) {
         return m.mes;
       });
@@ -776,7 +787,7 @@ var Graficos = (function () {
               html +=
                 '<div style="margin-top:5px;padding-top:4px;border-top:1px solid rgba(255,255,255,.16)">' +
                 '<b>Total ' +
-                Fmt.num(m.total_g_lente, 1) +
+                Fmt.num(m.suma_g_lente, 1) +
                 ' g/lente</b>' +
                 (meta ? ' · techo ' + Fmt.meta(meta, 1) : '') +
                 '</div>';
@@ -1120,9 +1131,10 @@ var Graficos = (function () {
             {
               // negro corporativo solido: el mismo color que usa el resto del
               // tablero para "la linea que importa" (Acumulado del año en
-              // serieKpi/comboProduccion). El ambar anterior quedaba muy
-              // llamativo para un reporte serio; el negro es visible, distinto
-              // del gris de la otra linea, y no compite por atencion.
+              // serieKpi/comboProduccion). Antes usaba C.inst, casi identico al
+              // C.tinta que traia la otra linea (ver comentario arriba) - se probo
+              // ambar de camino a esta version, pero quedaba muy llamativo para un
+              // reporte serio y nunca llego a comitearse.
               name: 'YTD ' + anioB,
               type: 'line',
               data: r.meses.map(function (m) {

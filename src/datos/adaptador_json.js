@@ -294,12 +294,16 @@ module.exports = {
       .sort((a, b) => a.mes - b.mes)
       .map((m) => {
         const total = m.peligroso + m.aprovechable + m.ordinario;
+        // suma_kg/suma_g_lente, no total_kg/total_g_lente: mismo contrato que
+        // adaptador_sql.js (ver el comentario en su residuosComposicion) - aqui
+        // 'total' nunca es una parte real, pero el nombre de campo debe coincidir con
+        // lo que lee graficos.js sin importar que adaptador sirvio la respuesta.
         const fila = {
           mes: m.mes,
           nombre_mes: m.nombre_mes,
           lentes: m.lbp,
-          total_kg: total,
-          total_g_lente: total ? (total * 1000) / m.lbp : 0,
+          suma_kg: total,
+          suma_g_lente: total ? (total * 1000) / m.lbp : 0,
         };
         for (const p of partes) {
           fila[p + '_kg'] = m[p];
@@ -312,7 +316,7 @@ module.exports = {
     const acum = partes.map((p) => {
       const kg = meses.reduce((t, m) => t + m[p + '_kg'], 0);
       const lentes = meses.reduce((t, m) => t + m.lentes, 0);
-      const totalKg = meses.reduce((t, m) => t + m.total_kg, 0);
+      const totalKg = meses.reduce((t, m) => t + m.suma_kg, 0);
       return {
         parte: p,
         kg,

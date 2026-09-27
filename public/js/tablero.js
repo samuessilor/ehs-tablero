@@ -918,7 +918,7 @@ var Tablero = (function () {
 
     $(ids.subTabla).textContent = datos.filas.length + ' meses con dato';
     // Los meses sin lectura todavia se dejan como fila de referencia (sin dato, no
-    // ausentes): el ano completo se ve de una vez, igual que ya hace el grafico combo.
+    // ausentes): el año completo se ve de una vez, igual que ya hace el grafico combo.
     var filasTabla = Fmt.mesLargo.map(function (nombreMes, i) {
       var mes = i + 1;
       var real = datos.filas.filter(function (x) {
@@ -1171,9 +1171,10 @@ var Tablero = (function () {
       ordinario: Graficos.colores.inst,
       total: Graficos.colores.tenue,
     };
-    var acumulado = comp.acumulado.filter(function (a) {
-      return nombre[a.parte];
-    });
+    // Sin filtro de nombre[a.parte]: adaptador_sql.js ya garantiza que comp.acumulado
+    // solo trae magnitudes con dato real para el ambito, y el mapa de arriba ya cubre
+    // las 4 posibles - filtrar aqui era una defensa que nunca se activaba.
+    var acumulado = comp.acumulado;
     var mayor = acumulado.reduce(function (a, b) {
       return b.part > a.part ? b : a;
     });
@@ -1233,10 +1234,10 @@ var Tablero = (function () {
       ordinario: 'el ordinario',
       total: 'el total',
     };
+    // Sin filtro de nombre[p]: adaptador_sql.js ya garantiza que comp.partes solo trae
+    // magnitudes con dato real para el ambito, y el mapa de arriba ya cubre las 4
+    // posibles - filtrar aqui era una defensa que nunca se activaba.
     var salto = comp.partes
-      .filter(function (p) {
-        return nombre[p];
-      })
       .map(function (p) {
         return { parte: p, delta: (ult[p + '_g_lente'] || 0) - (ant[p + '_g_lente'] || 0) };
       })
