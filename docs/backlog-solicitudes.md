@@ -431,6 +431,41 @@ adversarial, que no llegó a probar este ámbito combinado):
       respuesta vacía. Verificado en el navegador para los tres recursos: cero
       errores de consola, los seis paneles muestran su aviso — `41f13be`
 
+## 13. Segunda corroboración final (27-sep-2026, ronda 2)
+
+Samuel pidió, tras la sección 12: solucionar que un subagente (fork) hubiera corrido
+comandos y hecho commits ignorando instrucciones explícitas de no hacerlo, y repetir la
+corroboración final una vez más, a fondo. Lo primero es un cambio de proceso (registrado
+en memoria, `ehs_arsenal_subagentes.md` — no toca código del tablero). Lo segundo:
+
+- [x] **Reconciliación completa contra `git log`** — recorridos los 20 commits desde que
+      existe este archivo; 59 `[x]`, 2 `[~]` documentados, 0 sin marcar, sin huecos —
+      ver la nota fija arriba de "Pendiente ahora mismo" — `f162a0f`
+- [x] **Perú mostraba "Cumple" en Frequency Rate y Accidentes DAFW sin tener ningún
+      dato** — hallazgo propio del barrido de Seguridad por los 7 ámbitos (no estaba
+      cubierto en las rondas anteriores). La constante SQL `ESTADO`
+      (`adaptador_sql.js`, compartida por `panorama`, `kpiPorSitio` y dos usos más)
+      resolvía "meta = 0" antes que "sin lectura acumulada": Agencias (meta 0, pero con
+      datos reales) entraba bien a esa rama, pero Perú (meta 0, sin ningún dato, per
+      `ehs/CLAUDE.md`) también entraba ahí con `y.valor = null`, y
+      `coalesce(y.valor, 0) <= 0` daba `'cumple'` antes de llegar al
+      `when y.valor is null then 'sin_dato'` que ya existía más abajo, inalcanzable
+      para este caso — el tablero afirmaba el cumplimiento de una meta de seguridad sin
+      tener ningún dato que lo respalde. Reordenado para que `sin_dato` se evalúe
+      primero, igual que ya hace `BRECHA` con el mismo caso. Verificado: Perú ahora
+      `sin_dato` en ambos KPI, Agencias sigue `cumple` con datos reales sin cambio,
+      Colombia + Perú (agregado) sin regresión, cero errores de consola en los 7
+      ámbitos de Seguridad — `8dd1e21`
+- [x] **Barrido de Seguridad y Calidad del dato en los 7 ámbitos** — Calidad del dato no
+      depende del ámbito elegido (una sola vista global, verificado leyendo
+      `pintarCalidad()`), así que se revisó una vez; Seguridad se revisó en los 7 —
+      cero errores de consola, sin más hallazgos.
+- [ ] Revisión de calidad de código con agentes de solo-reporte (`schema`, sin
+      `Edit`/`Write`/`Bash` de escritura) sobre los archivos tocados en toda la sesión —
+      en curso.
+- [ ] Verificación de exportes CSV/Excel (Perú, Colombia + Perú) y del modal de
+      selección del reporte descargable.
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante
