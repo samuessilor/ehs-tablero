@@ -22,18 +22,18 @@ var Tablero = (function () {
     { id: 'datos', rotulo: '06 Datos' },
   ];
   // Dos subgrupos, tal como se pidio ("vistas individuales y grupales junto a
-  // Colombia"): arriba los agregados de pais/region (Colombia+Peru, Colombia,
-  // Nacional Labs, Peru), abajo los sitios propios de Colombia. AMBITOS sigue
-  // siendo la lista plana de siempre — el mismo orden de antes — para no tocar
-  // leerUrl/escribirUrl ni el resto de los usos existentes.
+  // Colombia"): arriba los agregados de pais/region (Colombia+Peru, Colombia, Peru
+  // -al lado de Colombia-, Nacional Labs), abajo los sitios propios de Colombia.
+  // AMBITOS sigue siendo la lista plana de siempre — el mismo orden de antes — para
+  // no tocar leerUrl/escribirUrl ni el resto de los usos existentes.
   var GRUPOS_AMBITO = [
     {
       titulo: 'Consolidados',
       items: [
         { id: 'colombia_peru', rotulo: 'Colombia + Perú' },
         { id: 'nacional', rotulo: 'Colombia' },
-        { id: 'nacional_labs', rotulo: 'Nacional Labs' },
         { id: 'peru', rotulo: 'Perú' },
+        { id: 'nacional_labs', rotulo: 'Nacional Labs' },
       ],
     },
     {
