@@ -10,6 +10,54 @@ const { obtener } = require('./datos/configuracion');
 const VISTAS = path.join(__dirname, '..', 'views');
 const MODO = obtener('ORIGEN_DATOS') === 'sql' ? 'sql' : 'simulado';
 
+const MESES_CORTO = [
+  'ene',
+  'feb',
+  'mar',
+  'abr',
+  'may',
+  'jun',
+  'jul',
+  'ago',
+  'sep',
+  'oct',
+  'nov',
+  'dic',
+];
+
+/* "24 sep 2026 · 21:52" en vez del ISO crudo que manda la base
+   ("2026-09-24T21:52:12"): mismo dato, legible sin tener que parsearlo. Se arman
+   las partes a mano (no toLocaleString) porque el "de sept de" que agrega Intl en
+   es-CO estorba en un rotulo compacto de header. */
+function fechaLegible(iso) {
+  if (!iso) return null;
+  const f = new Date(iso);
+  if (isNaN(f)) return iso;
+  const partes = {};
+  new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+    .formatToParts(f)
+    .forEach((p) => (partes[p.type] = p.value));
+  return (
+    partes.day +
+    ' ' +
+    MESES_CORTO[Number(partes.month) - 1] +
+    ' ' +
+    partes.year +
+    ' · ' +
+    partes.hour +
+    ':' +
+    partes.minute
+  );
+}
+
 async function dashboard(_req, res) {
   // sin anio ni mes: el adaptador resuelve el corte publicado
   const pan = await datos.panorama({ ambito: 'nacional' });
@@ -19,7 +67,7 @@ async function dashboard(_req, res) {
       titulo: 'Tablero EHS 2026 · Servioptica',
       anio: pan ? pan.anio : new Date().getFullYear(),
       corte: pan ? pan.corte : { mes: null, nombre: '—', mesesConDato: [] },
-      actualizadoEn: pan ? pan.actualizado_en : null,
+      actualizadoEn: pan ? fechaLegible(pan.actualizado_en) : null,
       fuente: pan ? pan.fuente : '',
       metaVigente: pan ? pan.meta_vigente : '',
     },

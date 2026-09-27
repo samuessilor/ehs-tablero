@@ -92,13 +92,21 @@ svg {
   gap: 10px;
   padding-right: 16px;
   border-right: 1px solid rgba(255, 255, 255, 0.14);
-  min-height: 38px;
+  min-height: 48px;
+}
+.marca a {
+  display: block;
+  line-height: 0;
+  opacity: 0.96;
+  transition: opacity 0.14s ease;
+}
+.marca a:hover {
+  opacity: 1;
 }
 .marca img {
-  height: 26px;
+  height: 40px;
   width: auto;
   display: block;
-  opacity: 0.96;
 }
 .marca .t {
   font-size: 12.5px;

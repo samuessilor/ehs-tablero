@@ -39,7 +39,7 @@ var Tablero = (function () {
       items: [
         { id: 'celta', rotulo: 'Celta' },
         { id: 'estrella', rotulo: 'La Estrella' },
-        { id: 'peru', rotulo: 'TOPSA (Perú)' },
+        { id: 'peru', rotulo: 'Perú' },
         { id: 'agencias', rotulo: 'Agencias' },
       ],
     },
@@ -448,7 +448,7 @@ var Tablero = (function () {
       return s.estado === 'incumple';
     });
     $('#notaSitios').innerHTML = nota(
-      'Cada sitio se mide contra <b>su propia meta</b> (el rombo). Las metas por sitio son muy ' +
+      'Cada sitio se mide contra <b>su propia meta</b> (la marca vertical). Las metas por sitio son muy ' +
         'distintas entre sí, así que las barras no se comparan entre ellas; la brecha de la derecha sí. ' +
         (fuera.length === 0
           ? 'Ninguno supera su techo al corte.'

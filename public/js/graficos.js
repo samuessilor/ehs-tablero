@@ -175,19 +175,28 @@ var Graficos = (function () {
       },
       markArea: {
         silent: true,
-        itemStyle: { color: 'rgba(192,57,43,.055)' },
+        // .055 ya era baja, pero contra un eje corto (meta cerca del techo del grafico)
+        // la franja ocupa buena parte del alto visible y se lee como alarma aunque el
+        // dato este comodo por debajo. Mas tenue: sigue marcando donde esta el limite
+        // sin competir con una serie que no lo esta tocando.
+        itemStyle: { color: 'rgba(192,57,43,.03)' },
         emphasis: { disabled: true },
         data: [[{ yAxis: meta }, { yAxis: 'max' }]],
       },
     };
   }
 
-  /** El mes elegido arriba (MES DE CORTE) se destaca en la barra; el resto se atenua
-   *  para que salte a la vista cual es, sin perder el resto de la serie de contexto. */
+  /** El mes elegido arriba (MES DE CORTE) se destaca en la barra. Los meses hasta ahi
+   *  ya son parte del corte publicado y se ven con el color normal; los que vienen
+   *  despues son datos crudos que ya llegaron pero que el corte todavia no reconoce, y
+   *  se atenuan mucho mas para que no se lean como si tuvieran el mismo peso. */
   function colorMesBarra(mesActivo) {
     if (!mesActivo) return C.ambSuave;
     return function (p) {
-      return p.dataIndex + 1 === mesActivo ? C.amb : 'rgba(143,202,202,.4)';
+      var mes = p.dataIndex + 1;
+      if (mes === mesActivo) return C.amb;
+      if (mes > mesActivo) return 'rgba(143,202,202,.18)';
+      return C.ambSuave;
     };
   }
 
@@ -490,11 +499,15 @@ var Graficos = (function () {
               },
             },
             {
+              // antes un rombo blanco: se leia como un punto de dato mas, no como una
+              // marca de referencia. Una marca vertical delgada, del mismo color gris
+              // que la meta en el resto del tablero (C.meta), se lee de una sola vez
+              // como "aqui esta el limite", igual que un target-marker de BI.
               name: 'Meta del sitio',
               type: 'scatter',
-              symbol: 'diamond',
-              symbolSize: 12,
-              itemStyle: { color: '#fff', borderColor: C.tinta, borderWidth: 1.8 },
+              symbol: 'rect',
+              symbolSize: [3, 22],
+              itemStyle: { color: C.meta },
               z: 6,
               data: r.sitios.map(function (s, i) {
                 return s.meta === null ? null : { value: [s.meta, i] };
@@ -742,8 +755,7 @@ var Graficos = (function () {
         return String(a.anio);
       });
       var reales = r.anios.map(function (a) {
-        if (a.real !== null)
-          return { value: a.real, itemStyle: { color: C.inst, borderRadius: [2, 2, 0, 0] } };
+        if (a.real !== null) return { value: a.real };
         if (r.en_curso && a.anio === r.en_curso.anio) {
           return {
             value: r.en_curso.ytd,
@@ -807,9 +819,17 @@ var Graficos = (function () {
           },
           series: [
             {
-              name: 'Real del año',
+              // "Real del año" no decia de que: quien mira la leyenda sola, sin el
+              // encabezado del panel al lado, no sabe real de que. "Cierre del año"
+              // es lo mismo que ya dice el tooltip de esta misma grafica.
+              name: 'Cierre del año',
               type: 'bar',
               data: reales,
+              // color a nivel de serie: es lo que ECharts usa para el swatch de la
+              // leyenda. Sin esto, la leyenda tomaba el color del tema (teal) mientras
+              // las barras se pintaban por punto (negro/naranja) - colores que no
+              // coincidian con lo que decia la leyenda.
+              itemStyle: { color: C.inst, borderRadius: [2, 2, 0, 0] },
               barMaxWidth: 46,
               label: {
                 show: true,
@@ -817,8 +837,14 @@ var Graficos = (function () {
                 fontSize: 10.5,
                 fontFamily: MONO,
                 color: C.tinta,
+                // la barra rayada no tiene su propia entrada en la leyenda (es el
+                // mismo dato, solo que a medio año): se explica en la propia barra,
+                // no solo en la nota de texto de abajo que nadie tiene por que leer.
                 formatter: function (p) {
-                  return Fmt.num(p.value, dec);
+                  var anio = r.anios[p.dataIndex];
+                  var enCurso =
+                    r.en_curso && anio && anio.anio === r.en_curso.anio && anio.real === null;
+                  return Fmt.num(p.value, dec) + (enCurso ? '\nen curso' : '');
                 },
               },
             },
