@@ -549,6 +549,24 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       — en `docs/auditoria-ingesta-27-sep-2026.md`, para depurar con calma y
       corroborar con la persona encargada.
 
+## 15. Barras corridas en "contra el año anterior" (27-sep-2026, ronda 3)
+
+- [x] **Barras corridas respecto a los rótulos del eje cuando el año en curso está
+      visible** — Samuel mandó dos capturas comparando el mismo panel con y sin el año
+      en curso activo. Causa real, verificada con lectura de píxeles: la serie
+      fantasma "Año en curso" (solo para el color de la leyenda, sin dato que dibujar)
+      es `type:'bar'` en el mismo eje que "Cierre del año", y ECharts reparte el ancho
+      disponible entre las dos series aunque la fantasma no tenga nada que pintar —
+      desplazaba la barra real ~31px a la izquierda del centro de cada categoría.
+      `barWidth:0` y `barGap:'-100%'` no lo resuelven (los dos probados y descartados,
+      verificado que no cambian nada); el fix real es el mismo `stack` en ambas series.
+      Como `Graficos.trayectoria` es una única función compartida por "04 Trayectoria
+      en el scorecard" y cada "0X · contra el año anterior" (Agua/Energía/Residuos/
+      Seguridad), un solo cambio corrige las 7+ instancias. Verificado con lectura de
+      píxeles antes/después en dos paneles distintos (`gTray`, `gAguaTray`): el
+      desfase de ~31px baja a ~0,5px (redondeo). El toggle de la leyenda sigue
+      funcionando igual — `030809c`
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante
