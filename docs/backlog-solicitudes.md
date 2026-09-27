@@ -463,8 +463,29 @@ en memoria, `ehs_arsenal_subagentes.md` — no toca código del tablero). Lo seg
 - [ ] Revisión de calidad de código con agentes de solo-reporte (`schema`, sin
       `Edit`/`Write`/`Bash` de escritura) sobre los archivos tocados en toda la sesión —
       en curso.
-- [ ] Verificación de exportes CSV/Excel (Perú, Colombia + Perú) y del modal de
-      selección del reporte descargable.
+- [x] **Exportes CSV/Excel (Perú, Colombia + Perú) y modal de selección del reporte** —
+      el parámetro `ambito` de `/api/ehs/detalle` no filtra nada (el endpoint siempre
+      exporta los cuatro sitios reales: celta, estrella, agencias, peru — es un dump
+      completo por diseño, no una vista filtrada por el sitio elegido en pantalla; los
+      agregados como "Colombia + Perú" no aplican aquí). Perú sí está incluido, con sus
+      campos propios en blanco (no reporta peligroso/aprovechable/ordinario/accidentes/
+      horas) y `residuo_total_kg` poblado — igual en CSV y Excel (mismo endpoint,
+      separador `;` en vez de `,`). El modal "Qué incluir" abre con los 5 KPI
+      pre-marcados; destildar uno (probado con Agua) marca `data-excluido` solo en ese
+      bloque, sin tocar los demás — confirmado inspeccionando el DOM directamente, sin
+      llegar a disparar `window.print()` (diálogo nativo, no automatizable con
+      seguridad). Cero errores de consola.
+      **Hallazgo real, sin corregir todavía** — no estaba en el alcance de esta ronda,
+      así que se deja documentado en vez de improvisar una solución: la exportación
+      **no incluye histórico**, pese a que el plan original de Perú lo pedía
+      explícitamente ("que incluyan Perú e histórico"). No es un problema de datos — el
+      histórico 2023-2025 vive en la MISMA tabla que lee el export
+      (`ehs.hecho_lectura_mensual`, migración 0012) — sino de la función
+      `detalle({anio})` en `adaptador_sql.js`, que fuerza `anio === ctx.anio` (el año
+      del corte actual, 2026) y devuelve `null` para cualquier otro año; y de que ni
+      `reporte.ejs` ni sus botones de descarga exponen ningún selector de año. Pendiente
+      de decidir con Samuel: ¿un año a la vez con selector, o todos los años en un solo
+      archivo?
 
 ---
 
