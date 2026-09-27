@@ -53,15 +53,20 @@ aunque lo demás esté bien.
 
 | # | Qué | Dónde | Commit |
 |---|---|---|---|
-| 1 | **"01 Lecturas cargadas por mes" mostraba 40/mes fijo (sitios × magnitudes-constante), en vez del conteo real** — no cuadraba contra la tarjeta "Lecturas cargadas: 217" de la misma pantalla (40×7=280 ≠ 217). Corregido a un conteo real (`count(*)`), que ahora da 31/mes y suma 217. Mismo bug, independiente, en `analisis/web_json.py` (el generador del JSON para Vercel). | `adaptador_sql.js` (`calidadDato`), `analisis/web_json.py` | `9f7b8ce`* |
+| 1 | **"01 Lecturas cargadas por mes" mostraba 40/mes fijo (sitios × magnitudes-constante), en vez del conteo real** — no cuadraba contra la tarjeta "Lecturas cargadas: 217" de la misma pantalla (40×7=280 ≠ 217). Corregido a un conteo real (`count(*)`), que ahora da 31/mes y suma 217. Mismo bug, independiente, en `analisis/web_json.py` (el generador del JSON para Vercel) — corregido ahí también, pero ese archivo vive en `entrega-reunion/analisis/`, fuera del repo git de `app/`, así que su arreglo queda aplicado en disco sin commit propio (ver nota abajo). | `adaptador_sql.js` (`calidadDato`) | `8180f8e` |
 | 2 | **`residuosComposicion` mezclaba el total agregado del mes con la parte "total" de Perú** — en el ámbito Colombia + Perú, el tooltip de "03 De qué está hecho el residuo" mostraba un "Total" incorrecto (solo la parte de Perú, no la suma real). | `adaptador_sql.js`, `adaptador_json.js`, `graficos.js` | `abdae58` |
 | 3 | **La marca de "Meta del sitio" desaparecía del todo** cuando la meta de un sitio superaba por mucho las demás barras (La Estrella, 6,20 acc/MHH). | `graficos.js` (`porSitio`) | `abdae58` |
 | 4 | **`sp_capturar_lote` no avisaba un cero tecleado por error** en agua/energía/unidades/horas_fijos — la condición que debía protegerlo excluía justo el caso que importaba. | `migraciones/0014_ehs_advertencia_cero.sql` | `3edd1b6` |
 | 5 | **Corregir una lectura rechazaba valores válidos** (p. ej. 8,076) con "Número ambiguo" por una doble validación — y el mensaje real de cualquier error de validación de escritura se perdía en un 500 genérico. | `escritura_simulada.js`, `errores.js` | `1920cd9` |
 | 6 | Tres filtros defensivos ya redundantes, tres comentarios con información incorrecta (historial de un color, código HTTP, una tilde). | `graficos.js`, `tablero.js`, `reporte.js` | `abdae58` |
 
-\* *commit de esta sección — ver el hash real en el historial, esta tabla se completa al
-cerrar el documento.*
+**Nota sobre `entrega-reunion/analisis/`:** esa carpeta (y `datos/`, `docs/`, etc. al
+mismo nivel) vive en un repositorio git aparte del de `app/`, con `git init` hecho pero
+sin ningún commit todavía — no es el repo que se entrega a IT. El arreglo de
+`web_json.py` (punto 1) queda aplicado en disco, verificado, pero sin commit propio: no
+se creó un primer commit ahí sin que Samuel confirme qué debe entrar en él (hay bastante
+contenido sin versionar en esa carpeta — `paquete.zip`, `recursos/`, etc. — y un primer
+commit parcial solo con este archivo sería confuso).
 
 ---
 
