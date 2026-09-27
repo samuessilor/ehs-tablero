@@ -728,7 +728,15 @@ var Graficos = (function () {
         ordinario: 'Ordinario',
         total: 'Total',
       };
-      var color = { peligroso: C.incumple, aprovechable: C.amb, ordinario: C.inst, total: C.amb };
+      // 'total' en su propio tono (no C.amb): en Colombia + Peru las cuatro partes
+      // aparecen juntas en la misma grafica, y compartiendo color con "Aprovechable"
+      // se recreaba el mismo bug de "dos barras identicas" que origino este arreglo.
+      var color = {
+        peligroso: C.incumple,
+        aprovechable: C.amb,
+        ordinario: C.inst,
+        total: C.tenue,
+      };
       var partes = r.partes.filter(function (p) {
         return nombre[p];
       });

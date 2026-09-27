@@ -1146,11 +1146,13 @@ var Tablero = (function () {
       ordinario: 'Ordinario',
       total: 'Total',
     };
+    // 'total' en su propio tono (no el mismo que "Aprovechable"): en Colombia + Peru
+    // las cuatro partes aparecen juntas en esta misma lista.
     var color = {
       peligroso: Graficos.colores.incumple,
       aprovechable: Graficos.colores.amb,
       ordinario: Graficos.colores.inst,
-      total: Graficos.colores.amb,
+      total: Graficos.colores.tenue,
     };
     var acumulado = comp.acumulado.filter(function (a) {
       return nombre[a.parte];
