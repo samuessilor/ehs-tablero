@@ -29,6 +29,16 @@
 }
 html {
   -webkit-text-size-adjust: 100%;
+  /* los botones de subnav (Agua/Energia, etc.) son <a href="#ancla">: sin esto el
+     salto era instantaneo y desorientaba a quien lo oprimia. scroll-margin-top ya
+     lo tenia .subgrupo[id] para no quedar tapado bajo el header fijo - esto solo
+     agrega la animacion, el destino no cambia. */
+  scroll-behavior: smooth;
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
 }
 body {
   margin: 0;
