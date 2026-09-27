@@ -1005,9 +1005,12 @@ var Tablero = (function () {
         dibujarCombo: Graficos.aguaCombo,
         meta: kAgua ? kAgua.meta : null,
         notaCombo:
-          'Dos causas distintas mueven el consumo por lente: lo que se gasta y lo que se produce. ' +
-          'El eje doble deja ver cuál de las dos manda en cada mes, la línea punteada es la meta y ' +
-          'el máximo y el mínimo quedan anotados dentro del propio gráfico.',
+          'Las barras son el consumo total del mes; la línea es lo que le toca a cada lente ' +
+          'producido, con el máximo y el mínimo anotados dentro del propio gráfico. Un total ' +
+          'más alto no siempre es peor: si la producción también subió, el consumo por lente ' +
+          'puede bajar igual — los lentes procesados de cada mes están en la tabla de abajo. ' +
+          'La punteada es una referencia mensual, no la meta oficial: esa se mide acumulada y ' +
+          'se ve en la ficha de Agua en Panorama.',
         colConsumo: 'Consumo m³',
         colRatio: 'l/lente',
         campoConsumo: 'consumo_m3',
@@ -1044,9 +1047,10 @@ var Tablero = (function () {
         dibujarCombo: Graficos.energiaCombo,
         meta: kEne ? kEne.meta : null,
         notaCombo:
-          'Igual que con el agua: lo que sube o baja el consumo por lente puede ser el gasto o ' +
-          'la producción, el eje doble separa cuál de las dos manda cada mes y la línea punteada ' +
-          'es la meta.',
+          'Igual que con el agua: las barras son el consumo total del mes y la línea es el ' +
+          'consumo por lente. La producción de cada mes, que explica buena parte del vaivén, ' +
+          'está en la tabla de abajo. La punteada es una referencia mensual, no la meta ' +
+          'oficial: esa se mide acumulada y se ve en la ficha de Energía en Panorama.',
         colConsumo: 'Consumo kWh',
         colRatio: 'kWh/lente',
         campoConsumo: 'consumo_kwh',
@@ -1132,6 +1136,20 @@ var Tablero = (function () {
     );
 
     var comp = await api('residuos-composicion', { ambito: S.ambito });
+
+    // consumo total (comboProduccion): 'residuos-composicion' ya trae suma_kg/
+    // suma_g_lente por mes (se calculan para la grafica de composicion) - reusar esa
+    // misma peticion evita pedirle al servidor un endpoint que ya tiene el dato.
+    $('#subResCombo').textContent = comp.ambito.nombre + ' · ' + comp.meses.length + ' meses';
+    Graficos.residuosCombo('gResCombo', comp.meses, kRes.meta, S.mes);
+    $('#notaResCombo').innerHTML = nota(
+      'Las barras son el consumo total de residuos del mes, en kilos; la línea es lo que le ' +
+        'toca a cada lente producido. Un total más alto no siempre es peor si la producción ' +
+        'también subió. De qué está hecho ese total está en el gráfico de abajo. La punteada ' +
+        'es una referencia mensual, no la meta oficial: esa se mide acumulada y se ve en ' +
+        '"Residuos en el tiempo", arriba.'
+    );
+
     $('#subComp').textContent = comp.ambito.nombre + ' · ' + comp.meses.length + ' meses';
     Graficos.composicionResiduos('gComp', comp, kRes.meta);
     $('#notaComp').innerHTML = nota(textoComposicion(comp, kRes));

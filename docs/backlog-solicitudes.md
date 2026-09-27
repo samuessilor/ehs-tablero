@@ -576,6 +576,41 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       de entornos de automatización con el compositor de la pestaña. Es la propiedad
       CSS estándar; pendiente que Samuel lo confirme en un navegador real — `df1bb17`
 
+## 16. Consumo total visible mes a mes + meta del combo (27-sep-2026, ronda 4)
+
+- [x] **El consumo absoluto (agua/energía/residuos) solo vivía en el tooltip, no se
+      veía en la gráfica** — Samuel pidió poder ver visualmente cómo fue el consumo
+      mes a mes (no solo el ratio por lente) para poder analizar qué lo movió, en los
+      tres recursos. `comboProduccion` (agua/energía) ya traía el dato de consumo
+      total en cada fila (`consumo_m3`/`consumo_kwh`) pero solo lo mostraba en el
+      tooltip; la barra dibujaba "Lentes procesados" (un proxy de producción, no el
+      consumo). Cambio: la barra ahora dibuja el consumo total; "Lentes procesados"
+      sigue disponible en el tooltip y en la tabla "Mes a mes" de cada panel, sin
+      perder ese dato. Para residuos no existía ningún gráfico de consumo absoluto —
+      se agregó `Graficos.residuosCombo` (mismo `comboProduccion`, reusando
+      `suma_kg`/`suma_g_lente` que `residuos-composicion` ya calculaba para el gráfico
+      de composición — cero endpoints nuevos), como panel nuevo "03 Consumo total
+      contra consumo por lente" en la vista Ambiental. Verificado en navegador:
+      Colombia y Perú, agua/energía/residuos, valores de barras y tooltip coinciden
+      con la tabla, cero errores de consola.
+- [x] **La meta del combo se comparaba contra el ratio del mes suelto, no contra el
+      acumulado — inconsistente con "X en el tiempo"** — Samuel mandó dos capturas
+      comparando "Residuos en el tiempo" (rótulo `meta 134,9 (acum.)`, correcto: la
+      meta ahí se traza contra el acumulado del año, como manda la regla de YTD del
+      área) contra "Producción contra consumo por lente" (rótulo `meta 5,18 l`, sin
+      aclarar). Verificado en el SQL (`hojaMensualRecurso`): `ratio` ahí es
+      `consumo del mes / lentes del mes`, nunca se acumula — comparar eso contra una
+      meta anual es un defecto preexistente en agua/energía (no introducido en esta
+      ronda), y estaba a punto de replicarlo una tercera vez en el nuevo combo de
+      residuos. Ya había un patrón resuelto para esto mismo en `serieKpi`
+      (frequency rate: "un solo accidente en un mes de pocas horas dispara la barra
+      mensual muy por encima de la meta aunque el acumulado la cumpla"). Con Samuel
+      se evaluaron 3 opciones (aclarar el rótulo, quitar la meta del combo, o graficar
+      el ratio acumulado en vez del mensual) y eligió aclarar el rótulo: ahora dice
+      `meta X (mensual, ref.)` en los tres combos, y la nota de cada panel dice
+      explícitamente dónde se ve la meta oficial acumulada (la ficha de Panorama para
+      agua/energía, "Residuos en el tiempo" para residuos).
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante

@@ -241,22 +241,31 @@ var Graficos = (function () {
     filas.forEach(function (f) {
       porMes[f.mes] = f;
     });
-    var lentes = Fmt.mesMini.map(function (_, i) {
-      return porMes[i + 1] ? porMes[i + 1].lentes : null;
+    // el consumo absoluto es la barra (antes era 'lentes procesados': un proxy, no el
+    // consumo en si). Con solo el ratio por lente, el consumo real quedaba enterrado en
+    // el tooltip - habia que pasar el mouse mes a mes para verlo. Los lentes procesados
+    // siguen en el tooltip y en la tabla de abajo, solo dejan de ser lo que se dibuja.
+    var consumo = Fmt.mesMini.map(function (_, i) {
+      return porMes[i + 1] ? porMes[i + 1][cfg.campoConsumo] : null;
     });
     var ratio = Fmt.mesMini.map(function (_, i) {
       return porMes[i + 1] ? porMes[i + 1][cfg.campoRatio] : null;
     });
     // meta es opcional: sin ella la grafica se ve igual que siempre, con ella el ratio
-    // suma su propio techo, igual que serieKpi.
-    var rotuloMeta = 'meta ' + Fmt.meta(cfg.meta, cfg.decRatio) + ' ' + cfg.unidadRatio;
+    // suma su propio techo, igual que serieKpi. A diferencia de serieKpi (que compara
+    // la meta contra el ACUMULADO del año, rotulado '(acum.)'), aqui el ratio es del
+    // mes suelto: un mes de baja produccion puede disparar el ratio muy por encima de
+    // la meta aunque el acumulado del año la cumpla sin problema. '(mensual, ref.)'
+    // dice explicitamente que esto NO es la cifra de cumplimiento oficial.
+    var rotuloMeta =
+      'meta ' + Fmt.meta(cfg.meta, cfg.decRatio) + ' ' + cfg.unidadRatio + ' (mensual, ref.)';
     pintar(
       id,
       base({
         legend: { top: 0, left: 'center', icon: 'roundRect' },
         xAxis: ejeMeses(),
         yAxis: [
-          { type: 'value', name: 'lentes' },
+          { type: 'value', name: cfg.unidadConsumo },
           Object.assign(
             { splitLine: { show: false }, scale: true },
             ejeValorConTecho(cfg.unidadRatio, cfg.meta)
@@ -292,7 +301,11 @@ var Graficos = (function () {
                 'Consumo total',
                 Fmt.num(f[cfg.campoConsumo], 0) + ' ' + cfg.unidadConsumo
               ) +
-              (f.var_por_lente_pct === null
+              // == suelto (no ===) a proposito: en residuos este campo ni siquiera
+              // viaja en la fila (no es undefined por falta de mes anterior, es
+              // undefined porque esa fuente no lo calcula) y === null lo dejaba pasar
+              // igual, mostrando 'Contra el mes anterior: —' donde no aplica.
+              (f.var_por_lente_pct == null
                 ? ''
                 : filaTooltip(
                     'transparent',
@@ -304,9 +317,9 @@ var Graficos = (function () {
         },
         series: [
           {
-            name: 'Lentes procesados',
+            name: 'Consumo total (' + cfg.unidadConsumo + ')',
             type: 'bar',
-            data: lentes,
+            data: consumo,
             itemStyle: { color: colorMesBarra(cfg.mesActivo), borderRadius: [2, 2, 0, 0] },
             barMaxWidth: 24,
           },
@@ -473,7 +486,10 @@ var Graficos = (function () {
         base({
           // sin esto no habia forma de saber, con solo mirar la grafica, que esa
           // marca vertical era la meta - no aparecia en ningun lado.
-          legend: { top: 0, left: 'center', icon: 'roundRect' },
+          // legend.data explicito: sin el, ECharts lista TODAS las series con nombre,
+          // y 'Brecha' (de mas abajo) es solo un ancla para el rotulo, no algo que
+          // alguien deba poder ocultar desde la leyenda.
+          legend: { top: 0, left: 'center', icon: 'roundRect', data: [r.kpi, 'Meta del sitio'] },
           grid: { left: 4, right: 74, top: 34, bottom: 4, containLabel: true },
           xAxis: { type: 'value', name: r.unidad, max: ejeMax || undefined },
           yAxis: {
@@ -531,12 +547,42 @@ var Graficos = (function () {
                 fontSize: 10.5,
                 fontFamily: MONO,
                 color: C.tinta,
+                // solo el valor: la brecha se movio a su propia columna fija a la
+                // derecha (serie 'Brecha' mas abajo), en vez de ir pegada al numero -
+                // antes quedaba a una x distinta segun el largo de cada barra, un
+                // desorden que se pidio arreglar.
                 formatter: function (p) {
                   var s = r.sitios[p.dataIndex];
-                  return s.valor === null
-                    ? ''
-                    : Fmt.num(s.valor, dec) +
-                        (s.brecha_pct === null ? '' : '  ' + Fmt.pct(s.brecha_pct, 0));
+                  return s.valor === null ? '' : Fmt.num(s.valor, dec);
+                },
+              },
+            },
+            {
+              // columna de brecha, siempre a la misma x (el borde derecho del eje,
+              // igual que el icono de descargar imagen), sin importar cuanto mida
+              // cada barra. 'max' como STRING solo es un valor especial para
+              // markPoint/markLine, no para el data de una serie normal - ahi
+              // ECharts lo toma como categoria literal y no dibuja nada (verificado:
+              // el punto nunca se resolvia, ningun rotulo aparecia). Se usa el mismo
+              // numero ya calculado para el eje (ejeMax). symbol:'none' porque este
+              // punto es solo un ancla para el rotulo, no un dato mas que mostrar.
+              name: 'Brecha',
+              type: 'scatter',
+              symbol: 'none',
+              silent: true,
+              data: r.sitios.map(function (s, i) {
+                if (s.brecha_pct === null) return null;
+                return { value: [ejeMax !== null ? ejeMax : maxBarra, i] };
+              }),
+              label: {
+                show: true,
+                position: 'right',
+                distance: 4,
+                fontSize: 10.5,
+                fontFamily: MONO,
+                color: C.tinta,
+                formatter: function (p) {
+                  return Fmt.pct(r.sitios[p.dataIndex].brecha_pct, 0);
                 },
               },
             },
@@ -696,7 +742,7 @@ var Graficos = (function () {
       );
     },
 
-    /** El agua: produccion en barras y consumo por lente en linea, con los picos marcados. */
+    /** El agua: consumo total en barras y consumo por lente en linea, con los picos marcados. */
     aguaCombo: function (id, filas, meta, mesActivo) {
       comboProduccion(id, filas, {
         campoConsumo: 'consumo_m3',
@@ -717,6 +763,24 @@ var Graficos = (function () {
         unidadConsumo: 'kWh',
         unidadRatio: 'kWh',
         decRatio: 2,
+        meta: meta,
+        mesActivo: mesActivo,
+      });
+    },
+
+    /**
+     * Lo mismo que aguaCombo/energiaCombo, para residuos: consumo total en kg (suma de
+     * las tres partes, o del total sin desglose en Peru) contra el g/lente. Reusa los
+     * mismos campos que ya trae residuos-composicion (suma_kg/suma_g_lente) - no hace
+     * falta un endpoint nuevo.
+     */
+    residuosCombo: function (id, meses, meta, mesActivo) {
+      comboProduccion(id, meses, {
+        campoConsumo: 'suma_kg',
+        campoRatio: 'suma_g_lente',
+        unidadConsumo: 'kg',
+        unidadRatio: 'g',
+        decRatio: 1,
         meta: meta,
         mesActivo: mesActivo,
       });
