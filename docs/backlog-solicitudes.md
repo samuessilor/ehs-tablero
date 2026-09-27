@@ -408,6 +408,18 @@ adversarial, que no llegó a probar este ámbito combinado):
       (`C.tenue`) en `composicionResiduos` (`graficos.js`) y `pintarAcumuladoComp`
       (`tablero.js`) — verificado en el navegador con `sitio=colombia_peru`, las
       cuatro categorías se ven y se seleccionan por separado — `27e3e2c`
+- [x] **"Nacional Labs" dejaba en blanco, sin aviso, seis paneles del tablero** (Agua y
+      Energía "· contra el año anterior" y "· contraste mensual", más los mismos dos
+      de Residuos) — hallazgo propio, no de la auditoría adversarial, encontrado
+      revisando en el navegador el fix de arriba. Causa: Nacional Labs nunca tuvo
+      historia anual cargada (exclusión a propósito, `AMBITOS_CON_HISTORIA` en
+      `rutas_api.js`, de antes de esta sesión) y las dos API responden 400 en vez de
+      un JSON vacío; `pintarTrayectoriaPropia`/`pintarContraste` no atrapaban ese
+      rechazo, así que la excepción se comía el resto del `await` secuencial que las
+      llama — panel en blanco y error de consola, sin ningún mensaje. Ambas funciones
+      ahora atrapan el rechazo y caen al mismo "sin dato" que ya usan para una
+      respuesta vacía. Verificado en el navegador para los tres recursos: cero
+      errores de consola, los seis paneles muestran su aviso — `41f13be`
 
 ---
 
