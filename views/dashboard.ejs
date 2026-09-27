@@ -46,11 +46,14 @@
        abrir una pestaña por recurso. -->
   <section class="vista" id="v-agua" role="tabpanel" aria-labelledby="tab-agua" hidden>
 
+    <!-- Agua y Energia quedan completas cada una en su propio bloque -mensual,
+         historico y contraste mensual juntos-, en vez de repartir el historico y el
+         contraste en subgrupos aparte que mezclaban las dos: ahi es donde se
+         confundian, porque una misma fila mostraba una grafica de agua al lado de
+         una de energia bajo un titulo que no decia cual era cual de un vistazo. -->
     <nav class="subnav" aria-label="Ir a">
       <a href="#sub-agua">Agua</a>
       <a href="#sub-energia">Energía</a>
-      <a href="#sub-historico">Histórico</a>
-      <a href="#sub-contraste">Contraste mensual</a>
     </nav>
 
     <div class="subgrupo" id="sub-agua"><h2>Agua</h2><span class="sub">consumo, producción y ratio por lente</span></div>
@@ -77,53 +80,15 @@
       <div class="cuerpo" id="cajaAguaDiario"></div>
     </section>
 
-    <div class="subgrupo" id="sub-energia"><h2>Energía</h2><span class="sub">consumo, producción y ratio por lente</span></div>
-
-    <section class="panel c7">
-      <header><span class="ix">05</span><h2>Producción contra consumo por lente</h2><span class="sub" id="subEnergiaCombo"></span></header>
-      <div class="grafico alto" id="gEnergiaCombo"></div>
-      <div class="cuerpo" id="notaEnergiaCombo"></div>
-    </section>
-
-    <section class="panel c5">
-      <header><span class="ix">06</span><h2>Variación contra el mes anterior</h2><span class="sub" id="subEnergiaVar"></span></header>
-      <div class="cuerpo" id="cajasEnergiaVar"></div>
-      <div class="cuerpo" id="notaEnergiaVar"></div>
-    </section>
-
-    <section class="panel c7">
-      <header><span class="ix">07</span><h2>Mes a mes: consumo, lentes y ratio</h2><span class="sub" id="subEnergiaTabla"></span></header>
-      <div class="cuerpo tablabox" id="tEnergia"></div>
-    </section>
-
-    <section class="panel c5">
-      <!-- Energia no tiene registro diario en el esquema (solo agua lo trae:
-           ehs.hecho_lectura_diaria_agua, migracion 0004): en su lugar, la comparacion
-           por sitio, que si es un dato real y ya se usa en Ambiental y Seguridad. -->
-      <header><span class="ix">08</span><h2>Cada sitio contra su propia meta</h2><span class="sub" id="subEnergiaSitios"></span></header>
-      <div class="grafico alto" id="gEnergiaSitios"></div>
-      <div class="cuerpo" id="notaEnergiaSitios"></div>
-    </section>
-
-    <div class="subgrupo" id="sub-historico"><h2>Histórico</h2><span class="sub">contra los cierres de años anteriores, del ámbito elegido arriba</span></div>
-
-    <section class="panel c6">
-      <header><span class="ix">09</span><h2>Agua · contra el año anterior</h2><span class="sub" id="subAguaTray"></span></header>
+    <section class="panel c12">
+      <header><span class="ix">05</span><h2>Agua · contra el año anterior</h2><span class="sub" id="subAguaTray"></span></header>
       <div class="grafico alto" id="gAguaTray"></div>
       <div class="cuerpo" id="notaAguaTray"></div>
     </section>
 
-    <section class="panel c6">
-      <header><span class="ix">10</span><h2>Energía · contra el año anterior</h2><span class="sub" id="subEnergiaTray"></span></header>
-      <div class="grafico alto" id="gEnergiaTray"></div>
-      <div class="cuerpo" id="notaEnergiaTray"></div>
-    </section>
-
-    <div class="subgrupo" id="sub-contraste"><h2>Contraste mensual</h2><span class="sub">dos años elegidos, mes a mes, del ámbito elegido arriba</span></div>
-
-    <section class="panel c6">
+    <section class="panel c12">
       <header>
-        <span class="ix">11</span><h2>Agua</h2>
+        <span class="ix">06</span><h2>Agua · contraste mensual</h2>
         <span class="sub contraste-sel">
           <select class="contraste-anio" data-kpi="agua_por_lente" data-cual="A"></select>
           contra
@@ -134,9 +99,43 @@
       <div class="cuerpo tablabox" id="tContrasteAgua"></div>
     </section>
 
-    <section class="panel c6">
+    <div class="subgrupo" id="sub-energia"><h2>Energía</h2><span class="sub">consumo, producción y ratio por lente</span></div>
+
+    <section class="panel c7">
+      <header><span class="ix">07</span><h2>Producción contra consumo por lente</h2><span class="sub" id="subEnergiaCombo"></span></header>
+      <div class="grafico alto" id="gEnergiaCombo"></div>
+      <div class="cuerpo" id="notaEnergiaCombo"></div>
+    </section>
+
+    <section class="panel c5">
+      <header><span class="ix">08</span><h2>Variación contra el mes anterior</h2><span class="sub" id="subEnergiaVar"></span></header>
+      <div class="cuerpo" id="cajasEnergiaVar"></div>
+      <div class="cuerpo" id="notaEnergiaVar"></div>
+    </section>
+
+    <section class="panel c7">
+      <header><span class="ix">09</span><h2>Mes a mes: consumo, lentes y ratio</h2><span class="sub" id="subEnergiaTabla"></span></header>
+      <div class="cuerpo tablabox" id="tEnergia"></div>
+    </section>
+
+    <section class="panel c5">
+      <!-- Energia no tiene registro diario en el esquema (solo agua lo trae:
+           ehs.hecho_lectura_diaria_agua, migracion 0004): en su lugar, la comparacion
+           por sitio, que si es un dato real y ya se usa en Ambiental y Seguridad. -->
+      <header><span class="ix">10</span><h2>Cada sitio contra su propia meta</h2><span class="sub" id="subEnergiaSitios"></span></header>
+      <div class="grafico alto" id="gEnergiaSitios"></div>
+      <div class="cuerpo" id="notaEnergiaSitios"></div>
+    </section>
+
+    <section class="panel c12">
+      <header><span class="ix">11</span><h2>Energía · contra el año anterior</h2><span class="sub" id="subEnergiaTray"></span></header>
+      <div class="grafico alto" id="gEnergiaTray"></div>
+      <div class="cuerpo" id="notaEnergiaTray"></div>
+    </section>
+
+    <section class="panel c12">
       <header>
-        <span class="ix">12</span><h2>Energía</h2>
+        <span class="ix">12</span><h2>Energía · contraste mensual</h2>
         <span class="sub contraste-sel">
           <select class="contraste-anio" data-kpi="energia_por_lente" data-cual="A"></select>
           contra
