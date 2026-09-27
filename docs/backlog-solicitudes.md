@@ -460,9 +460,37 @@ en memoria, `ehs_arsenal_subagentes.md` — no toca código del tablero). Lo seg
       depende del ámbito elegido (una sola vista global, verificado leyendo
       `pintarCalidad()`), así que se revisó una vez; Seguridad se revisó en los 7 —
       cero errores de consola, sin más hallazgos.
-- [ ] Revisión de calidad de código con agentes de solo-reporte (`schema`, sin
-      `Edit`/`Write`/`Bash` de escritura) sobre los archivos tocados en toda la sesión —
-      en curso.
+- [x] **Revisión de calidad de código con agentes de solo-reporte** (`schema`, sin
+      `Edit`/`Write`/`Bash` de escritura) sobre los archivos tocados en toda la
+      sesión — 3 agentes en paralelo (correctness/overengineering/consistency).
+      Cada hallazgo se verificó de forma independiente (diff real, `curl` a la API
+      con datos en vivo, navegador) antes de aplicarlo — dos resultaron ser bugs
+      reales, no solo observaciones de estilo:
+  - **`residuosComposicion` mezclaba el total agregado del mes con la parte "total"
+    de Perú** — el campo `total_kg`/`total_g_lente` (la suma de TODAS las partes)
+    y el campo por-parte de Perú (cuya parte se llama literalmente `total`) tenían
+    el mismo nombre, así que en el ámbito combinado Colombia + Perú el segundo
+    pisaba al primero en cualquier mes donde ambos aportan. Verificado con datos
+    reales de julio: el tooltip mostraba "Total 9000 kg" cuando la suma real de
+    las 4 partes es 41214 kg. Renombrado a `suma_kg`/`suma_g_lente` (un nombre que
+    nunca puede coincidir con ningún valor real de "parte") en los dos
+    adaptadores — `abdae58`
+  - **La marca de "Meta del sitio" desaparecía del todo** cuando la meta de un
+    sitio superaba por mucho el resto de las barras (el caso real: La Estrella,
+    6,20 acc/MHH de frequency rate, contra otros sitios muy por debajo de 1) — el
+    tope nuevo del eje (`maxBarra*1.18`, para que una meta alta no aplastara las
+    demás barras) no consideraba las metas, y ECharts simplemente deja de dibujar
+    un punto fuera del rango del eje en vez de "quedar en el borde" como decía el
+    comentario. Verificado en el navegador antes (marca invisible) y después
+    (marca visible al borde, tooltip sigue mostrando 6,20 sin recortar) — `abdae58`
+  - 3 filtros defensivos ya redundantes (`graficos.js` y `tablero.js` x2, todos el
+    mismo patrón copiado) que el propio comentario admitía inalcanzables desde que
+    la SQL se corrigió — removidos, restaurando el uso directo de las listas —
+    `abdae58`
+  - 3 comentarios corregidos para que digan la verdad (uno atribuía un color a
+    "ámbar" cuando nunca se comiteó así; otro decía 404 cuando el servidor
+    devuelve 400; un tercero tenía una tilde faltante que cambiaba el significado
+    de la palabra) — `abdae58`
 - [x] **Exportes CSV/Excel (Perú, Colombia + Perú) y modal de selección del reporte** —
       el parámetro `ambito` de `/api/ehs/detalle` no filtra nada (el endpoint siempre
       exporta los cuatro sitios reales: celta, estrella, agencias, peru — es un dump
