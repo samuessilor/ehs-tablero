@@ -396,6 +396,19 @@ Verificaciones adicionales de la auditoría, sin hallazgos:
 - Estilo de código (`var`/`function(){}`, comentarios sin tildes ni ñ) consistente con
   el resto de los archivos tocados.
 
+Un cuarto hallazgo, de la re-verificación manual de lo anterior (no de la auditoría
+adversarial, que no llegó a probar este ámbito combinado):
+
+- [x] **"Total" (Perú) quedó con el mismo color que "Aprovechable"** — el fix de arriba
+      le dio a `'total'` su propio nombre pero heredó `C.amb`, el mismo teal de
+      "Aprovechable". Invisible con Colombia o Perú solos (nunca aparecen las dos
+      partes juntas), pero en el ámbito combinado "Colombia + Perú" las cuatro partes
+      se pintan en la misma gráfica y en la misma lista — recreando ahí mismo el bug
+      de "dos barras idénticas" que originó toda la sección 11. Color propio
+      (`C.tenue`) en `composicionResiduos` (`graficos.js`) y `pintarAcumuladoComp`
+      (`tablero.js`) — verificado en el navegador con `sitio=colombia_peru`, las
+      cuatro categorías se ven y se seleccionan por separado — `27e3e2c`
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante
