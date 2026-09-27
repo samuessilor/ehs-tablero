@@ -185,8 +185,12 @@ async function atender(req, res, url) {
     if (ruta === '/api/ehs/contraste-mensual') {
       const ambito = q.get('ambito') || 'nacional';
       const kpi = q.get('kpi') || 'residuos_por_lente';
-      const anioA = entero(q, 'anioA', null, 2023, 2100);
-      const anioB = entero(q, 'anioB', null, 2023, 2100);
+      // 2024: regla del area (27-sep-2026), solo datos desde 2024 en adelante. 2023
+      // nunca tuvo lecturas mensuales reales (solo el cierre anual del scorecard, que
+      // usa trayectoria-anual, no esta ruta) - antes de esto, pedir anioA=2023 aqui no
+      // fallaba, solo devolvia un mes a mes vacio, que confunde igual que un error.
+      const anioA = entero(q, 'anioA', null, 2024, 2100);
+      const anioB = entero(q, 'anioB', null, 2024, 2100);
       if (!AMBITOS_CON_HISTORIA.includes(ambito) || !KPIS.includes(kpi)) {
         errores.parametroInvalido(res, 'Ambito o KPI desconocido.', {
           ambito,

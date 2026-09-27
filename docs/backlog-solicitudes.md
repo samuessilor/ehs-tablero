@@ -689,6 +689,40 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       (contrastado contra `/api/ehs/kpi-por-sitio`), en la esquina, cerca del ícono de
       descargar imagen, sin errores de consola.
 
+## 19. Regla: solo datos desde 2024 en adelante (27-sep-2026, ronda 4)
+
+- [x] **Investigado antes de tocar nada**: 2023 solo aparece en dos lugares de todo el
+      proyecto — `ehs.scorecard_anual` (cierre anual del scorecard corporativo, usado
+      por "X · contra el año anterior") y el selector de años de "Contraste mensual"
+      (`ANIOS_CONTRASTE`). **No existe ninguna lectura mensual real de 2023** en
+      `ehs.hecho_lectura_mensual`: la captura mensual siempre empezó en 2026 para el
+      corte actual, y el histórico cargado en la migración 0011/0012 es a nivel de
+      cierre anual, no mes a mes. Pedirle a "Contraste mensual" el año 2023 ya
+      devolvía meses en blanco antes de este cambio, nunca un dato real.
+- [x] **Filtrado en los tres puntos donde 2023 podía aparecer o pedirse**:
+      `ANIOS_CONTRASTE` en `tablero.js` pasa de `[2023,2024,2025,2026]` a
+      `[2024,2025,2026]` (ya no se puede elegir en el selector); `trayectoriaAnual` en
+      **los dos adaptadores** (`adaptador_sql.js` con `and sc.anio >= 2024` en el SQL,
+      `adaptador_json.js` con un `.filter()` equivalente sobre el mismo JSON) deja de
+      devolver el cierre de 2023; y `/api/ehs/contraste-mensual` sube su mínimo
+      aceptado de `anioA`/`anioB` de 2023 a 2024, así que pedirlo a mano por URL ahora
+      responde `400 parametro_invalido` en vez de devolver silenciosamente un mes a
+      mes vacío. Verificado: `curl` al endpoint de trayectoria confirma que `anios[0]`
+      ya es 2024; `curl` con `anioA=2023` devuelve el error; en el navegador, "Agua ·
+      contra el año anterior" muestra tres barras (2024/2025/2026, no cuatro) y el
+      selector de "Contraste mensual" solo ofrece 2024/2025/2026 — sin errores de
+      consola. El adaptador JSON se corrigió por paridad de código (mismo cambio que
+      el SQL) pero no se probó en vivo en esta ronda: esta instalación de prueba corre
+      contra SQL Server, no hay un servidor en modo JSON levantado para contrastar.
+- [ ] **Pendiente, decisión de Samuel, no ejecutada**: lo de arriba saca 2023 de
+      **toda consulta y toda visualización** (lo que pidió explícitamente), pero **no
+      borra la fila de 2023 de `ehs.scorecard_anual`** — sigue en la base, solo dejó de
+      leerse. Borrarla físicamente es una operación destructiva e irreversible sobre la
+      base de datos real, y este proyecto no la ejecuta sin confirmación explícita
+      (regla del repo). Si Samuel quiere que también se borre, se hace con un `DELETE`
+      acotado (`delete from ehs.scorecard_anual where anio = 2023`) contra la base real
+      — pendiente de que lo pida expresamente.
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante

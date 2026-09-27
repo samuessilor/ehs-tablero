@@ -355,7 +355,12 @@ module.exports = {
       unidad: d.kpis[kpi].unidad,
       dec: d.kpis[kpi].dec,
       perimetro: d.ambitos[ambito] || ambito,
+      // anio >= 2024: regla del area (27-sep-2026), solo datos desde 2024 en adelante
+      // en base de datos y visualizacion. El propio JSON conserva 2023 si lo trae
+      // (borrarlo del archivo es aparte); esto solo lo saca de lo que se muestra,
+      // igual que el filtro equivalente en adaptador_sql.js.
       anios: Object.keys(serie)
+        .filter((a) => Number(a) >= 2024)
         .sort()
         .map((a) => ({
           anio: Number(a),

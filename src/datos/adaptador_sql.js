@@ -891,9 +891,13 @@ module.exports = {
                              where sitio_id = @ambito)
           from ref.dim_kpi k where k.kpi_id = @kpi and k.area = 'ehs';
 
+        -- anio >= 2024: regla del area (27-sep-2026), solo datos desde 2024 en
+        -- adelante en base de datos y visualizacion. La fila de 2023 sigue en
+        -- ehs.scorecard_anual (borrarla es una decision aparte e irreversible); esto
+        -- solo la saca de lo que se muestra.
         select sc.anio, sc.meta, sc.real_ytd
           from ehs.scorecard_anual sc
-         where sc.sitio_id = @ambito and sc.kpi_id = @kpi
+         where sc.sitio_id = @ambito and sc.kpi_id = @kpi and sc.anio >= 2024
          order by sc.anio;
 
         select ytd = y.valor,

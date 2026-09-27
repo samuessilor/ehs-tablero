@@ -725,8 +725,16 @@ var Tablero = (function () {
    * selectores de año se llenan una sola vez (ANIOS_CONTRASTE, fijo: es el rango que
    * carga la migración 0012); cambiar cualquiera de los dos vuelve a pedir y repintar
    * solo esa tabla, no toda la vista.
+   *
+   * Sin 2023: regla del área (27-sep-2026), "solo datos desde 2024 en adelante" en
+   * base de datos y visualización. 2023 nunca tuvo lecturas mensuales reales (solo el
+   * cierre anual del scorecard corporativo en ehs.scorecard_anual, para la trayectoria
+   * año-contra-año) - seleccionarlo aquí ya devolvía meses en blanco, nunca datos de
+   * verdad. La fila de scorecard_anual de 2023 en sí NO se borró de la base (ver
+   * trayectoriaAnual en ambos adaptadores, que ahora la filtra al leer): borrarla es
+   * una decisión aparte, irreversible, que le corresponde a Samuel.
    */
-  var ANIOS_CONTRASTE = [2023, 2024, 2025, 2026];
+  var ANIOS_CONTRASTE = [2024, 2025, 2026];
 
   function selectsContraste(kpi) {
     return $all('select.contraste-anio[data-kpi="' + kpi + '"]');
