@@ -12,6 +12,12 @@ se pidió y qué de eso ya está hecho de verdad?" — sin tener que releer la c
 ve/funciona como se pidió. Si algo se implementó pero no se pudo verificar, queda `[~]`
 con la razón.
 
+**Este archivo es solo sobre diseño/UX del tablero.** Para la auditoría de la parte de
+ingesta (Excel → SQL → tablero) y de Calidad del dato — qué se corrigió, qué quedó
+documentado para depurar después con la persona encargada, y la reconciliación completa
+de 175 valores contra `KPI's EHS 2026-julio_versionfinal.xlsx` — ver
+`docs/auditoria-ingesta-27-sep-2026.md`.
+
 ---
 
 ## Pendiente ahora mismo
@@ -514,6 +520,34 @@ en memoria, `ehs_arsenal_subagentes.md` — no toca código del tablero). Lo seg
       `reporte.ejs` ni sus botones de descarga exponen ningún selector de año. Pendiente
       de decidir con Samuel: ¿un año a la vez con selector, o todos los años en un solo
       archivo?
+
+## 14. Auditoría de ingesta y Calidad del dato (27-sep-2026)
+
+Samuel: "revisa también la escritura en cuanto código y el proyecto en general hasta la
+parte de ingesta", seguido de "hay valores en calidad de datos que no comprendo bien de
+dónde sacaste esos datos" (con captura del Excel fuente adjunta) y la instrucción de
+solucionar lo viable y dejar especificado con amplio detalle lo que no.
+
+- [x] **Reconciliación completa contra el Excel fuente** — 173 de 175 valores crudos de
+      Celta/Estrella/Agencias (Enero-Julio) coinciden exactos contra
+      `KPI's EHS 2026-julio_versionfinal.xlsx`, hoja "indicadores mensuales LABS"
+      (leída por etiqueta, no por coordenada). Las 2 diferencias son la corrección ya
+      documentada del accidente (mayo→julio). Sin hallazgos nuevos de dato — el tablero
+      sí traza de vuelta al Excel.
+- [x] **Bug real encontrado y corregido**: "01 Lecturas cargadas por mes" mostraba un
+      número fijo (sitios × magnitudes) que no cuadraba contra la tarjeta "Lecturas
+      cargadas" de la misma pantalla — `8180f8e`
+- [x] **Workflow de 4 agentes en paralelo** sobre `analisis/` (Python), `sql/`/
+      `migraciones/` y el flujo de captura/validación/escritura (JS) — dos bugs reales
+      corregidos (advertencia de cero en `sp_capturar_lote`, doble validación al
+      corregir una lectura + mensajes de error tragados) — `3edd1b6`, `1920cd9`
+- [x] **Todo el resto** (fragilidad de los scripts de Python ante un Excel
+      reformateado, seguridad transaccional de una migración ya aplicada, scripts de
+      verificación desactualizados frente a Perú/Colombia+Peru, documentación
+      desactualizada sobre qué SQL se ejecuta en una instalación real) queda
+      catalogado con detalle completo — archivo, por qué importa, cómo debería quedar
+      — en `docs/auditoria-ingesta-27-sep-2026.md`, para depurar con calma y
+      corroborar con la persona encargada.
 
 ---
 
