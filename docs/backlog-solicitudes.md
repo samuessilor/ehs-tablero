@@ -133,6 +133,39 @@ está desplegado y al día con todo lo de abajo.
       etiqueta del botón en `tablero.js` + los 3 JSON estáticos (`datos.json` en app y
       en `C:\EHS`, `datos-ehs.json`) — `efb7824`
 
+## 7. Reporte descargable (PDF)
+
+Samuel descargó `Reporte EHS · Servióptica.pdf` y encontró varios defectos reales.
+
+- [ ] Texto y ejes de las gráficas se sobreponen con el párrafo de análisis de abajo en
+      varias páginas del PDF — causa encontrada: las gráficas se dibujan una sola vez,
+      con el layout de PANTALLA (paneles 01/02 a 7/5 columnas); al imprimir, el CSS de
+      impresión colapsa esos paneles a 12/12 columnas (breakpoint de ancho de página),
+      pero ninguna instancia de ECharts se vuelve a medir contra el nuevo tamaño —
+      `reporte.js` no tiene ningún listener de `beforeprint`/resize, a diferencia del
+      tablero. Se agrega ese listener para llamar `Graficos.redibujar()` justo antes de
+      imprimir.
+- [ ] El icono de "guardar imagen" (⬇, del toolbox de ECharts) queda dibujado dentro de
+      cada gráfica impresa — no tiene sentido en un PDF/papel. Se agrega un modo
+      "impresión" en `graficos.js` que omite el toolbox en toda gráfica dibujada
+      mientras esté activo, y `reporte.js` lo activa antes de dibujar nada.
+- [ ] Nombre del archivo/documento sin el mes — el título de la pestaña (y por lo tanto
+      el nombre sugerido al guardar el PDF) es fijo ("Reporte EHS · Servióptica"); debe
+      incluir el corte, ej. "Reporte EHS · Servióptica · Julio 2026".
+- [ ] Autor del documento (metadato PDF) = Samuel Galeano — **limitación real, no
+      solucionable con este mecanismo**: el PDF sale del "Guardar como PDF" del propio
+      navegador (`window.print()`), y Chrome no expone ninguna forma de fijar el campo
+      Autor de un PDF impreso desde una página HTML (sí puede tomar el `<title>` como
+      Título del documento, pero no hay equivalente para Autor). El crédito visible en
+      el pie del reporte (punto siguiente) cumple el mismo propósito de forma confiable.
+
+## 8. Créditos / atribución
+
+- [ ] Pie del reporte descargable: agregar, discreto, algo como "Reporte generado por el
+      Dashboard EHS" y "Elaborado por Samuel Galeano".
+- [ ] Header del tablero (front, pantalla principal únicamente): un crédito muy pequeño,
+      sin protagonismo visual, tipo "Hecho por Samuel Galeano".
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante
