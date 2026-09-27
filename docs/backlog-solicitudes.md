@@ -16,19 +16,8 @@ con la razón.
 
 ## Pendiente ahora mismo
 
-- [ ] **Desplegar a Vercel** — todo lo de abajo está commiteado en `master` pero el sitio
-      público (`deploy-web1.vercel.app`) sigue en una versión de antes de esta ronda de
-      cambios. Varios de los reportes de Samuel fueron sobre esa versión vieja (el rombo,
-      la leyenda en teal, "TOPSA") y ya estaban resueltos en local sin que se notara.
-      Pendiente de la confirmación de cuenta/equipo de Vercel antes de correr el deploy
-      (regla del área, `EssilorLuxottica/CLAUDE.md` punto 6). Cuenta detectada:
-      `specifinance-7412`, equipo `specifinance-7412's projects` — falta que Samuel la
-      confirme.
-- [ ] **Verdes y rojos: misma gama entre gráficas de barras y el mapa de calor, tomando
-      la del mapa de calor** — probablemente ya resuelto (heatmap y `C.cumple`/
-      `C.incumple` ya comparten los mismos hex desde antes de este pedido), pero la
-      captura que lo mostraba era del sitio viejo de Vercel. Re-revisar después del
-      deploy antes de tocar nada más aquí.
+Nada pendiente de confirmación en este momento. El sitio (`deploy-web1.vercel.app`)
+está desplegado y al día con todo lo de abajo.
 
 ---
 
@@ -63,8 +52,14 @@ con la razón.
       más transparente y con tono de "aprobado" en vez de un verde suelto — `b3b9abd`
       (ajuste de opacidad revisado dos veces: primero a partir de la solicitud "verde
       más intenso" de una ronda anterior, después hacia más transparente en esta)
-- [ ] Verdes/rojos con la misma gama entre todas las gráficas y el mapa de calor — ver
-      "Pendiente ahora mismo"
+- [x] Verde de "cumple" muy oscuro, no se entendía como "algo bien o correcto" —
+      `--cumple`/`C.cumple` pasa de `#2e7d5b` a un verde vivo de aprobación
+      (`#16a34a`), con todos los `rgba()` que lo referenciaban a mano (chips, bordes,
+      franja de estado, mapa de calor) actualizados en el mismo cambio para que sea
+      una sola gama en todos lados — `6677b13`
+- [x] Verdes/rojos con la misma gama entre todas las gráficas y el mapa de calor —
+      ya comparten los mismos valores base desde antes; con el ajuste de arriba
+      además comparten el mismo verde vivo — `6677b13`
 
 ## 3. Gráficas — ejes, metas, leyendas y color por dato
 
@@ -93,8 +88,19 @@ con la razón.
 - [x] "Trayectoria en el scorecard": la leyenda decía teal pero las barras eran negro/
       naranja — la serie no tenía `itemStyle` propio y ECharts tomaba el color del tema
       para la leyenda. Corregido; además "Real del año" (no explicaba de qué) pasó a
-      "Cierre del año" (mismo término que ya usa el tooltip), y la barra del año en
-      curso ahora dice "en curso" encima suyo, no solo en la nota de abajo — `efb7824`
+      "Cierre del año" (mismo término que ya usa el tooltip) — `efb7824`
+- [x] Esa misma barra rayada del año en curso: el rótulo "en curso" encima de la barra
+      se veía raro y no decía por qué era distinta — se quita de la barra y pasa a ser
+      su propia entrada de leyenda ("Año en curso"), con el mismo color que tiene la
+      barra en ese momento (serie fantasma sin datos, solo para el swatch) — `6677b13`
+- [x] La brecha (%) junto a cada barra se entendía al revés: lo bueno (bajo la meta)
+      salía en negativo y lo malo (sobre la meta) en positivo — `Fmt.pct` (compartida
+      por tarjetas, matriz, porSitio y trayectoria) invierte el signo solo para
+      pantalla: bueno = positivo, malo = negativo en todos lados a la vez — `6677b13`
+- [x] "Meta del sitio" (Cada sitio contra su propia meta) no decía en ningún lado que
+      esa marca era la meta, y el gris quedaba desapercibido contra las barras de
+      color — se agrega su propia leyenda y la marca pasa a negro corporativo, mucho
+      más visible — `6677b13`
 
 ## 4. Navegación y estructura de las vistas
 
