@@ -839,15 +839,10 @@ var Graficos = (function () {
           itemStyle: { color: COLOR_ESTADO[r.en_curso.estado] || C.amb },
         });
       }
-      pintar(
+      var inst = pintar(
         id,
         base({
-          // selectedMode:false porque "Año en curso" es una serie fantasma (sin
-          // datos, solo para el swatch): dejar que se pueda "apagar" desde la
-          // leyenda no ocultaba nada real y dejaba su propio icono y el de "Meta
-          // del año" con el aspecto atenuado de una serie deseleccionada - un
-          // clic que no debía existir. Ninguna de las tres necesita filtrarse.
-          legend: { top: 0, left: 'center', icon: 'roundRect', selectedMode: false },
+          legend: { top: 0, left: 'center', icon: 'roundRect' },
           xAxis: { type: 'category', data: anios },
           yAxis: { type: 'value', name: r.unidad },
           tooltip: {
@@ -890,6 +885,21 @@ var Graficos = (function () {
           series: series,
         })
       );
+      // "Cierre del año" y "Meta del año" se pueden ocultar desde la leyenda como
+      // en el resto del tablero. "Año en curso" es una serie fantasma (sin datos:
+      // solo existe para el swatch) - dejarla apagar no ocultaba nada real y
+      // dejaba su icono y el de "Meta del año" con aspecto de deseleccionado. En
+      // vez de desactivar toda la leyenda (lo que tambien tapaba el clic de las
+      // dos series reales), se vuelve a seleccionar sola apenas alguien la apaga.
+      // .off() antes de .on() evita apilar handlers: pintar() reusa la instancia.
+      if (inst && r.en_curso) {
+        inst.off('legendselectchanged');
+        inst.on('legendselectchanged', function (e) {
+          if (e.name === 'Año en curso' && !e.selected['Año en curso']) {
+            inst.dispatchAction({ type: 'legendSelect', name: 'Año en curso' });
+          }
+        });
+      }
     },
 
     /** Mini tendencia para la ficha de un KPI, con el techo marcado. */
