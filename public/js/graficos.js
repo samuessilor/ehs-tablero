@@ -862,6 +862,14 @@ var Graficos = (function () {
           // las barras se pintaban por punto (negro/naranja) - colores que no
           // coincidian con lo que decia la leyenda.
           itemStyle: { color: C.inst, borderRadius: [2, 2, 0, 0] },
+          // mismo stack que la serie fantasma 'Año en curso' (mas abajo): sin esto,
+          // dos series type:'bar' en el mismo eje se agrupan lado a lado y ECharts
+          // les reparte el ancho ENTRE LAS DOS aunque la fantasma no tenga ni un dato
+          // que dibujar - empujaba esta barra ~31px a la izquierda del centro real de
+          // cada categoria (verificado con lectura de pixeles). Con el mismo stack,
+          // ECharts las trata como una sola barra que ocupa el carril completo;
+          // 'Año en curso' nunca aporta altura porque su data siempre esta vacia.
+          stack: 'anioTrayectoria',
           barMaxWidth: 46,
           label: {
             show: true,
@@ -892,11 +900,14 @@ var Graficos = (function () {
         // serie fantasma (sin datos: no dibuja nada) solo para que la barra rayada
         // tenga su propia entrada en la leyenda, con el mismo color que la
         // caracteriza, en vez de depender de un rotulo metido dentro del grafico o
-        // de que alguien lea la nota de texto de abajo.
+        // de que alguien lea la nota de texto de abajo. Mismo 'stack' que 'Cierre
+        // del año' (ver su comentario): sin el, esta barra vacia igual reclamaba su
+        // propio carril y desplazaba la barra real.
         series.push({
           name: 'Año en curso',
           type: 'bar',
           data: [],
+          stack: 'anioTrayectoria',
           itemStyle: { color: COLOR_ESTADO[r.en_curso.estado] || C.amb },
         });
       }
