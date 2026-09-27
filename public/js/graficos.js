@@ -24,7 +24,7 @@ var Graficos = (function () {
     inst: '#1C1F24',
     amb: '#21A0A0',
     ambSuave: '#8FCACA',
-    cumple: '#2E7D5B',
+    cumple: '#16A34A',
     riesgo: '#D98324',
     incumple: '#C0392B',
     meta: '#5B6B7F',
@@ -432,7 +432,10 @@ var Graficos = (function () {
       pintar(
         id,
         base({
-          grid: { left: 4, right: 74, top: 16, bottom: 4, containLabel: true },
+          // sin esto no habia forma de saber, con solo mirar la grafica, que esa
+          // marca vertical era la meta - no aparecia en ningun lado.
+          legend: { top: 0, left: 'center', icon: 'roundRect' },
+          grid: { left: 4, right: 74, top: 34, bottom: 4, containLabel: true },
           xAxis: { type: 'value', name: r.unidad },
           yAxis: {
             type: 'category',
@@ -500,14 +503,16 @@ var Graficos = (function () {
             },
             {
               // antes un rombo blanco: se leia como un punto de dato mas, no como una
-              // marca de referencia. Una marca vertical delgada, del mismo color gris
-              // que la meta en el resto del tablero (C.meta), se lee de una sola vez
-              // como "aqui esta el limite", igual que un target-marker de BI.
+              // marca de referencia. C.meta (gris) quedaba desapercibido contra las
+              // barras de colores: C.tinta (negro corporativo) sostiene el contraste
+              // contra cualquier color de barra, y ahora tiene su propia entrada en
+              // la leyenda de arriba, asi que no depende de que alguien adivine que
+              // esa marca es la meta.
               name: 'Meta del sitio',
               type: 'scatter',
               symbol: 'rect',
-              symbolSize: [3, 22],
-              itemStyle: { color: C.meta },
+              symbolSize: [4, 26],
+              itemStyle: { color: C.tinta },
               z: 6,
               data: r.sitios.map(function (s, i) {
                 return s.meta === null ? null : { value: [s.meta, i] };
@@ -586,7 +591,7 @@ var Graficos = (function () {
               // verde solido (#7FD1A3) se leia plano — se pasa a un verde de aprobacion
               // (el mismo tono de --cumple) con transparencia, para que se note que es un
               // estado bueno sin tapar el numero que trae encima.
-              inRange: { color: ['rgba(46,125,91,.42)', '#F2F6F8', '#F6DCD8', '#C0392B'] },
+              inRange: { color: ['rgba(22,163,74,.42)', '#F2F6F8', '#F6DCD8', '#C0392B'] },
               formatter: function (v) {
                 return Fmt.num(v, 0) + ' %';
               },
@@ -774,6 +779,57 @@ var Graficos = (function () {
         }
         return null;
       });
+      var series = [
+        {
+          // "Real del año" no decia de que: quien mira la leyenda sola, sin el
+          // encabezado del panel al lado, no sabe real de que. "Cierre del año"
+          // es lo mismo que ya dice el tooltip de esta misma grafica.
+          name: 'Cierre del año',
+          type: 'bar',
+          data: reales,
+          // color a nivel de serie: es lo que ECharts usa para el swatch de la
+          // leyenda. Sin esto, la leyenda tomaba el color del tema (teal) mientras
+          // las barras se pintaban por punto (negro/naranja) - colores que no
+          // coincidian con lo que decia la leyenda.
+          itemStyle: { color: C.inst, borderRadius: [2, 2, 0, 0] },
+          barMaxWidth: 46,
+          label: {
+            show: true,
+            position: 'top',
+            fontSize: 10.5,
+            fontFamily: MONO,
+            color: C.tinta,
+            formatter: function (p) {
+              return Fmt.num(p.value, dec);
+            },
+          },
+        },
+        {
+          name: 'Meta del año',
+          type: 'line',
+          data: r.anios.map(function (a) {
+            return a.meta;
+          }),
+          symbol: 'rect',
+          symbolSize: 9,
+          itemStyle: { color: C.meta },
+          lineStyle: { color: C.meta, width: 1.6, type: [5, 4] },
+          connectNulls: false,
+          z: 5,
+        },
+      ];
+      if (r.en_curso) {
+        // serie fantasma (sin datos: no dibuja nada) solo para que la barra rayada
+        // tenga su propia entrada en la leyenda, con el mismo color que la
+        // caracteriza, en vez de depender de un rotulo metido dentro del grafico o
+        // de que alguien lea la nota de texto de abajo.
+        series.push({
+          name: 'Año en curso',
+          type: 'bar',
+          data: [],
+          itemStyle: { color: COLOR_ESTADO[r.en_curso.estado] || C.amb },
+        });
+      }
       pintar(
         id,
         base({
@@ -817,51 +873,7 @@ var Graficos = (function () {
               );
             },
           },
-          series: [
-            {
-              // "Real del año" no decia de que: quien mira la leyenda sola, sin el
-              // encabezado del panel al lado, no sabe real de que. "Cierre del año"
-              // es lo mismo que ya dice el tooltip de esta misma grafica.
-              name: 'Cierre del año',
-              type: 'bar',
-              data: reales,
-              // color a nivel de serie: es lo que ECharts usa para el swatch de la
-              // leyenda. Sin esto, la leyenda tomaba el color del tema (teal) mientras
-              // las barras se pintaban por punto (negro/naranja) - colores que no
-              // coincidian con lo que decia la leyenda.
-              itemStyle: { color: C.inst, borderRadius: [2, 2, 0, 0] },
-              barMaxWidth: 46,
-              label: {
-                show: true,
-                position: 'top',
-                fontSize: 10.5,
-                fontFamily: MONO,
-                color: C.tinta,
-                // la barra rayada no tiene su propia entrada en la leyenda (es el
-                // mismo dato, solo que a medio año): se explica en la propia barra,
-                // no solo en la nota de texto de abajo que nadie tiene por que leer.
-                formatter: function (p) {
-                  var anio = r.anios[p.dataIndex];
-                  var enCurso =
-                    r.en_curso && anio && anio.anio === r.en_curso.anio && anio.real === null;
-                  return Fmt.num(p.value, dec) + (enCurso ? '\nen curso' : '');
-                },
-              },
-            },
-            {
-              name: 'Meta del año',
-              type: 'line',
-              data: r.anios.map(function (a) {
-                return a.meta;
-              }),
-              symbol: 'rect',
-              symbolSize: 9,
-              itemStyle: { color: C.meta },
-              lineStyle: { color: C.meta, width: 1.6, type: [5, 4] },
-              connectNulls: false,
-              z: 5,
-            },
-          ],
+          series: series,
         })
       );
     },

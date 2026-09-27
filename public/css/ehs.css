@@ -9,7 +9,7 @@
   --inst: #1c1f24;
   --amb: #21a0a0;
   --seg: #3d5a80;
-  --cumple: #2e7d5b;
+  --cumple: #16a34a;
   --riesgo: #d98324;
   --incumple: #c0392b;
   --metac: #64748b;
@@ -735,9 +735,9 @@ main {
   white-space: nowrap;
 }
 .chip.cumple {
-  background: rgba(46, 125, 91, 0.11);
+  background: rgba(22, 163, 74, 0.11);
   color: var(--cumple);
-  border: 1px solid rgba(46, 125, 91, 0.28);
+  border: 1px solid rgba(22, 163, 74, 0.28);
 }
 .chip.riesgo {
   background: rgba(217, 131, 36, 0.12);
@@ -770,9 +770,9 @@ main {
   border: 1px dashed rgba(11, 60, 93, 0.35);
 }
 .chip.verif {
-  background: rgba(46, 125, 91, 0.11);
+  background: rgba(22, 163, 74, 0.11);
   color: var(--cumple);
-  border: 1px solid rgba(46, 125, 91, 0.34);
+  border: 1px solid rgba(22, 163, 74, 0.34);
 }
 .chip.anual {
   background: rgba(61, 90, 128, 0.1);
@@ -842,7 +842,7 @@ main {
 }
 .nota.ok {
   border-left-color: var(--cumple);
-  background: rgba(46, 125, 91, 0.06);
+  background: rgba(22, 163, 74, 0.06);
 }
 .nota b {
   color: var(--tinta);
@@ -1019,7 +1019,7 @@ main {
   width: 3px;
 }
 .mc.cumple {
-  background: rgba(46, 125, 91, 0.075);
+  background: rgba(22, 163, 74, 0.075);
 }
 .mc.cumple::before {
   background: var(--cumple);
@@ -1304,7 +1304,7 @@ main {
   margin-top: 4px;
 }
 .aguacab .chip.cumple {
-  background: #2e7d5b;
+  background: #16a34a;
   color: #fff;
 }
 .aguacab .chip.riesgo {
@@ -1388,7 +1388,7 @@ main {
   color: var(--incumple);
 }
 .varbox.baja .vb-r {
-  background: rgba(46, 125, 91, 0.08);
+  background: rgba(22, 163, 74, 0.08);
 }
 .varbox.baja .vb-r .n {
   color: var(--cumple);
@@ -2766,7 +2766,7 @@ body.cargando .body {
 }
 .cap-res-bien {
   border-left-color: var(--cumple);
-  background: rgba(46, 125, 91, 0.05);
+  background: rgba(22, 163, 74, 0.05);
 }
 .cap-res-parcial {
   border-left-color: var(--riesgo);
@@ -2888,7 +2888,7 @@ body.cargando .body {
 }
 .franja-estado-punto.verde {
   background: var(--cumple);
-  box-shadow: 0 0 0 3px rgba(46, 125, 91, 0.15);
+  box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
 }
 .franja-estado-punto.rojo {
   background: var(--incumple);

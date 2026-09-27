@@ -47,10 +47,17 @@ var Fmt = (function () {
     });
   }
 
-  /** Una fraccion (0,097) escrita como porcentaje con signo (+9,7 %). */
+  /** La brecha contra la meta (0,097 -> -9,7 %), con el signo invertido a proposito:
+   *  los cinco KPI del area son TECHO (menos es mejor), y v=(valor-meta)/meta viene
+   *  positivo cuando se supera el techo (malo) y negativo cuando se queda por debajo
+   *  (bueno). Mostrado tal cual se leia al reves de la intuicion de quien lo mira:
+   *  bueno con signo negativo, malo con signo positivo. Aqui se invierte SOLO para
+   *  pantalla, para que quedar por debajo de la meta se lea en positivo y superarla
+   *  en negativo - el calculo de estado (cumple/riesgo/incumple) no usa esta funcion
+   *  y sigue igual. */
   function pct(v, dec) {
     if (v === null || v === undefined) return '—';
-    var n = v * 100;
+    var n = -v * 100;
     return (n > 0 ? '+' : '') + num(n, dec === undefined ? 1 : dec) + ' %';
   }
 
