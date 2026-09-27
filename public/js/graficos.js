@@ -64,6 +64,9 @@ var Graficos = (function () {
   });
 
   var instancias = {};
+  // el reporte descargable activa esto antes de dibujar nada: en un PDF/papel el
+  // icono de "guardar imagen" no tiene con que interactuarse.
+  var modoImpresion = false;
 
   function pintar(id, opcion) {
     var el = document.getElementById(id);
@@ -113,7 +116,7 @@ var Graficos = (function () {
       animationDurationUpdate: 380,
       animationEasingUpdate: 'cubicOut',
     };
-    if (!sinToolbox) {
+    if (!sinToolbox && !modoImpresion) {
       o.toolbox = {
         right: 2,
         top: -2,
@@ -338,6 +341,12 @@ var Graficos = (function () {
   return {
     colores: C,
     redibujar: redibujar,
+    /** Para el reporte descargable: sin toolbox en ninguna grafica que se dibuje de
+     *  aqui en adelante (nada que "guardar imagen" en un PDF/papel). Se llama una
+     *  sola vez, antes de pintar la primera grafica. */
+    activarModoImpresion: function () {
+      modoImpresion = true;
+    },
 
     /**
      * El KPI en el tiempo: barras del mes, linea del acumulado y el techo sombreado.
@@ -833,7 +842,12 @@ var Graficos = (function () {
       pintar(
         id,
         base({
-          legend: { top: 0, left: 'center', icon: 'roundRect' },
+          // selectedMode:false porque "Año en curso" es una serie fantasma (sin
+          // datos, solo para el swatch): dejar que se pueda "apagar" desde la
+          // leyenda no ocultaba nada real y dejaba su propio icono y el de "Meta
+          // del año" con el aspecto atenuado de una serie deseleccionada - un
+          // clic que no debía existir. Ninguna de las tres necesita filtrarse.
+          legend: { top: 0, left: 'center', icon: 'roundRect', selectedMode: false },
           xAxis: { type: 'category', data: anios },
           yAxis: { type: 'value', name: r.unidad },
           tooltip: {

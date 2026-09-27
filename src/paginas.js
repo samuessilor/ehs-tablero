@@ -140,10 +140,18 @@ async function reporte(_req, res, url) {
   const ambito = (url && url.searchParams.get('ambito')) || 'nacional';
   const pan = await datos.panorama({ ambito });
 
+  // con el mes en el titulo: es lo que Chrome sugiere como nombre de archivo al
+  // guardar el PDF ("Reporte EHS · Servioptica · Julio 2026.pdf" en vez de un
+  // nombre generico igual mes a mes, que se presta a sobrescribir el anterior sin
+  // darse cuenta.
+  const titulo = pan
+    ? 'Reporte EHS · Servióptica · ' + pan.corte.nombre + ' ' + pan.anio
+    : 'Reporte EHS · Servióptica';
+
   const html = await ejs.renderFile(
     path.join(VISTAS, 'reporte.ejs'),
     {
-      titulo: 'Reporte EHS · Servióptica',
+      titulo,
       ambito,
       pan,
       // hora de Colombia y legible: es lo que queda impreso en el papel que se reparte

@@ -179,6 +179,10 @@
     var bloques = $all('.rep-kpi');
     if (!bloques.length) return;
 
+    // sin toolbox en ningun grafico de este reporte: "guardar imagen" no significa
+    // nada sobre un PDF o una hoja impresa.
+    Graficos.activarModoImpresion();
+
     // los datos de las tarjetas ya vinieron server-side en la tabla de arriba; se
     // vuelven a pedir aqui porque reporte.ejs no expone pan.kpi como JSON al cliente
     var pan = await api('panorama', { ambito: ambito });
@@ -198,6 +202,17 @@
     var confirmar = $('#btnConfirmar');
     if (confirmar) confirmar.addEventListener('click', confirmarDescarga);
   }
+
+  // Los paneles 01/02 van a 7/5 columnas en pantalla pero el CSS de impresion los
+  // colapsa a 12/12 en una pagina angosta (breakpoint de ancho): cada instancia de
+  // ECharts se dibujo una vez, contra el tamano de PANTALLA, y nunca se volvia a
+  // medir. Sin esto el canvas quedaba con el tamano viejo, montado sobre el texto
+  // que el nuevo layout ya habia corrido debajo. beforeprint dispara justo despues
+  // de que el navegador aplica el CSS de impresion y recalcula el layout - el
+  // momento exacto para volver a medir cada grafica contra su tamano real.
+  window.addEventListener('beforeprint', function () {
+    Graficos.redibujar();
+  });
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', iniciar);

@@ -2089,10 +2089,15 @@ details.infodato > div {
    ========================================================================= */
 
 /* --- contenedores de grafica ------------------------------------------- */
+/* overflow:hidden como red de seguridad: si una instancia de ECharts se dibuja con
+   un tamano que no coincide con el contenedor (el caso real: el reporte descargable,
+   donde el canvas se pinta contra el ancho de pantalla y el layout de impresion es
+   distinto), que se recorte en vez de invadir el texto de abajo. */
 .grafico {
   height: 250px;
   padding: 6px 8px 2px;
   min-width: 0;
+  overflow: hidden;
 }
 .grafico.alto {
   height: 318px;
