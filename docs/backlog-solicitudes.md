@@ -24,6 +24,9 @@ con la razón.
   el detalle en la sección 7. El crédito visible en el pie del reporte ya cumple el
   mismo propósito.
 
+El sitio (`deploy-web1.vercel.app`) está desplegado y al día con todo lo de este
+archivo, incluyendo la actualización de datos de la sección 10.
+
 ---
 
 ## 1. Header y marca
@@ -186,6 +189,28 @@ Samuel descargó `Reporte EHS · Servióptica.pdf` y encontró varios defectos r
       dejando su propio ícono y el de "Meta del año" con aspecto de deseleccionado —
       `legend.selectedMode:false` en esa gráfica, ninguna de las tres entradas necesita
       filtrarse — `9f15dfd`
+
+## 10. Verificaciones de calidad del dato
+
+- [x] "¿De dónde sale ese 4 de la barra de Frequency rate?" — verificado con los datos
+      crudos: julio, Colombia, 1 accidente / 241.735 horas-hombre de SOLO julio × 1e6 =
+      4,14 (coincide exacto con la API). El 0,61 de la tarjeta es el mismo accidente
+      dividido entre las ~1,69 millones de horas ACUMULADAS de los 7 meses. Mismo
+      accidente, denominador distinto (mensual vs. YTD) — no es un error de cálculo.
+- [x] "Soluciona el hallazgo del YTD desplazado ('KPIs 2026'!I12:K13) e implementa todo
+      por código bajo buenas prácticas de ingeniería de datos, para todo el proyecto" —
+      verificado en el código (no supuesto) que el tablero YA sigue ese patrón para los
+      5 hallazgos que "alteran un número": `construir_datos.py` lee únicamente la hoja
+      cruda (`indicadores mensuales LABS`) y las columnas de horas *crudas* por sitio de
+      `AT 2026` — nunca las celdas resumen donde viven estos defectos (`I12:K13`,
+      `H38:H47`, `M21:M32`, `D22`, `C22`). El acumulado se recalcula por código en los
+      dos motores (`ehs.v_kpi_ytd` en SQL con `where num_mes <= corte.num_mes`;
+      `calcular_kpi.py` en Python con `range(1, m+1)`), ninguno copia una fórmula de
+      Excel, y `calcular_kpi.py` además valida el resultado contra el propio Excel en
+      12 puntos de control y **aborta la generación** si alguno no cuadra. El tablero
+      nunca reprodujo estos defectos — no había nada que corregir en el código. Se
+      actualizó el campo "Cómo resolver" de esos 5 hallazgos para decir esto
+      explícitamente, con la cita exacta del código, en vez de dejarlo como pendiente.
 
 ---
 
