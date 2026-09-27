@@ -145,10 +145,17 @@ const VALOR_RECUPERADO = `case when v.valor is null then null
  */
 const BRECHA = `case when mt.valor is null or mt.valor = 0 or y.valor is null then null
                           else round((y.valor - mt.valor) / mt.valor, 6) end`;
+/* El caso 'sin_dato' va ANTES del especial de meta=0 (Agencias en FR/accidentes: meta
+   0 incidentes, y de verdad reporta 0 real cuando no pasa nada - nunca null). Con el
+   orden viejo, un ambito sin ninguna lectura (Peru en FR/accidentes: "todavia no
+   llegan", ver ehs/CLAUDE.md) y una meta tambien en 0 caia en la rama de meta=0, que
+   hacia coalesce(y.valor, 0) <= 0 y volvia 'cumple' - un ambito sin ningun dato
+   mostraba una insignia verde de "cumple la meta", lo mas parecido a afirmar algo sin
+   verificarlo que puede mostrar este tablero. */
 const ESTADO = `case when mt.valor is null then 'sin_meta'
-                          when mt.valor = 0 then case when coalesce(y.valor, 0) <= 0
-                                                      then 'cumple' else 'incumple' end
                           when y.valor is null then 'sin_dato'
+                          when mt.valor = 0 then case when y.valor <= 0
+                                                      then 'cumple' else 'incumple' end
                           when y.valor > mt.valor then 'incumple'
                           when y.valor >= mt.valor * 0.90 then 'riesgo'
                           else 'cumple' end`;
