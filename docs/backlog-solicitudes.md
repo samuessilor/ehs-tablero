@@ -611,6 +611,49 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       explícitamente dónde se ve la meta oficial acumulada (la ficha de Panorama para
       agua/energía, "Residuos en el tiempo" para residuos).
 
+## 17. Calidad del dato: desplegable grande en avisos + depurar lo ya corregido (27-sep-2026, ronda 4)
+
+- [x] **"Ficha para depurar" de un aviso automático solo traía 6 pares clave-valor, no
+      la tabla completa** — Samuel pidió, para los "puntos a revisar" de "04 Avisos
+      automáticos de este corte", un desplegable más grande que muestre la tabla
+      completa (qué datos, cómo está estructurada) para poder dar un veredicto sin
+      saltar de pantalla. `fichaAviso` ahora abre un botón bordeado ("Ver la tabla
+      completa y dar un veredicto", no el texto chiquito genérico de `.infodato`) que,
+      al expandirse por primera vez, carga perezosamente `/api/ehs/datos` del sitio del
+      aviso (la misma fuente que "06 Datos") y dibuja las 9 magnitudes × todos los
+      meses, con la fila del mes y la columna de la métrica que dispararon el aviso
+      resaltadas — donde se cruzan es exactamente la celda señalada. Perezoso a
+      propósito: un corte puede traer varias decenas de avisos y pedirle al servidor
+      las 9 magnitudes de cada uno antes de que alguien abra ese desplegable en
+      concreto sería puro desperdicio. Verificado en navegador: la tabla carga, los
+      valores coinciden con el mensaje del aviso (Agencias, residuo_aprovechable_kg:
+      800 en enero → 1.200 en febrero, exactamente el "+50 %" que dice el aviso), sin
+      errores de consola.
+- [x] **2 de los 9 "hallazgos del libro heredado" ya estaban corregidos y se seguían
+      mostrando igual de urgentes que los 7 abiertos** — Samuel pidió depurar lo ya
+      corregido en las demás secciones de Calidad del dato. Se agregó un campo
+      `resuelto` a los hallazgos `julio-en-cero` y `accidente-mes-equivocado` (los dos
+      que ya traían "(ya corregido)" en su propio título); el panel ahora separa
+      "N abiertos" de "M ya corregidos" y los resueltos quedan en un desplegable propio
+      colapsado por defecto — nunca se borran (son la bitácora de la auditoría), solo
+      salen del camino.
+- [x] **Hallazgo real, no cosmético, encontrado al verificar lo anterior**: el texto
+      corregido de `accidente-mes-equivocado` (mayo → julio, confirmado por el manager
+      de la implementación el 24-sep-2026, migración 0012) vive hoy en
+      `app/datos/datos.json` y en `datos/datos-ehs.json`, pero **no** en
+      `analisis/web_json.py` — el script que genera `datos-ehs.json` seguía con el
+      texto viejo, anterior a la reunión ("el accidente vigente es en mayo, en
+      Celta"). Alguien corrigió el JSON publicado a mano sin actualizar su generador.
+      La próxima vez que alguien corra `python analisis/web_json.py` (para publicar
+      cualquier mes nuevo) habría vuelto a escribir el mes equivocado sobre el dato
+      corregido, sin que nadie se enterara — justo el tipo de defecto silencioso que
+      este proyecto existe para evitar. Corregido el texto en `web_json.py` para que
+      coincida con el ya publicado, con el campo `resuelto=True` agregado también ahí
+      y en los dos JSON. `app/datos/datos.json` está fuera de git (`.gitignore:
+      datos/*.json`, dato operativo no versionado) así que este fix no tiene commit
+      propio en `app/` — la fuente (`analisis/web_json.py`, fuera del repo `app/`)
+      queda corregida en disco.
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante

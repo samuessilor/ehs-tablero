@@ -151,13 +151,106 @@ var Tablero = (function () {
       filaFicha('Métrica', a.metrica, true) +
       filaFicha('Posible causa', causa ? causa.causa : '') +
       filaFicha('Cómo resolver', causa ? causa.resolucion : '');
-    if (!filas) return '';
+    if (!filas && !a.sitio) return '';
+    // La ficha (codigo/mes/sitio/metrica/causa) dice QUE se detecto; la tabla de abajo
+    // -las lecturas crudas del sitio completo, no solo la celda senalada- es lo que
+    // hace falta para dar un veredicto sin saltar a otra pantalla. Se carga sola
+    // (perezosa, ver wireTablasAviso) porque puede haber muchos avisos en un mismo
+    // corte y no tiene sentido pedirle al servidor las 9 magnitudes de cada uno antes
+    // de que alguien vaya a mirarlas.
     return (
-      '<details class="infodato"><summary>Ficha para depurar</summary>' +
+      '<details class="infodato aviso-detalle" data-sitio="' +
+      Fmt.esc(a.sitio || '') +
+      '" data-mes="' +
+      (a.mes || '') +
+      '" data-metrica="' +
+      Fmt.esc(a.metrica || '') +
+      '"><summary>Ver la tabla completa y dar un veredicto</summary>' +
       '<dl class="ficha">' +
       filas +
-      '</dl></details>'
+      '</dl>' +
+      (a.sitio
+        ? '<div class="aviso-tabla" data-cargada="0"><p class="aviso-tabla-cargando">' +
+          'Cargando las lecturas de ' +
+          (sitio ? Fmt.esc(sitio.rotulo) : Fmt.esc(a.sitio)) +
+          '…</p></div>'
+        : '') +
+      '</details>'
     );
+  }
+  /**
+   * Trae /api/ehs/datos del sitio del aviso (las mismas 9 magnitudes de "06 Datos",
+   * un sitio a la vez) y las dibuja completas: el mes y la magnitud que dispararon el
+   * aviso resaltados, el resto de la fila/columna visible alrededor para dar contexto
+   * y poder decidir si es un error de captura o un mes de verdad atipico.
+   */
+  async function cargarTablaAviso(cont, sitioId, mes, metricaId) {
+    try {
+      var d = await api('datos', { ambito: sitioId });
+      cont.innerHTML =
+        '<div class="tablabox"><table class="matriz datos-tabla aviso-tabla-t"><tr><th>Mes</th>' +
+        d.magnitudes
+          .map(function (g) {
+            return (
+              '<th class="num' +
+              (g.id === metricaId ? ' aviso-foco' : '') +
+              '">' +
+              Fmt.esc(g.nombre) +
+              '<small>' +
+              Fmt.esc(g.unidad) +
+              '</small></th>'
+            );
+          })
+          .join('') +
+        '</tr>' +
+        d.meses
+          .map(function (m) {
+            return (
+              '<tr' +
+              (m.mes === mes ? ' class="datos-sel"' : '') +
+              '><th>' +
+              Fmt.mesLargo[m.mes - 1] +
+              '</th>' +
+              d.magnitudes
+                .map(function (g) {
+                  return (
+                    '<td class="num' +
+                    (g.id === metricaId ? ' aviso-foco' : '') +
+                    '">' +
+                    crudo(m.lecturas[g.id]) +
+                    '</td>'
+                  );
+                })
+                .join('') +
+              '</tr>'
+            );
+          })
+          .join('') +
+        '</table></div>';
+    } catch (err) {
+      cont.innerHTML =
+        '<p class="aviso-tabla-error">No se pudo cargar la tabla. Intenta de nuevo.</p>';
+      cont.parentElement.dataset.cargada = '0';
+      console.error(err);
+    }
+  }
+  /** Perezoso a proposito (ver el comentario de fichaAviso): solo pide /api/ehs/datos
+   *  del sitio la primera vez que alguien abre ESE desplegable en concreto. */
+  function wireTablasAviso() {
+    document.querySelectorAll('#cajaAvisos details.aviso-detalle').forEach(function (det) {
+      det.addEventListener('toggle', function () {
+        if (!det.open) return;
+        var cont = det.querySelector('.aviso-tabla');
+        if (!cont || cont.dataset.cargada === '1') return;
+        cont.dataset.cargada = '1';
+        cargarTablaAviso(
+          cont,
+          det.dataset.sitio,
+          parseInt(det.dataset.mes, 10) || null,
+          det.dataset.metrica || null
+        );
+      });
+    });
   }
   // Cache por URL, vigente mientras dure la pagina: cambiar de vista no vuelve a pedir
   // lo mismo (ej. 'panorama' lo piden cuatro vistas con los mismos parametros), y dos
@@ -1429,33 +1522,57 @@ var Tablero = (function () {
       'Descargar el detalle crudo en CSV</a><span>Las nueve magnitudes tal como se capturaron, ' +
       'sin ningún cálculo encima.</span></p>';
 
+    // 'resuelto' separa lo que YA se corrigio (en el libro fuente, no solo en el
+    // tablero) de lo que sigue abierto: sin la separacion, un hallazgo ya cerrado se
+    // lee igual de urgente que uno vigente, y la lista entera se ve peor de lo que
+    // esta. Se queda documentado (nunca se borra: es la bitacora de la auditoria),
+    // solo se colapsa fuera del camino.
+    var activos = cal.hallazgos.filter(function (h) {
+      return !h.resuelto;
+    });
+    var resueltos = cal.hallazgos.filter(function (h) {
+      return h.resuelto;
+    });
     $('#subHallazgos').textContent =
-      cal.hallazgos.length + ' documentados · ' + errores + ' alteran un número';
-    $('#cajaHallazgos').innerHTML =
-      '<ul class="hall">' +
-      cal.hallazgos
-        .map(function (h) {
-          return (
-            '<li class="' +
-            (h.gravedad === 'error' ? 'grave' : '') +
-            '">' +
-            chip(
+      activos.length +
+      ' abiertos · ' +
+      errores +
+      ' alteran un número' +
+      (resueltos.length ? ' · ' + resueltos.length + ' ya corregidos' : '');
+    var filaHallazgo = function (h) {
+      return (
+        '<li class="' +
+        (h.gravedad === 'error' ? 'grave' : '') +
+        '">' +
+        (h.resuelto
+          ? chip('cumple', 'ya corregido')
+          : chip(
               h.gravedad === 'error' ? 'incumple' : 'riesgo',
               h.gravedad === 'error' ? 'altera un número' : 'confunde'
-            ) +
-            '<div><b>' +
-            Fmt.esc(h.titulo) +
-            '</b><p>' +
-            Fmt.esc(h.detalle) +
-            ' ' +
-            Fmt.esc(h.impacto) +
-            '</p>' +
-            fichaHallazgo(h) +
-            '</div></li>'
-          );
-        })
-        .join('') +
-      '</ul>';
+            )) +
+        '<div><b>' +
+        Fmt.esc(h.titulo) +
+        '</b><p>' +
+        Fmt.esc(h.detalle) +
+        ' ' +
+        Fmt.esc(h.impacto) +
+        '</p>' +
+        fichaHallazgo(h) +
+        '</div></li>'
+      );
+    };
+    $('#cajaHallazgos').innerHTML =
+      '<ul class="hall">' +
+      activos.map(filaHallazgo).join('') +
+      '</ul>' +
+      (resueltos.length
+        ? '<details class="infodato resueltos-detalle"><summary>' +
+          resueltos.length +
+          (resueltos.length === 1 ? ' hallazgo ya corregido' : ' hallazgos ya corregidos') +
+          '</summary><ul class="hall">' +
+          resueltos.map(filaHallazgo).join('') +
+          '</ul></details>'
+        : '');
 
     pintarAvisosAutomaticos(cal.avisos_automaticos || []);
   }
@@ -1515,6 +1632,7 @@ var Tablero = (function () {
         'error de captura o un mes de verdad atípico, y quien lo sabe es el área. Lo que no puede pasar ' +
         'es que nadie se entere.'
     );
+    wireTablasAviso();
   }
 
   /* -------------------------------------------------------------- 06 · datos --- */

@@ -2337,6 +2337,82 @@ body.cargando .body {
   border-radius: 2px;
 }
 
+/* --- desplegable de un aviso: trae la tabla completa del sitio, no solo la ficha, asi
+   que el punto de entrada es un boton visible en vez del texto chiquito de .infodato
+   generico (pedido explicito: "pon grande el desplegable"). --- */
+.hall details.aviso-detalle {
+  margin-top: 9px;
+}
+.hall details.aviso-detalle > summary {
+  display: inline-block;
+  font-size: 11px;
+  padding: 6px 12px;
+  border: 1px solid var(--borde);
+  border-radius: 3px;
+  background: #fff;
+}
+.hall details.aviso-detalle > summary:hover {
+  background: #f3f6f8;
+  border-color: var(--inst);
+  color: var(--inst);
+}
+.hall details.aviso-detalle[open] > summary {
+  margin-bottom: 10px;
+}
+.aviso-tabla {
+  margin-top: 11px;
+}
+.aviso-tabla-cargando,
+.aviso-tabla-error {
+  margin: 0;
+  font-size: 11px;
+  color: var(--tenue);
+}
+.aviso-tabla-error {
+  color: var(--incumple);
+}
+/* la magnitud que disparo el aviso, resaltada en toda su columna; datos-sel (ya
+   existe, ver 06 Datos) resalta el mes en toda su fila - donde las dos se cruzan es
+   exactamente la celda senalada. */
+.aviso-tabla-t td.aviso-foco,
+.aviso-tabla-t th.aviso-foco {
+  background: rgba(217, 131, 36, 0.14);
+}
+.aviso-tabla-t th.aviso-foco {
+  color: var(--riesgo);
+}
+
+/* --- hallazgos ya corregidos: mismo patron que .infodato, colapsados fuera del
+   camino para que la lista abierta no se vea tan cargada como algo que ya no esta
+   pendiente (pedido explicito: "lo que ya esta corregido ya depurar"). No se borran:
+   siguen siendo la bitacora de la auditoria, solo un clic mas lejos. --- */
+details.resueltos-detalle {
+  margin: 10px 0 0;
+  border-top: 1px solid var(--borde);
+  padding-top: 8px;
+}
+details.resueltos-detalle > summary {
+  cursor: pointer;
+  list-style: none;
+  font: 600 10.5px/1.5 var(--mono, monospace);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cumple);
+  user-select: none;
+}
+details.resueltos-detalle > summary::-webkit-details-marker {
+  display: none;
+}
+details.resueltos-detalle > summary::before {
+  content: '+ ';
+}
+details.resueltos-detalle[open] > summary::before {
+  content: '\2212 ';
+}
+details.resueltos-detalle > ul.hall {
+  margin-top: 6px;
+}
+
 /* --- descarga del crudo ------------------------------------------------- */
 .descarga {
   margin: 11px 0 0;
