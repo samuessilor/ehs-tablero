@@ -20,12 +20,16 @@ con la razón.
       implementado con el mecanismo correcto y verificado que se dispara, pero no se
       pudo probar contra una impresión real desde aquí. Falta que Samuel descargue el
       reporte de nuevo y confirme.
+- [~] **Confirmar que ya no se ven recuadros unidos ni el crédito solo en la última
+      hoja** — fix nuevo (sección 11), mismo motivo: requiere una impresión/PDF real
+      para verse, no simulable desde aquí.
 - Nota sobre el metadato Autor del PDF: no es solucionable vía `window.print()` — ver
   el detalle en la sección 7. El crédito visible en el pie del reporte ya cumple el
   mismo propósito.
 
-El sitio (`deploy-web1.vercel.app`) está desplegado y al día con todo lo de este
-archivo, incluyendo la actualización de datos de la sección 10.
+El sitio (`deploy-web1.vercel.app`) todavía NO tiene los cambios de la sección 11 — el
+último despliegue es anterior a esta ronda. Pendiente de que Samuel confirme
+`vercel whoami`/`vercel teams ls` antes del próximo `vercel deploy` (regla del área).
 
 ---
 
@@ -245,6 +249,99 @@ Samuel descargó `Reporte EHS · Servióptica.pdf` y encontró varios defectos r
     como la versión más respaldada, sin confiar en ella del todo — la corroboración
     de cada punto se hizo contra el dato real ingresado (CSV/API/SQL), no contra
     ninguna versión del Excel.
+
+## 11. Gráficas de histórico/contraste, tablas de referencia y composición de residuos
+
+Ronda de revisión visual del 27-sep-2026, a partir de una serie de capturas de pantalla
+y observaciones puntuales de Samuel sobre el tablero ya en uso.
+
+- [x] "Cuando se opriman los colores [de la leyenda] se debe desaparecer ese elemento
+      de la gráfica como estaba antes, y así con todos los gráficos" — el fix anterior
+      (sección 9, `9f15dfd`) solo arregló el aspecto visual de "deseleccionado" de la
+      leyenda fantasma "Año en curso"; dejaba `selectedMode:false` en TODA la leyenda,
+      así que "Cierre del año" y "Meta del año" tampoco se podían ocultar con un clic,
+      que es justo lo contrario de lo pedido. Se revirtió eso y se dejó un listener que
+      intercepta solo el clic en "Año en curso" — verificado con `dispatchAction` +
+      inspección de `getOption()`: las otras dos entradas alternan su propio
+      `selected` con normalidad, sin efectos secundarios entre ellas — `2443e92`
+- [x] "La barra que no desaparece son las barras de las gráficas del año en curso" —
+      bug real distinto del anterior: la entrada "Año en curso" era una serie fantasma
+      sin datos (solo para el color de la leyenda), completamente desconectada de la
+      barra real del año en curso (que vive dentro de la serie "Cierre del año"). Un
+      clic en la leyenda nunca podía afectar algo que no controlaba. Se reescribió el
+      listener para que reescriba el dato real vía `setOption` (merge por nombre) —
+      verificado en el navegador: la barra roja rayada de 2026 desaparece y reaparece
+      exactamente con el clic, con el mismo valor (138,226297) intacto al restaurar —
+      `2443e92`
+- [x] "Las gráficas están corridas con respecto a la base de los números" (barras no
+      alineadas al cero) — verificado con lectura de píxeles del canvas
+      (`getImageData` + `convertToPixel`), no a ojo sobre una captura: en `gAguaCombo`
+      (ya verificado en una ronda anterior) y ahora también en `gAguaTray`, las cuatro
+      barras (2023-2026) tienen su borde inferior exactamente en el píxel del valor
+      cero, sin ningún corrimiento. No hay bug de alineación en estas gráficas — la
+      impresión de "corrida" venía de la compresión/escala de la captura de pantalla,
+      no del render real.
+- [x] "Mejorar la estructura y la parte visual de las gráficas de históricos, que están
+      confusas y poco funcionales, y dejar por aparte Agua y Energía" — Agua y Energía
+      ya no comparten un subgrupo "Histórico"/"Contraste mensual" aparte: cada recurso
+      tiene sus propios paneles "· contra el año anterior" y "· contraste mensual"
+      justo después de su propio detalle, con índices renumerados de corrido
+      (Agua 01-06, Energía 07-12) — `4f89ab7`. Sumado a los tres puntos de abajo
+      (colores YTD, aclaración de la meta, leyenda funcional), que eran la parte
+      "confusa" de la lectura, no solo el acomodo.
+- [x] "En el contraste mensual los YTD son del mismo color y confunden; dar una
+      referencia visual interesante para diferenciar los dos años" — YTD del año A
+      pasa a gris tenue punteado (línea de referencia/pasado) y YTD del año B se queda
+      en negro sólido (el año que importa), con rótulo numérico solo en el último mes
+      con dato de cada serie en vez de un número encima de cada punto — `2443e92`
+- [x] "El YTD de 2026 en amarillo no se ve bien, cambia el color a uno más empresarial,
+      visible pero no tan llamativo" — se probó ámbar (`C.riesgo`) primero y Samuel lo
+      rechazó explícitamente; color final: negro corporativo (`C.tinta`), el mismo tono
+      que ya usa el resto del tablero para "la serie que importa" — `2443e92`
+- [x] "Revisar la gráfica de aprovechables: se ven dos barras de aprovechables, o por
+      qué se ve así, y al señalar se seleccionan como si fueran diferentes" — bug real
+      de raíz confirmado: `residuo_total_kg` (magnitud propia de Perú, sin desglose
+      peligroso/aprovechable/ordinario) se registra en `ref.kpi_magnitud` para todo el
+      KPI, no por ámbito, así que la consulta SQL de `residuosComposicion` devolvía una
+      cuarta "parte" `total` en 0 para Colombia, que nunca la captura. Sin nombre ni
+      color propio en el cliente, heredaba el color por defecto del tema — el mismo
+      teal que "Aprovechable" — y al ser una serie distinta se seleccionaba aparte al
+      pasar el mouse. Corregido en los tres niveles: la SQL (`adaptador_sql.js`, ahora
+      filtra por `exists` contra los kilos realmente capturados en el ámbito), el
+      gráfico (`graficos.js`, filtro defensivo adicional) y el texto generado
+      (`tablero.js`, `textoComposicion`/`pintarAcumuladoComp`) — verificado con
+      `curl` a la API (ya no aparece `"total"` en `partes` ni en `acumulado`) y en el
+      navegador: exactamente 3 categorías en la gráfica y en la lista, sin la palabra
+      "undefined" en el texto — `2443e92`
+- [x] "Acá qué es Brecha, ¿lo mismo que Meta? Dejar siempre los mismos términos para
+      las mismas cosas" (reporte descargable) — columna "Brecha" del resumen renombrada
+      a "Brecha vs. meta" — `643e55d`
+- [x] "Dejar también los meses que aún no están, visuales en tablas pero sin datos,
+      solo de referencia" — la tabla "contraste mensual" ya traía los 12 meses desde el
+      servidor; la tabla "mes a mes" de Agua/Energía solo mostraba los meses con dato
+      real (7 de 12). Ahora completa el año con filas de referencia en blanco (`—`)
+      para los meses sin lectura, sin tocar la etiqueta "N meses con dato" (que sigue
+      contando solo los reales) — verificado en el navegador para Agua y Energía —
+      `2443e92`
+- [x] "Todo esto corrobora que [el archivo] sea basado en KPI's EHS 2026-julio_versionfinal.xlsx"
+      (12 avisos automáticos de salto atípico, con cifras exactas de
+      residuo_peligroso/aprovechable/ordinario para Celta/Estrella/Agencias en varios
+      meses) — corroborados uno por uno con un script Python (`openpyxl`) que replica
+      exactamente la búsqueda por etiqueta de `construir_datos.py` contra el Excel
+      real, sin asumir coordenadas fijas. Los 12 coinciden de forma exacta. Son saltos
+      operativos reales para revisar con el área, no errores de ingesta — sin cambios
+      de código.
+- [x] "Revisa los datos y cómo está la gráfica [Frequency rate], parece que se subiera
+      pasado de la meta por mucho y sería una alerta grave" — verificado con datos
+      crudos (sección 10, mismo caso, reconfirmado): la barra "Del mes" de julio
+      (4,14 acc/MHH) divide 1 accidente entre solo las horas de julio; el techo de
+      1,60 se traza sobre "Acumulado del año" (0,61 acc/MHH, con ~1,69 millones de
+      horas acumuladas), que sí cumple con holgura. No es una alerta real ni un error
+      de cálculo — la gráfica ya lo distinguía en el tooltip, pero como esta es la
+      segunda vez que la misma gráfica genera la misma confusión al verla sin pasar el
+      mouse, se agregó "(acum.)" al rótulo de la meta directamente sobre la línea
+      punteada, en las cinco gráficas "X en el tiempo" (agua, energía, residuos,
+      frequency rate, accidentes) — verificado en el navegador — `2443e92`
 
 ---
 
