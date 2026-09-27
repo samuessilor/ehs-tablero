@@ -184,6 +184,8 @@ Samuel descargó `Reporte EHS · Servióptica.pdf` y encontró varios defectos r
 
 - [x] Perú movido de "Laboratorios y agencias" a "Consolidados" — cambio puramente de
       agrupación visual, el id/cálculo/etiqueta de Perú no cambian — `9f15dfd`
+- [x] Perú reordenado al lado de Colombia (antes quedaba último del grupo) —
+      `5918fc4`
 - [x] Bug real en la leyenda de "Trayectoria en el scorecard": la entrada fantasma "Año
       en curso" se podía deseleccionar con un clic sin que nada cambiara en la gráfica,
       dejando su propio ícono y el de "Meta del año" con aspecto de deseleccionado —
@@ -211,6 +213,38 @@ Samuel descargó `Reporte EHS · Servióptica.pdf` y encontró varios defectos r
       nunca reprodujo estos defectos — no había nada que corregir en el código. Se
       actualizó el campo "Cómo resolver" de esos 5 hallazgos para decir esto
       explícitamente, con la cita exacta del código, en vez de dejarlo como pendiente.
+- [x] "Corrobora TODOS los hallazgos de Calidad del dato contra el código y la base de
+      datos, no contra el Excel — ese no es el motor de backend del proyecto" —
+      corroborados los 9, cada uno con su propia evidencia verificada (no una nota
+      genérica repetida). Actualización de datos (`datos.json`, no versionado en git,
+      igual que el resto del contenido de los hallazgos):
+  - `residuos-estrella-marzo`: dato real de marzo (hechos_mensual_2026.csv y
+    `/api/ehs/detalle`) para La Estrella = 979,1 + 1.183 + 4.333 kg, exactamente el
+    total correcto (6.495,1 kg), no los 6.495,0 kg del Excel — el tablero suma los
+    tres componentes el mismo, nunca lee el total ya escrito en `E60`.
+  - `horas-temporales-agencias`: ya verificado antes (0,613272 YTD, coincide con
+    "con todas las horas es 0,613").
+  - `horas-agencias`: Agencias tiene horas reales y no nulas los 12 meses y 0
+    accidentes todo el año — el frequency rate da 0 porque el numerador es 0 (real),
+    no porque el denominador esté vacío (si lo estuviera, la vista SQL daría
+    `null`/"sin dato", nunca un 0).
+  - `fr-mensual-cruzado`: verificación **estructural**, no solo del dato de hoy —
+    `ehs.v_lectura_ambito` une cada lectura de horas por `sitio_id`
+    (`join ... on a.sitio_id = l.sitio_id`), nunca por posición de celda. Cruzar
+    las horas de un sitio con los accidentes de otro (como en el Excel) no es
+    posible en esta estructura sin importar qué valores traiga el mes.
+  - `grafica-6` y `doble-mecanismo`: no aplican al tablero — son un objeto gráfico
+    embebido en el propio libro de Excel, y una inconsistencia de proceso dentro
+    del libro (meses a mano vs. enlazados), respectivamente. El tablero construye
+    sus propias gráficas (ECharts) desde los valores ya calculados, y lee los 12
+    meses con el mismo código sin distinguir "a mano" de "enlazado" — esa
+    distinción solo existe dentro del Excel.
+  - `julio-en-cero` y `accidente-mes-equivocado`: ya verificados en rondas
+    anteriores (lectura de hoja cruda y migración 0012, respectivamente).
+  - Se le indicó a Samuel de guiarse por `KPI's EHS 2026-julio_versionfinal.xlsx`
+    como la versión más respaldada, sin confiar en ella del todo — la corroboración
+    de cada punto se hizo contra el dato real ingresado (CSV/API/SQL), no contra
+    ninguna versión del Excel.
 
 ---
 
