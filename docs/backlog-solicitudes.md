@@ -33,6 +33,16 @@ El sitio (`deploy-web1.vercel.app`) todavía NO tiene los cambios de la sección
 último despliegue es anterior a esta ronda. Pendiente de que Samuel confirme
 `vercel whoami`/`vercel teams ls` antes del próximo `vercel deploy` (regla del área).
 
+**Reconciliación completa contra `git log`, 27-sep-2026** (pedida explícitamente por
+Samuel: "corrobora que todos los requisitos y solicitudes están completadas"). Recorridos
+los 20 commits desde que existe este archivo (`40c74c5` en adelante): cada commit de
+código tiene su cita de hash en alguna entrada de este documento, salvo `8975909`
+("Restaura el clic normal de leyenda"), que no tiene cita propia porque quedó
+completamente superado por `2443e92` el mismo día — la sección 11 ya narra ese arco
+completo (`9f15dfd` → `2443e92`) sin necesitar citar el paso intermedio. 59 solicitudes
+marcadas `[x]`, 2 en `[~]` (ambas con su razón documentada, sección 7), **0 sin marcar**.
+No hay huecos.
+
 ---
 
 ## 1. Header y marca
