@@ -16,13 +16,15 @@ con la razón.
 
 ## Pendiente ahora mismo
 
-- [~] **Confirmar que el PDF ya no se sobrepone al imprimir** — el fix (sección 7) quedó
-      implementado con el mecanismo correcto y verificado que se dispara, pero no se
-      pudo probar contra una impresión real desde aquí. Falta que Samuel descargue el
-      reporte de nuevo y confirme.
-- [~] **Confirmar que ya no se ven recuadros unidos ni el crédito solo en la última
-      hoja** — fix nuevo (sección 11), mismo motivo: requiere una impresión/PDF real
-      para verse, no simulable desde aquí.
+- [x] **Confirmar que el PDF ya no se sobrepone al imprimir, ni se ven recuadros
+      unidos, ni el crédito queda solo en la última hoja** — verificado con emulación
+      real de medio "print" (Playwright, no una captura ni un supuesto): las gráficas
+      se redibujan (`beforeprint`), los 4 espacios entre bloques de KPI miden 30px
+      exactos sin superposición, y el crédito del pie mide 1512px de 1528px de ancho
+      de página (antes 421px, pegado a la izquierda por heredar `max-width:74ch` de
+      `.pie-nota`) — sección 12, `877de75`. Sigue pendiente que Samuel confirme contra
+      un PDF real descargado, como último control, pero ya no es solo "el mecanismo
+      es el correcto": se midió el render real de impresión.
 - Nota sobre el metadato Autor del PDF: no es solucionable vía `window.print()` — ver
   el detalle en la sección 7. El crédito visible en el pie del reporte ya cumple el
   mismo propósito.
@@ -342,6 +344,57 @@ y observaciones puntuales de Samuel sobre el tablero ya en uso.
       mouse, se agregó "(acum.)" al rótulo de la meta directamente sobre la línea
       punteada, en las cinco gráficas "X en el tiempo" (agua, energía, residuos,
       frequency rate, accidentes) — verificado en el navegador — `2443e92`
+
+## 12. Auditoría final de cierre (27-sep-2026)
+
+Samuel pidió explícitamente, al cerrar la ronda de la sección 11: corroborar que
+**todo** lo pedido está en este backlog, que todo lo marcado `[x]` tiene visto bueno
+real, y que el código funciona, sigue buenas prácticas y no tiene sobreingeniería —
+ejecutando de una vez cualquier ajuste que saliera de esa revisión.
+
+Se hizo una revisión adversarial (agente aparte, con instrucción explícita de buscar
+fallas, no confirmar el propio trabajo) de los 4 commits de la sección 11. Encontró un
+regresión real que el propio fix de la sección 11 había introducido:
+
+- [x] **Perú se rompía al abrir Ambiental** — el filtro de `'total'` agregado para que
+      Colombia no viera la categoría fantasma (sección 11) dejaba a Perú, cuya única
+      magnitud de residuo ES `'total'` (sin desglose), sin ninguna parte que mostrar:
+      `pintarAcumuladoComp`/`textoComposicion` hacían `.reduce()` sobre un arreglo
+      vacío, que **revienta con `TypeError`** — confirmado en vivo
+      (`curl .../residuos-composicion?ambito=peru` → `partes:['total']`, con datos
+      reales) antes de tocar código. Corregido agregando `'total': 'Total'` a los
+      mapas nombre/color en los tres lugares (composicionResiduos en `graficos.js`,
+      pintarAcumuladoComp y textoComposicion en `tablero.js`), en vez de filtrarlo:
+      así Colombia sigue sin ver la categoría fantasma y Perú ve la suya real, con
+      nombre y color propios. Verificado en el navegador para ambos ámbitos, sin
+      errores de consola — `877de75`
+- [x] **El reporte descargable perdía el panel "02 · contra el año anterior" de
+      Frequency rate y Accidentes DAFW** — `reporte.js` pedía el histórico con el
+      ámbito propio del reporte, pero ese histórico de seguridad solo existe con
+      perímetro fijo `colombia_peru` (la misma regla que Panorama y Seguridad ya
+      aplican en `tablero.js`). El 404 resultante se ocultaba solo (el panel
+      desaparecía sin avisar), encontrado con `browser_console_messages`, no a
+      simple vista. Corregido usando `colombia_peru` para esos dos KPI — verificado:
+      cero errores de consola, panel visible con "COLOMBIA y PERU" — `877de75`
+- [x] **El crédito fijo del reporte no quedaba centrado al imprimir** — hallazgo de
+      la propia revisión de la sección 11 (ver arriba, "Pendiente ahora mismo"),
+      confirmado con emulación de medio "print" y corregido en el mismo commit —
+      `877de75`
+
+Verificaciones adicionales de la auditoría, sin hallazgos:
+
+- La corrección SQL (`exists` contra `@kg`) distingue bien "nunca capturado" de "capturado
+  en cero real" — revisado el `insert @kg` completo, agrupa por fila real, no por suma
+  filtrada, así que un cero real no se pierde.
+- Las referencias de `id` entre `dashboard.ejs` y `tablero.js`/`graficos.js`
+  (`gAguaTray`, `gEnergiaTray`, `tContrasteAgua`, `tContrasteEnergia`,
+  `gContrasteAgua`, `gContrasteEnergia`) están todas exactamente una vez a cada lado,
+  sin huérfanos ni duplicados.
+- El patrón de "completar los 12 meses" nuevo en `tablero.js` usa el mismo idioma
+  (`.filter(...)[0]`) que ya usa el resto del archivo unas líneas arriba — consistente,
+  no una reinvención.
+- Estilo de código (`var`/`function(){}`, comentarios sin tildes ni ñ) consistente con
+  el resto de los archivos tocados.
 
 ---
 
