@@ -566,6 +566,15 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       píxeles antes/después en dos paneles distintos (`gTray`, `gAguaTray`): el
       desfase de ~31px baja a ~0,5px (redondeo). El toggle de la leyenda sigue
       funcionando igual — `030809c`
+- [~] **Scroll animado al oprimir los botones "Agua"/"Energía" del subnav** —
+      `scroll-margin-top` ya dejaba el título a la altura correcta bajo el header
+      fijo; faltaba `scroll-behavior:smooth`, agregado en `<html>` (respeta
+      `prefers-reduced-motion`). No se pudo confirmar la animación visualmente: el
+      navegador automatizado de esta sesión no ejecuta `scroll-behavior:smooth` ni
+      `scrollIntoView({behavior:'smooth'})` — probados los dos, cero movimiento en
+      1,5s, mientras que un scroll instantáneo sí funciona — una limitación conocida
+      de entornos de automatización con el compositor de la pestaña. Es la propiedad
+      CSS estándar; pendiente que Samuel lo confirme en un navegador real — `df1bb17`
 
 ---
 
