@@ -35,9 +35,13 @@ de 175 valores contra `KPI's EHS 2026-julio_versionfinal.xlsx` — ver
   el detalle en la sección 7. El crédito visible en el pie del reporte ya cumple el
   mismo propósito.
 
-El sitio (`deploy-web1.vercel.app`) todavía NO tiene los cambios de la sección 11 — el
-último despliegue es anterior a esta ronda. Pendiente de que Samuel confirme
-`vercel whoami`/`vercel teams ls` antes del próximo `vercel deploy` (regla del área).
+**Al 28-sep-2026:**
+- [~] `deploy-web1.vercel.app` todavía no tiene las secciones 25-26 (sección 24):
+  pendiente de que Samuel confirme `vercel whoami`/`vercel teams ls` antes del próximo
+  `vercel deploy` (regla del área).
+- [ ] Reemplazar en SharePoint el libro por `KPIs EHS 2026-julio_versionfinal_corregido.xlsx`
+  (sección 25) — lo hace Samuel.
+- [ ] Borrar o no 2023 de la base (sección 19) — decisión de Samuel.
 
 **Reconciliación completa contra `git log`, 27-sep-2026** (pedida explícitamente por
 Samuel: "corrobora que todos los requisitos y solicitudes están completadas"). Recorridos
@@ -691,14 +695,14 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
 
 ## 19. Regla: solo datos desde 2024 en adelante (27-sep-2026, ronda 4)
 
-- [x] **Investigado antes de tocar nada**: 2023 solo aparece en dos lugares de todo el
-      proyecto — `ehs.scorecard_anual` (cierre anual del scorecard corporativo, usado
-      por "X · contra el año anterior") y el selector de años de "Contraste mensual"
-      (`ANIOS_CONTRASTE`). **No existe ninguna lectura mensual real de 2023** en
-      `ehs.hecho_lectura_mensual`: la captura mensual siempre empezó en 2026 para el
-      corte actual, y el histórico cargado en la migración 0011/0012 es a nivel de
-      cierre anual, no mes a mes. Pedirle a "Contraste mensual" el año 2023 ya
-      devolvía meses en blanco antes de este cambio, nunca un dato real.
+- [x] **Investigado antes de tocar nada** — ⚠️ **corregido el 28-sep-2026: la
+      versión original de este punto era falsa.** Decía que no existía ninguna lectura
+      mensual real de 2023 y que "Contraste mensual" devolvía meses en blanco para
+      2023. En realidad `ehs.hecho_lectura_mensual` tiene **144 lecturas de 2023**
+      (agua, energía, unidades buenas y residuo total de Celta, La Estrella y
+      Agencias, 12 meses; migración 0012), igual que 2024 y 2025, y
+      `ehs.scorecard_anual` tiene 23 filas de 2023. La regla se aplicó igual, pero
+      por esa premisa falsa quedó a medias: ver sección 26.
 - [x] **Filtrado en los tres puntos donde 2023 podía aparecer o pedirse**:
       `ANIOS_CONTRASTE` en `tablero.js` pasa de `[2023,2024,2025,2026]` a
       `[2024,2025,2026]` (ya no se puede elegir en el selector); `trayectoriaAnual` en
@@ -714,14 +718,15 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       consola. El adaptador JSON se corrigió por paridad de código (mismo cambio que
       el SQL) pero no se probó en vivo en esta ronda: esta instalación de prueba corre
       contra SQL Server, no hay un servidor en modo JSON levantado para contrastar.
-- [ ] **Pendiente, decisión de Samuel, no ejecutada**: lo de arriba saca 2023 de
-      **toda consulta y toda visualización** (lo que pidió explícitamente), pero **no
-      borra la fila de 2023 de `ehs.scorecard_anual`** — sigue en la base, solo dejó de
-      leerse. Borrarla físicamente es una operación destructiva e irreversible sobre la
-      base de datos real, y este proyecto no la ejecuta sin confirmación explícita
-      (regla del repo). Si Samuel quiere que también se borre, se hace con un `DELETE`
-      acotado (`delete from ehs.scorecard_anual where anio = 2023`) contra la base real
-      — pendiente de que lo pida expresamente.
+- [ ] **Pendiente, decisión de Samuel, no ejecutada**: lo de arriba (completado en la
+      sección 26) saca 2023 de **toda consulta y toda visualización** (lo que pidió
+      explícitamente), pero **no borra nada de 2023 de la base** — sigue ahí, solo
+      dejó de leerse. Son dos tablas, no una: las 144 lecturas mensuales de 2023 en
+      `ehs.hecho_lectura_mensual` y las 23 filas de 2023 en `ehs.scorecard_anual`.
+      Borrarlas es una operación destructiva e irreversible sobre la base real, y este
+      proyecto no la ejecuta sin confirmación explícita (regla del repo). Si Samuel
+      quiere que se borre, va como una migración acotada a `anio = 2023` en las dos
+      tablas, pendiente de que lo pida expresamente.
 
 ## 20. Auditoría de calidad de esta ronda (27-sep-2026, ronda 4, cierre)
 
@@ -843,6 +848,86 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       unidad, y contra qué se compara. La nota de abajo de toda la sección también se
       reescribió para explicar el concepto una sola vez y mencionar explícitamente
       que una magnitud sin dato en ningún mes de un ámbito no cuenta como hueco.
+
+## 24. Vercel igual a local: copia exacta de la base (28-sep-2026)
+
+Pedido: "actualízalo basado en todo lo que está en local, esa es la última versión"
+(Vercel mostraba `actualizadoEn: 31 ago 2026 · 11:58` y cifras del manifiesto del
+pipeline, no las de la base).
+
+- [x] **Instantánea exacta de las respuestas SQL** — `analisis/exportar_instantanea_sql.js`
+      (fuera de `app/`) llama al adaptador SQL con todas las combinaciones que usa el
+      tablero (605 respuestas) y escribe `datos/instantanea.json`; en modo JSON,
+      `adaptador_json.js` responde primero desde ahí (`src/datos/instantanea.js` define
+      la llave) y solo cae al manifiesto si una llave no está. — `b9c634e`
+- [x] **Hora del header 5 horas corrida en Vercel** — la base manda la hora de Colombia
+      sin zona y `new Date()` en un servidor UTC le restaba 5 horas; `fechaLegible` lee
+      los componentes tal cual. — `b9c634e`
+- [x] **Franja de estado del modo JSON** — el texto lo pone el servidor ("copia exacta
+      de la instalación con base de datos"), no una cadena fija. — `b9c634e`
+- [x] **Verificado** con una instancia JSON corriendo como Vercel (TZ=UTC, Node 22)
+      contra la SQL local: 605 respuestas de la API + páginas HTML, **614 comparaciones,
+      0 diferencias** (última corrida 28-sep, después de las secciones 25 y 26).
+- [~] **Vercel todavía no tiene esta última versión** — el despliegue del 28-sep por la
+      tarde subió una instantánea anterior a las secciones 25-26, y la comparación
+      exhaustiva contra `deploy-web1.vercel.app` quedó interrumpida. Falta: Samuel
+      confirma la cuenta (`vercel whoami` / `vercel teams ls`), se redespliega y se corre
+      la misma comparación contra la URL real.
+
+## 25. Los cinco hallazgos del libro que alteran un número (28-sep-2026)
+
+Pedido: corregirlos, "dejarlo estructurado en la base de datos para evitar que estos
+errores vuelvan a presentarse", guiándose por `KPI´s EHS 2026-julio_versionfinal.xlsx`,
+y "corroborar que todo funcione y tenga lógica".
+
+- [x] **Verificado primero que la base nunca tuvo ninguno** — recálculo completo desde
+      la hoja cruda del libro contra `/api/ehs/datos`: 980 comparaciones, 0 diferencias.
+      Ninguno de los cinco puede existir como tal en la base: no hay fórmulas por celda,
+      el acumulado es una sola vista desde enero, las horas se unen por `sitio_id` y un
+      mes solo se publica con las 27 lecturas de Colombia.
+- [x] **Migración 0015, aplicada en la base local** — `ref.dim_magnitud.forma_residuo`
+      + trigger `ehs.tr_lectura_mensual_residuo_una_forma`: un sitio-mes no puede tener
+      el residuo desglosado y a la vez un total (la forma en que E60 podría repetirse en
+      el dato; residuos por lente lo contaría dos veces). Probado con 6 casos dentro de
+      transacciones revertidas (3 bloqueados, incluido por `sp_capturar_lote`; 3
+      permitidos; conteos intactos). — `ec2177e`
+- [x] **`ehs.v_calidad_avisos` comparaba contra otro año** — el `lag()` de "salto
+      atípico" no particionaba por año; desde que hay 2023-2025, enero de 2026 se
+      comparaba con otro año. 42 → 23 avisos (19 falsas alarmas); los de 2026 son los
+      mismos 10 del tablero. El tablero no lo sufría (su consulta filtra el año antes
+      del `lag()`); la vista es la que usaría IT o Power BI. — `ec2177e`
+- [x] **Libro corregido** — `ehs\KPIs EHS 2026-julio_versionfinal_corregido.xlsx`
+      (copia hecha con el propio Excel para no perder las 48 gráficas; el original no se
+      tocó): los 12 meses de los tres sitios enlazados a la hoja cruda, YTD anclado a
+      enero, frequency rate por sitio con las horas de su propio sitio, consolidados con
+      horas temporales, accidentes de `AT 2026` enlazados, y el accidente de Celta en
+      julio (O10 = 0, U10 = 1, con comentario). Verificado: solo cambiaron de valor E60,
+      L9 y L11; **202 comparaciones libro corregido contra la base, 0 diferencias**.
+- [x] **Hallazgos cerrados en el tablero** — los cinco + "dos mecanismos" pasan a "ya
+      corregidos" con su ficha reescrita (valor original → valor corregido, qué se hizo,
+      qué impide que se repita); la tarjeta cuenta solo los abiertos que alteran un
+      número (0) y un hallazgo corregido deja de pintarse en rojo. Queda abierto solo
+      "gráfica 6" (confunde, no altera un número). Verificado en navegador en `C:\EHS`,
+      sin errores de consola. — `ec2177e` (el texto de los hallazgos vive en
+      `datos.json`, fuera de git)
+- [x] **`datos/correcciones.csv`** — registra la corrección del accidente (mayo 1 → 0,
+      julio 0 → 1) para que el pipeline Excel → JSON la aplique igual que la base, con
+      una columna `visible_en_tablero = no`: no se pinta como franja, como pidió Samuel
+      el 24-sep (migración 0012). `analisis/web_json.py` respeta esa columna.
+- [ ] **Pendiente de Samuel, fuera del tablero**: reemplazar el libro de SharePoint por
+      la copia corregida. Hasta entonces, quien abra el de SharePoint sigue viendo los
+      cinco errores.
+
+## 26. Regla 2024 completa y corrección de una afirmación falsa (28-sep-2026)
+
+- [x] **La razón que se dio en la sección 19 era falsa** (2023 sí tiene 144 lecturas
+      mensuales reales) y por eso la regla quedó a medias: `/api/ehs/*` aceptaba
+      `anio=2023` por URL y servía datos reales de 2023, y captura / consultar y
+      corregir aceptaban 2023. Ahora el mínimo es 2024 en la API, en el servidor de
+      captura y corrección, en `validacion.js` y en los dos formularios; los comentarios
+      dicen la razón verdadera. Verificado con `curl`: todos los endpoints con año
+      responden 400 para 2023 y 200 para 2026; `/captura` y `/corregir` cargan con
+      `min="2024"`. — `f65a958`
 
 ---
 
