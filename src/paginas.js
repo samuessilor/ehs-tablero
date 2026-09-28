@@ -31,6 +31,25 @@ const MESES_CORTO = [
    es-CO estorba en un rotulo compacto de header. */
 function fechaLegible(iso) {
   if (!iso) return null;
+  // La base guarda la hora de pared de Colombia y la manda SIN zona
+  // ("2026-09-24T21:52:12"). new Date() lee un texto sin zona en la zona del
+  // SERVIDOR: en el equipo del area (hora de Colombia) daba bien, pero en Vercel
+  // (UTC) le restaba 5 horas — el header de Vercel decia 11:58 para un dato de las
+  // 16:58. Sin zona, los componentes YA son la hora de Colombia: se leen tal cual.
+  const sinZona = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(:\d{2}(\.\d+)?)?$/.exec(String(iso));
+  if (sinZona) {
+    return (
+      Number(sinZona[3]) +
+      ' ' +
+      MESES_CORTO[Number(sinZona[2]) - 1] +
+      ' ' +
+      sinZona[1] +
+      ' · ' +
+      sinZona[4] +
+      ':' +
+      sinZona[5]
+    );
+  }
   const f = new Date(iso);
   if (isNaN(f)) return iso;
   const partes = {};

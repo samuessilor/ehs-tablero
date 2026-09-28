@@ -24,7 +24,10 @@
     punto.className = 'franja-estado-punto';
     if (r.modo === 'json') {
       punto.classList.add('gris');
-      texto.textContent = 'Interinato sin base de datos — publica desde datos.json.';
+      // el servidor sabe de donde sale lo que se ve (manifiesto del pipeline, o copia
+      // exacta de la instalacion con base de datos): un texto fijo aqui se volvio
+      // falso en cuanto el modo JSON empezo a servir la copia de la base.
+      texto.textContent = r.mensaje || 'Interinato sin base de datos — publica desde datos.json.';
       reparar.style.display = 'none';
       return;
     }

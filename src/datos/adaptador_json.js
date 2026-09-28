@@ -7,9 +7,17 @@
  * cuyo algebra reproduce el motor validado en 17 puntos y es la misma de
  * app/sql/02-vistas.sql. Cuando exista el esquema ehs en SQL Server, este modulo se
  * sustituye por adaptador_sql.js con estas MISMAS firmas.
+ *
+ * Si existe datos/instantanea.json (las respuestas del adaptador SQL, exportadas por
+ * analisis/exportar_instantanea_sql.js), se sirve ESA primero: es lo que responde la
+ * instalacion con base de datos, intacto, y es lo que hace que el despliegue sin base
+ * (Vercel) muestre exactamente lo mismo. La logica de abajo, sobre el manifiesto,
+ * queda solo para cuando no hay instantanea (el pipeline desde Excel sin SQL) o para
+ * una combinacion de parametros que la instantanea no trae. Ver src/datos/instantanea.js.
  */
 const fs = require('fs');
 const path = require('path');
+const { CAMPOS, clave } = require('./instantanea');
 
 const CARPETA = path.join(__dirname, '..', '..', 'datos');
 
@@ -35,6 +43,33 @@ function base() {
     cache = { d: leer('datos.json'), agua: leer('agua-detalle.json') };
   }
   return cache;
+}
+
+// undefined = todavia no se busco; null = no hay instantanea publicada
+let instantanea;
+function laInstantanea() {
+  if (instantanea === undefined) {
+    const ruta = path.join(CARPETA, 'instantanea.json');
+    instantanea = fs.existsSync(ruta) ? JSON.parse(fs.readFileSync(ruta, 'utf-8')) : null;
+  }
+  return instantanea;
+}
+
+/** { hay:true, valor } si la instantanea trae esa llamada; { hay:false } si no. */
+function desdeInstantanea(funcion, args) {
+  const inst = laInstantanea();
+  if (!inst) return { hay: false };
+  const k = clave(funcion, args || {}, inst.ctx);
+  if (!Object.prototype.hasOwnProperty.call(inst.respuestas, k)) return { hay: false };
+  const r = inst.respuestas[k];
+  if (r && r.__error) {
+    // el mismo error que dio SQL al exportar, no un dato inventado ni un 404
+    const e = new Error(r.__error.mensaje);
+    e.codigo = r.__error.codigo;
+    throw e;
+  }
+  // copia: nadie aguas abajo debe poder alterar la instantanea en memoria
+  return { hay: true, valor: r === null ? null : JSON.parse(JSON.stringify(r)) };
 }
 
 /** anio y mes ausentes significan "el corte publicado". Fijarlos en el codigo obliga a
@@ -73,7 +108,7 @@ function contraMetaDe(d, ambito, mes) {
   return f ? f.kpis : null;
 }
 
-module.exports = {
+const manifiesto = {
   /** Los cinco KPI del ambito al corte, con meta, brecha y estado ya resueltos. */
   async panorama({ anio, mes, ambito }) {
     const { d } = base();
@@ -476,12 +511,25 @@ module.exports = {
    */
   async salud() {
     try {
+      const inst = laInstantanea();
+      if (inst) {
+        return {
+          modo: 'json',
+          motor: null,
+          disponible: true,
+          // honesto sobre de donde sale: no hay motor aqui, pero lo que se ve es la
+          // base de la instalacion tal como estaba al exportar, no un manifiesto aparte
+          mensaje:
+            'Sin conexión a la base: muestra una copia exacta de la instalación con base de datos.',
+          corte: { mes: inst.ctx.corte, nombre: inst.ctx.corte_nombre, anio: inst.ctx.anio },
+        };
+      }
       const { d } = base();
       return {
         modo: 'json',
         motor: null,
         disponible: true,
-        mensaje: 'Interinato sin base de datos: publica desde datos.json.',
+        mensaje: 'Interinato sin base de datos — publica desde datos.json.',
         corte: { mes: d.corte, nombre: d.corteNombre, anio: d.anio },
       };
     } catch (err) {
@@ -494,3 +542,17 @@ module.exports = {
     }
   },
 };
+
+// Cada funcion con respuesta en la instantanea la sirve de ahi; si no la trae (o no
+// hay instantanea), sigue igual que siempre, contra el manifiesto.
+module.exports = Object.fromEntries(
+  Object.entries(manifiesto).map(([nombre, fn]) => [
+    nombre,
+    CAMPOS[nombre]
+      ? async (args) => {
+          const r = desdeInstantanea(nombre, args);
+          return r.hay ? r.valor : fn(args);
+        }
+      : fn,
+  ])
+);
