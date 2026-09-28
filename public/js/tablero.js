@@ -2125,8 +2125,6 @@ var Tablero = (function () {
           Fmt.esc(k.nombre) +
           '</th><td class="num fuerte">' +
           (v ? Fmt.meta(v.valor, k.dec) + ' <small>' + Fmt.esc(k.unidad) + '</small>' : '—') +
-          '</td><td>' +
-          (v ? Fmt.esc(v.fuente) : 'sin meta propia') +
           '</td></tr>'
         );
       })
@@ -2135,7 +2133,7 @@ var Tablero = (function () {
       vigentes + (vigentes === 1 ? ' meta vigente' : ' metas vigentes') + ' de ' + d.kpis.length;
     $('#cajaDatosMetas').innerHTML =
       '<div class="tablabox"><table class="matriz datos-tabla"><tr><th>Indicador</th>' +
-      '<th class="num">Meta vigente</th><th>Fuente</th></tr>' +
+      '<th class="num">Meta vigente</th></tr>' +
       filas +
       '</table></div>' +
       (otras.length
