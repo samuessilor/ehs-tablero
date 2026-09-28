@@ -7,17 +7,18 @@
 .DESCRIPTION
     Dos condiciones gobiernan este script, tal como las fija el encargo de Fase D:
 
-      1. Quien instala necesita UN comando (el doble clic en INSTALAR-EHS.cmd).
+      1. Quien instala necesita UN comando (el doble clic en INSTALAR-EHS-NATIVO.cmd).
       2. Quien USA el tablero despues ve un icono, cuatro pantallas y cero
          configuracion — nunca una consola, un puerto, ni el motor.
 
-    Con -Motor contenedor (el modo por defecto del paquete) levanta SQL Server 2022
-    en Docker Desktop o Podman, SIN administrador: el arranque automatico es un
-    acceso directo en la carpeta Inicio y el respaldo diario lo programa la propia
-    aplicacion. Con -Motor nativo instala SQL Server 2022 Express como servicio de
-    Windows via su instalador oficial, y ese modo SI necesita administrador. Todo lo
-    demas — migraciones, logins, configuracion, accesos directos — es IDENTICO entre
-    los dos modos: la unica diferencia es como aparece el motor.
+    Con -Motor nativo (el modo del paquete, decision del 28-sep-2026: ver
+    instalacion/requisitos-it.md) instala SQL Server 2022 Express como servicio de
+    Windows via su instalador oficial; ese modo SI necesita administrador, una sola
+    vez, para instalar. Con -Motor contenedor levanta SQL Server 2022 en Docker
+    Desktop o Podman, SIN administrador para instalar — queda documentado como
+    alternativa, para si la licencia de Docker Business de la empresa se resuelve mas
+    adelante. Todo lo demas — migraciones, logins, configuracion, accesos directos —
+    es IDENTICO entre los dos modos: la unica diferencia es como aparece el motor.
 
     Se corre COMO LA CUENTA DE QUIEN VA A USAR EL EQUIPO. En modo nativo, si el
     aviso de UAC lo eleva otra cuenta (la de IT), el arranque automatico, los

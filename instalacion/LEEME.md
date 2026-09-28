@@ -15,7 +15,8 @@ Cuatro pantallas. Las otras tres se abren desde la barra de arriba del tablero
 | **Tablero** | Los cinco indicadores del mes, contra su meta |
 | **Capturar mes** | Entrar los 27 números del mes que acaba de cerrar. El tablero publica el mes cuando están los 27; donde no hay personal temporal se escribe 0 |
 | **Consultar y corregir** | Arreglar un número que ya se capturó, con el motivo de por qué cambia |
-| **06 Datos** (pestaña) | Ver las lecturas y de dónde sale cada gráfica (numerador, denominador, resultado), comprobar que cuadra y, con el lápiz ✎, corregir una lectura |
+| **Calidad del dato** (pestaña) | Los avisos automáticos de un salto brusco mes a mes; se pueden confirmar ahí mismo (con nombre y, si se quiere, una nota) para que no vuelvan a salir "a revisar" |
+| **06 Datos** (pestaña) | Las lecturas y de dónde sale cada gráfica (numerador, denominador, resultado), comprobar que cuadra, las metas de cada indicador y el histórico por año; con el lápiz ✎, corregir una lectura |
 | **Descargar reporte** | Un resumen para imprimir o guardar como PDF |
 
 ## Si algo no responde
@@ -24,16 +25,15 @@ Una franja en la parte de arriba de cada pantalla dice si el motor está conecta
 Si aparece en rojo, o si el ícono **EHS** abre una página que no carga:
 
 1. Doble clic en el ícono **Reparar EHS** del escritorio.
-2. Espera a que la ventana que se abre diga "Listo" y se cierre sola. Si Docker
-   Desktop estaba cerrado, Reparar lo abre y lo espera: puede tardar un par de
-   minutos.
+2. Espera a que la ventana que se abre diga "Listo" y se cierre sola (puede tardar
+   uno o dos minutos: Reparar reinicia el motor de la base de datos y el tablero).
 3. Recarga el tablero (F5).
 
 Si sigue en rojo después de reparar, la ventana de Reparar deja un mensaje en rojo:
 ese mensaje, tal cual, es lo único que hace falta reportar.
 
-Docker Desktop tiene que estar abierto para que el tablero funcione. Queda
-configurado para abrirse solo al iniciar sesión: no hace falta cerrarlo nunca.
+El motor de la base de datos arranca solo con el equipo, antes incluso de iniciar
+sesión: no hay nada que abrir a mano.
 
 ## Lo que nunca hace falta hacer
 

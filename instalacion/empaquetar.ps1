@@ -219,16 +219,16 @@ pause
 EHS - tablero de indicadores
 ============================
 
-ANTES: Docker Desktop instalado en este equipo y abierto una vez (terminos aceptados).
-Si esta cerrado al instalar, el instalador lo abre solo.
+Para instalar: doble clic en INSTALAR-EHS-NATIVO.cmd. Windows pide confirmar el
+permiso de administrador (UAC) UNA SOLA VEZ, para instalar SQL Server 2022 Express
+como servicio de Windows. Tarda varios minutos. Al final se abre el tablero y
+quedan dos iconos en el escritorio: EHS (el tablero) y Reparar EHS (si la franja
+de arriba se pone roja). El tablero arranca solo cada vez que se inicia sesion en
+Windows, sin volver a pedir administrador.
 
-Para instalar: doble clic en INSTALAR-EHS.cmd. No pide permiso de administrador.
-Tarda unos minutos. Al final se abre el tablero y quedan dos iconos en el
-escritorio: EHS (el tablero) y Reparar EHS (si la franja de arriba se pone roja).
-El tablero arranca solo cada vez que se inicia sesion en Windows.
-
-Sin Docker en el equipo: INSTALAR-EHS-NATIVO.cmd instala SQL Server Express como
-servicio de Windows. Ese SI pide permiso de administrador una vez.
+Alternativa, si el equipo ya tiene licencia de Docker Business resuelta:
+INSTALAR-EHS.cmd instala el mismo tablero con SQL Server en un contenedor, sin
+pedir administrador para instalar (Docker Desktop si lo pide, aparte, una vez).
 
 Paso a paso completo: PASOS-INSTALACION.html (doble clic, se abre en el navegador).
 "@.Replace("`r`n", "`n").Replace("`n", "`r`n") | Set-Content -Path (Join-Path $CarpetaSalida 'LEEME.txt') -Encoding ASCII
@@ -277,4 +277,4 @@ if ($rutaZip) {
 
 Write-Host ""
 Write-Host "=== Listo ===" -ForegroundColor Green
-Write-Host "En el equipo del area: extraer en una carpeta fija (p. ej. C:\EHS) y doble clic en INSTALAR-EHS.cmd."
+Write-Host "En el equipo del area: extraer en una carpeta fija (p. ej. C:\EHS) y doble clic en INSTALAR-EHS-NATIVO.cmd."
