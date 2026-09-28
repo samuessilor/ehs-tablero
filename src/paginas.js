@@ -24,6 +24,20 @@ const MESES_CORTO = [
   'nov',
   'dic',
 ];
+const MESES_LARGO = [
+  'enero',
+  'febrero',
+  'marzo',
+  'abril',
+  'mayo',
+  'junio',
+  'julio',
+  'agosto',
+  'septiembre',
+  'octubre',
+  'noviembre',
+  'diciembre',
+];
 
 /* "24 sep 2026 · 21:52" en vez del ISO crudo que manda la base
    ("2026-09-24T21:52:12"): mismo dato, legible sin tener que parsearlo. Se arman
@@ -74,6 +88,43 @@ function fechaLegible(iso) {
     partes.hour +
     ':' +
     partes.minute
+  );
+}
+
+/* "28 de septiembre de 2026, 12:57 p. m." para el pie del reporte impreso — hora de
+   Colombia, legible en el papel que se reparte. NO toLocaleString(dateStyle/timeStyle):
+   la plantilla que arma esas opciones cambia de un ICU/CLDR a otro (el mismo defecto que
+   fechaLegible ya evita arriba) — un servidor daba "12:57 p. m." (espacio angosto) y
+   otro "a las 12:57 p. m.", mismo instante, dos textos distintos. Solo se piden partes
+   numericas (2-digit/hour12:false, siempre estables) y se arma el texto a mano. */
+function fechaLargaBogota() {
+  const partes = {};
+  new Intl.DateTimeFormat('es-CO', {
+    timeZone: 'America/Bogota',
+    day: 'numeric',
+    month: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  })
+    .formatToParts(new Date())
+    .forEach((p) => (partes[p.type] = p.value));
+  const h24 = Number(partes.hour) % 24;
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  const meridiano = h24 < 12 ? 'a. m.' : 'p. m.';
+  return (
+    Number(partes.day) +
+    ' de ' +
+    MESES_LARGO[Number(partes.month) - 1] +
+    ' de ' +
+    partes.year +
+    ', ' +
+    h12 +
+    ':' +
+    partes.minute +
+    ' ' +
+    meridiano
   );
 }
 
@@ -174,11 +225,7 @@ async function reporte(_req, res, url) {
       ambito,
       pan,
       // hora de Colombia y legible: es lo que queda impreso en el papel que se reparte
-      generadoEn: new Date().toLocaleString('es-CO', {
-        timeZone: 'America/Bogota',
-        dateStyle: 'long',
-        timeStyle: 'short',
-      }),
+      generadoEn: fechaLargaBogota(),
     },
     { rmWhitespace: false }
   );
