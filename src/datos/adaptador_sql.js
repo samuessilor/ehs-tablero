@@ -141,10 +141,14 @@ const VALOR_RECUPERADO = `case when v.valor is null then null
 /**
  * La brecha y el semaforo, tal como los define el contrato publicado. Van en SQL y no
  * en JavaScript para que el adaptador no sea una segunda implementacion del calculo.
- * `y` trae el valor acumulado y `mt` la meta del ambito.
+ * Funciones y no una constante de texto: la logica es siempre la misma, pero el alias
+ * de la meta y del valor acumulado cambia segun la consulta (mt.valor/y.valor en la
+ * mayoria; sc.meta/sc.real_ytd en el historico anual de datosTabulados) — parametrizar
+ * las columnas evita copiar el CASE a mano cada vez que aparece un alias nuevo.
  */
-const BRECHA = `case when mt.valor is null or mt.valor = 0 or y.valor is null then null
-                          else round((y.valor - mt.valor) / mt.valor, 6) end`;
+const brechaSql = (metaCol, valorCol) =>
+  `case when ${metaCol} is null or ${metaCol} = 0 or ${valorCol} is null then null
+                          else round((${valorCol} - ${metaCol}) / ${metaCol}, 6) end`;
 /* El caso 'sin_dato' va ANTES del especial de meta=0 (Agencias en FR/accidentes: meta
    0 incidentes, y de verdad reporta 0 real cuando no pasa nada - nunca null). Con el
    orden viejo, un ambito sin ninguna lectura (Peru en FR/accidentes: "todavia no
@@ -152,12 +156,13 @@ const BRECHA = `case when mt.valor is null or mt.valor = 0 or y.valor is null th
    hacia coalesce(y.valor, 0) <= 0 y volvia 'cumple' - un ambito sin ningun dato
    mostraba una insignia verde de "cumple la meta", lo mas parecido a afirmar algo sin
    verificarlo que puede mostrar este tablero. */
-const ESTADO = `case when mt.valor is null then 'sin_meta'
-                          when y.valor is null then 'sin_dato'
-                          when mt.valor = 0 then case when y.valor <= 0
+const estadoSql = (metaCol, valorCol) =>
+  `case when ${metaCol} is null then 'sin_meta'
+                          when ${valorCol} is null then 'sin_dato'
+                          when ${metaCol} = 0 then case when ${valorCol} <= 0
                                                       then 'cumple' else 'incumple' end
-                          when y.valor > mt.valor then 'incumple'
-                          when y.valor >= mt.valor * 0.90 then 'riesgo'
+                          when ${valorCol} > ${metaCol} then 'incumple'
+                          when ${valorCol} >= ${metaCol} * 0.90 then 'riesgo'
                           else 'cumple' end`;
 
 /** El nombre largo del ambito: el del sitio si lo es, y el del agregado si no. */
@@ -422,8 +427,8 @@ module.exports = {
                meta = mt.valor,
                es_referencia = case when @ambito_meta is not null and @ambito_meta <> @ambito
                                     then 1 else 0 end,
-               brecha_pct = ${BRECHA},
-               estado = ${ESTADO}
+               brecha_pct = ${brechaSql('mt.valor', 'y.valor')},
+               estado = ${estadoSql('mt.valor', 'y.valor')}
           from ref.dim_kpi k
           left join @ytd y on y.kpi_id = k.kpi_id and y.num_mes = @mes
           left join @mensual m on m.kpi_id = k.kpi_id and m.num_mes = @mes
@@ -436,8 +441,8 @@ module.exports = {
         -- solo los meses que alguien reporto completos: dibujar los demas seria dibujar
         -- meses que el informe no publica
         select y.kpi_id, mes = y.num_mes, y.valor,
-               brecha_pct = ${BRECHA},
-               estado = ${ESTADO}
+               brecha_pct = ${brechaSql('mt.valor', 'y.valor')},
+               estado = ${estadoSql('mt.valor', 'y.valor')}
           from @ytd y
           left join ehs.meta mt
                  on mt.anio = @anio and mt.vigente = 1
@@ -509,8 +514,8 @@ module.exports = {
         select s.sitio_id, s.sitio, corporativo = s.nombre_corporativo,
                valor = y.valor,
                meta = mt.valor,
-               brecha_pct = ${BRECHA},
-               estado = ${ESTADO}
+               brecha_pct = ${brechaSql('mt.valor', 'y.valor')},
+               estado = ${estadoSql('mt.valor', 'y.valor')}
           from ref.dim_sitio s
           left join @ytd y on y.ambito_id = s.sitio_id
           left join ehs.meta mt
@@ -902,7 +907,7 @@ module.exports = {
 
         select ytd = y.valor,
                meta = mt.valor,
-               estado = ${ESTADO},
+               estado = ${estadoSql('mt.valor', 'y.valor')},
                ambito = ${NOMBRE_AMBITO}
           from @ytd y
           -- la barra del ano en curso se mide contra la meta vigente del MISMO
@@ -1274,9 +1279,53 @@ module.exports = {
                  on y.anio = m.anio and y.num_mes_corte = m.num_mes
                 and y.ambito_id = m.ambito_id and y.kpi_id = m.kpi_id
          where m.anio = @anio and m.ambito_id = @ambito and m.num_mes <= @corte;
+
+        -- todas las metas registradas de este ambito para el anio del corte, vigente o
+        -- no: el libro trajo tres juegos de metas 2026 y solo una quedo vigente (ver
+        -- migracion 0005) -- mostrar tambien las descartadas, con su fuente, es
+        -- exactamente lo que le da credibilidad a la meta que si se usa: se ve que no
+        -- se eligio a ciegas.
+        select mt.kpi_id, valor = cast(mt.valor as float), mt.fuente, mt.vigente
+          from ehs.meta mt
+         where mt.anio = @anio and mt.ambito_id = @ambito
+         order by mt.kpi_id, mt.vigente desc, mt.fuente;
+
+        -- el cierre de cada anio anterior (regla del area: 2024 en adelante, migracion
+        -- 0016 borro 2023 de la base) MAS el anio en curso, calculado en vivo desde
+        -- v_kpi_ytd al mismo corte que el resto de esta funcion -- una sola fila por
+        -- (kpi, anio), misma forma para los dos casos, para que el cliente no necesite
+        -- un camino aparte para "el anio que todavia no cerro". Nacional Labs no tiene
+        -- fila propia en el scorecard corporativo (nunca la tuvo, ver META_DE_AMBITO
+        -- mas arriba) y esta consulta simplemente no devuelve nada para ese ambito -- el
+        -- cliente lo dice, no lo inventa.
+        select sc.kpi_id, sc.anio,
+               meta = cast(sc.meta as float), real = cast(sc.real_ytd as float),
+               brecha_pct = cast(${brechaSql('sc.meta', 'sc.real_ytd')} as float),
+               estado = ${estadoSql('sc.meta', 'sc.real_ytd')},
+               cerrado = cast(1 as bit)
+          from ehs.scorecard_anual sc
+         -- < @anio, no solo >= 2024: el scorecard corporativo YA trae una fila para
+         -- @anio con la meta puesta y real_ytd en null (el anio todavia no cierra) --
+         -- 'nacional'/agua_por_lente/2026 es el caso real, encontrado probando esta
+         -- misma consulta. Sin este limite esa fila duplicaba el anio en curso, con
+         -- la union de abajo, que SI trae el valor real via v_kpi_ytd.
+         where sc.sitio_id = @ambito and sc.anio >= 2024 and sc.anio < @anio
+        union all
+        select y.kpi_id, anio = @anio,
+               meta = cast(mt.valor as float), real = cast(round(y.valor, 6) as float),
+               brecha_pct = cast(${brechaSql('mt.valor', 'y.valor')} as float),
+               estado = ${estadoSql('mt.valor', 'y.valor')},
+               cerrado = cast(0 as bit)
+          from ehs.v_kpi_ytd y
+          left join ehs.meta mt
+                 on mt.anio = @anio and mt.vigente = 1
+                and mt.ambito_id = @ambito and mt.kpi_id = y.kpi_id
+         where y.anio = @anio and y.ambito_id = @ambito and y.num_mes_corte = @corte
+         order by kpi_id, anio;
       `);
 
-    const [[def], sitios, magnitudes, kpis, mapa, lecturas, valores] = r.recordsets;
+    const [[def], sitios, magnitudes, kpis, mapa, lecturas, valores, metas, historico] =
+      r.recordsets;
     if (!def || !lecturas.length) return null;
 
     const meses = new Map();
@@ -1325,6 +1374,25 @@ module.exports = {
         denominador: mapa
           .filter((x) => x.kpi_id === k.kpi_id && x.rol === 'denominador')
           .map((x) => x.magnitud_id),
+        // todas las metas 2026 registradas para este KPI en este ambito, vigente
+        // primero (metas.order by ya las trae asi); normalmente una sola, a veces mas
+        // (ver el comentario de la consulta).
+        metas: metas
+          .filter((m) => m.kpi_id === k.kpi_id)
+          .map((m) => ({ valor: num(m.valor), fuente: m.fuente, vigente: Boolean(m.vigente) })),
+        // el cierre de cada anio anterior de ESTE kpi (2024 en adelante) mas el anio en
+        // curso (cerrado:false); [] si el ambito no tiene scorecard propio (Nacional
+        // Labs).
+        historico: historico
+          .filter((h) => h.kpi_id === k.kpi_id)
+          .map((h) => ({
+            anio: h.anio,
+            meta: num(h.meta),
+            real: num(h.real),
+            brecha_pct: num(h.brecha_pct),
+            estado: h.estado,
+            cerrado: Boolean(h.cerrado),
+          })),
       })),
       meses: [...meses.values()].sort((a, b) => a.mes - b.mes),
     };

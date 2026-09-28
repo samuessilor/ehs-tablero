@@ -2069,6 +2069,189 @@ var Tablero = (function () {
         '— es que no le corresponde a este ámbito, y se trata como cero, no como dato faltante.' +
         ' <a href="/api/ehs/detalle?formato=csv">Descargar las lecturas en CSV</a>.'
     );
+
+    // --- 03 y 04: metas registradas e historico por anio, del mismo /api/ehs/datos —
+    // ningun viaje de red aparte.
+    pintarDatosMetas(d);
+    pintarDatosHistorico(d);
+  }
+
+  /**
+   * 03 · todas las metas 2026 registradas para este ambito, no solo la vigente: el
+   * libro heredado trajo tres juegos de metas distintos para Colombia (ver
+   * ehs/CLAUDE.md) y solo uno quedo vigente. Mostrar los descartados, con su fuente,
+   * es lo que le da credibilidad a la meta que si se usa — se ve que no se eligio a
+   * ciegas. Un ambito sin meta propia (Nacional Labs: nadie la publica y no se
+   * hereda, ver META_DE_AMBITO en adaptador_sql.js) lo dice explicito, no lo esconde.
+   */
+  function pintarDatosMetas(d) {
+    var conMeta = d.kpis.filter(function (k) {
+      return k.metas.length;
+    });
+    if (!conMeta.length) {
+      $('#subDatosMetas').textContent = 'sin meta propia';
+      $('#cajaDatosMetas').innerHTML =
+        '<div class="vacio"><span class="chip sinmeta">sin meta</span>' +
+        '<p><b>' +
+        Fmt.esc(d.ambito.nombre) +
+        '</b> no tiene meta propia en ningún KPI: nadie la publica para este ámbito y no ' +
+        'se hereda de otro — heredarla sería inventarla.</p></div>';
+      $('#notaDatosMetas').innerHTML = '';
+      return;
+    }
+    var vigentes = 0;
+    var otras = [];
+    var filas = d.kpis
+      .map(function (k) {
+        var v = k.metas.filter(function (m) {
+          return m.vigente;
+        })[0];
+        if (v) vigentes++;
+        k.metas
+          .filter(function (m) {
+            return !m.vigente;
+          })
+          .forEach(function (m) {
+            otras.push({
+              kpi: k.nombre,
+              unidad: k.unidad,
+              dec: k.dec,
+              valor: m.valor,
+              fuente: m.fuente,
+            });
+          });
+        return (
+          '<tr><th>' +
+          Fmt.esc(k.nombre) +
+          '</th><td class="num fuerte">' +
+          (v ? Fmt.meta(v.valor, k.dec) + ' <small>' + Fmt.esc(k.unidad) + '</small>' : '—') +
+          '</td><td>' +
+          (v ? Fmt.esc(v.fuente) : 'sin meta propia') +
+          '</td></tr>'
+        );
+      })
+      .join('');
+    $('#subDatosMetas').textContent =
+      vigentes + (vigentes === 1 ? ' meta vigente' : ' metas vigentes') + ' de ' + d.kpis.length;
+    $('#cajaDatosMetas').innerHTML =
+      '<div class="tablabox"><table class="matriz datos-tabla"><tr><th>Indicador</th>' +
+      '<th class="num">Meta vigente</th><th>Fuente</th></tr>' +
+      filas +
+      '</table></div>' +
+      (otras.length
+        ? '<details class="infodato"><summary>' +
+          otras.length +
+          (otras.length === 1
+            ? ' meta registrada, no vigente'
+            : ' metas registradas, no vigentes') +
+          '</summary><div class="tablabox"><table class="matriz datos-tabla"><tr><th>Indicador</th>' +
+          '<th class="num">Valor</th><th>Fuente</th></tr>' +
+          otras
+            .map(function (o) {
+              return (
+                '<tr><th>' +
+                Fmt.esc(o.kpi) +
+                '</th><td class="num">' +
+                Fmt.meta(o.valor, o.dec) +
+                ' <small>' +
+                Fmt.esc(o.unidad) +
+                '</small></td><td>' +
+                Fmt.esc(o.fuente) +
+                '</td></tr>'
+              );
+            })
+            .join('') +
+          '</table></div></details>'
+        : '');
+    $('#notaDatosMetas').innerHTML = nota(
+      'La <b>meta vigente</b> es la que usa todo el tablero para calcular brecha y estado, en ' +
+        'esta vista y en todas las demás. Cuando un indicador tiene más de una meta registrada ' +
+        '— el libro heredado trajo varios juegos para Colombia — las demás quedan aquí, ' +
+        'colapsadas, con su propia fuente: así se ve que la vigente no se eligió a ciegas.'
+    );
+  }
+
+  /**
+   * 04 · el cierre de cada año anterior (scorecard corporativo, desde 2024 — regla del
+   * área) y el año en curso, calculado en vivo al mismo corte que el resto de esta
+   * vista — una sola fila por año, misma forma para los dos casos. Un ambito sin fila
+   * propia en el scorecard (Nacional Labs) lo dice, no deja una tabla vacía sin
+   * explicación.
+   */
+  function pintarDatosHistorico(d) {
+    var conHistorico = d.kpis.filter(function (k) {
+      return k.historico.length;
+    });
+    if (!conHistorico.length) {
+      $('#subDatosHistorico').textContent = 'sin histórico publicado';
+      $('#cajaDatosHistorico').innerHTML =
+        '<div class="vacio"><span class="chip sinmeta">sin histórico</span>' +
+        '<p><b>' +
+        Fmt.esc(d.ambito.nombre) +
+        '</b> no tiene fila propia en el scorecard corporativo: no hay ningún año, cerrado ' +
+        'ni en curso, que tabular para este ámbito.</p></div>';
+      $('#notaDatosHistorico').innerHTML = '';
+      return;
+    }
+    var anios = [];
+    conHistorico.forEach(function (k) {
+      k.historico.forEach(function (h) {
+        if (anios.indexOf(h.anio) === -1) anios.push(h.anio);
+      });
+    });
+    anios.sort();
+    var celda = function (k, anio) {
+      var h = k.historico.filter(function (x) {
+        return x.anio === anio;
+      })[0];
+      if (!h) return '<td class="num">—</td>';
+      return (
+        '<td class="num">' +
+        '<b>' +
+        (h.real === null ? '—' : Fmt.num(h.real, k.dec)) +
+        '</b>' +
+        (h.meta === null ? '' : '<br><small>meta ' + Fmt.meta(h.meta, k.dec) + '</small>') +
+        (h.brecha_pct === null ? '' : '<br><small>' + Fmt.pct(h.brecha_pct) + '</small>') +
+        '<br>' +
+        chip(h.estado) +
+        (h.cerrado ? '' : '<br><small>en curso</small>') +
+        '</td>'
+      );
+    };
+    $('#subDatosHistorico').textContent = anios.join(' · ');
+    $('#cajaDatosHistorico').innerHTML =
+      '<div class="tablabox"><table class="matriz datos-tabla"><tr><th>Indicador</th>' +
+      anios
+        .map(function (a) {
+          return '<th class="num">' + a + '</th>';
+        })
+        .join('') +
+      '</tr>' +
+      d.kpis
+        .map(function (k) {
+          return (
+            '<tr><th>' +
+            Fmt.esc(k.nombre) +
+            ' <small>' +
+            Fmt.esc(k.unidad) +
+            '</small></th>' +
+            anios
+              .map(function (a) {
+                return celda(k, a);
+              })
+              .join('') +
+            '</tr>'
+          );
+        })
+        .join('') +
+      '</table></div>';
+    $('#notaDatosHistorico').innerHTML = nota(
+      'Cada celda es el <b>real acumulado (YTD)</b> del año contra su propia <b>meta</b>, con la ' +
+        '<b>brecha</b> y el mismo semáforo del resto del tablero. Los años cerrados salen del ' +
+        'scorecard corporativo; el año <b>en curso</b> se calcula en vivo, al mismo corte que ' +
+        'toda esta vista — no es un valor congelado. Un año sin celda es un año sin publicar ' +
+        'para este ámbito, no un cero.'
+    );
   }
 
   /* ------------------------------------------------------------------- render --- */
