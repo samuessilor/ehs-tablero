@@ -923,9 +923,10 @@ y "corroborar que todo funcione y tenga lógica".
       julio 0 → 1) para que el pipeline Excel → JSON la aplique igual que la base, con
       una columna `visible_en_tablero = no`: no se pinta como franja, como pidió Samuel
       el 24-sep (migración 0012). `analisis/web_json.py` respeta esa columna.
-- [ ] **Pendiente de Samuel, fuera del tablero**: reemplazar el libro de SharePoint por
-      la copia corregida. Hasta entonces, quien abra el de SharePoint sigue viendo los
-      cinco errores.
+- [x] **Decisión de Samuel (28-sep-2026): el libro de SharePoint se retira**, no se
+      reemplaza — la base de datos pasa a ser el motor primordial de la aplicación y el
+      libro queda como referencia del histórico auditado. Ver sección 28 para el último
+      hallazgo del libro (gráfica 6), cerrado con la misma decisión.
 
 ## 26. Regla 2024 completa y corrección de una afirmación falsa (28-sep-2026)
 
@@ -954,6 +955,35 @@ que corrió contra `deploy-web1.vercel.app` de verdad salió una diferencia real
       Verificado con tres instantes (mediodía, medianoche, cruce de día) y redesplegado:
       comparación exhaustiva contra la producción real, 614 llamadas y páginas, 0
       diferencias. — `196a4b4`
+
+## 28. Último hallazgo del libro cerrado; base confirmada como motor primordial (28-sep-2026)
+
+Pedido: resolver el hallazgo "gráfica 6" (rotulada mensual, grafica el acumulado) y
+aplicar la solución "en la base de datos", ya que la base pasa a ser el motor primordial
+de la aplicación y el CSV descargable debe quedar estructurado de manera correcta a
+partir de ella.
+
+- [x] **El hallazgo no tiene contraparte posible en la base ni en el tablero, y se
+      verificó, no se asumió** — el defecto original es un objeto gráfico de Excel con
+      el rango de otra gráfica del mismo bloque (K39:K50, YTD, en vez de la columna H,
+      mensual). Revisado el código de las tres gráficas equivalentes del tablero
+      (`comboProduccion` en `graficos.js`, agua/energía/residuos): cada una lee un solo
+      campo (`consumo_m3`/`l_por_lente`, etc.) que sale de su propia consulta SQL
+      agregada por mes (`hojaMensualRecurso` en `adaptador_sql.js`, `group by
+      f.num_mes` sobre `ehs.v_lectura_ambito`), nunca del acumulado. No existe, en esta
+      base, un "rango" que una gráfica pueda copiar mal de otra — cada serie está atada
+      a su propio campo calculado, no a una referencia de celda. Con el libro retirado
+      (sección 25), el hallazgo queda cerrado (`resuelto: true` en `datos.json` y
+      `web_json.py`) sin nada por corregir en la base.
+- [x] **El CSV/Excel descargable, auditado de punta a punta** — `/api/ehs/detalle`
+      (`src/datos/adaptador_sql.js`) sale íntegro de `ehs.hecho_lectura_mensual`, sin
+      tocar el libro; de paso salió un texto desactualizado en el cliente ("las nueve
+      magnitudes", de antes de que Perú aportara la décima, `residuo_total_kg`) —
+      corregido a un texto sin número fijo. — `393f70e`
+- [x] **Verificado en navegador**: los 9 hallazgos del libro (5 que alteraban un número
+      + 4 avisos) muestran `resuelto: true`; "Hallazgos del libro" en 0; sin errores de
+      consola; redesplegado y comparado contra la producción real, 614 llamadas y
+      páginas, 0 diferencias.
 
 ---
 
