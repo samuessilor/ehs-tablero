@@ -1566,8 +1566,12 @@ var Tablero = (function () {
       Fmt.esc(cal.estado) +
       '</b>' +
       '</div><p class="descarga"><a class="btn-desc" href="/api/ehs/detalle?formato=csv">' +
-      'Descargar el detalle crudo en CSV</a><span>Las nueve magnitudes tal como se capturaron, ' +
-      'sin ningún cálculo encima.</span></p>';
+      'Descargar el detalle crudo en CSV</a><span>Todas las magnitudes tal como se ' +
+      // "nueve" quedo fijo cuando solo Colombia capturaba; Peru suma una decima
+      // (residuo_total_kg, sin desglose) que este CSV ya trae en su propia columna —
+      // ver ehs\CLAUDE.md. Sin numero fijo aqui para no volver a quedar mal si el area
+      // agrega otro sitio u otra magnitud.
+      'capturaron, sin ningún cálculo encima.</span></p>';
 
     // 'resuelto' separa lo que YA se corrigio (en el libro fuente, no solo en el
     // tablero) de lo que sigue abierto: sin la separacion, un hallazgo ya cerrado se
