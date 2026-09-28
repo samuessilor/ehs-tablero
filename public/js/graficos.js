@@ -133,15 +133,40 @@ var Graficos = (function () {
 
   /** El eje tiene que llegar hasta el techo aunque el dato no llegue: si no, un KPI que
    *  cumple con holgura pierde de vista su propia meta. */
-  function ejeValorConTecho(unidad, meta) {
+  /**
+   * picoDatos (opcional): el maximo real de la serie que va en este eje, cuando esa
+   * serie trae un markPoint (pin) que puede quedar por encima del dato - el pin de
+   * comboProduccion, por ejemplo. Sin picoDatos, el techo solo se calcula contra la
+   * meta: si el dato YA supera la meta (comun, es justo cuando algo "incumple"),
+   * `meta <= v.max` da true y la funcion devuelve null - ECharts elige su propio
+   * maximo "redondo" sin ningun colchon deliberado arriba del dato, y ese redondeo a
+   * veces deja casi cero aire (verificado: un pin de 178,3 contra un eje que ECharts
+   * redondeaba a 180 - 1,7 de colchon en un rango de 60 - se montaba encima de la
+   * leyenda). Con picoDatos, el techo se calcula contra el mayor de los dos (meta o
+   * dato), asi que un pin cerca del maximo real de la serie tambien empuja el eje.
+   */
+  function ejeValorConTecho(unidad, meta, picoDatos) {
     var eje = { type: 'value', name: unidad };
-    if (meta !== null && meta !== undefined) {
+    // conPico: el techo lo manda el pico de la serie, no la meta. Importa para la
+    // funcion de abajo porque techo y v.max (el maximo crudo que ECharts ya calculo
+    // de la propia serie) son, por definicion, casi el mismo numero en ese caso - el
+    // atajo "ya esta cubierto, no hace falta forzar nada" (pensado para cuando el
+    // techo es la META, un valor ajeno al dato) nunca dispararia si tambien se
+    // aplicara aqui, y el pin se quedaria sin colchon otra vez.
+    var conPico =
+      picoDatos !== null &&
+      picoDatos !== undefined &&
+      (meta === null || meta === undefined || picoDatos > meta);
+    var techo = conPico ? picoDatos : meta;
+    if (techo !== null && techo !== undefined) {
       eje.max = function (v) {
         // devolver null deja que ECharts elija sus propios cortes redondos; solo se
         // fuerza el maximo cuando el techo queda por encima del dato, y entonces se
-        // redondea, porque un eje rotulado "4.251863" delata la formula
-        if (meta <= v.max) return null;
-        var alto = meta * 1.08;
+        // redondea, porque un eje rotulado "4.251863" delata la formula. Ese atajo
+        // es solo para el techo=meta; con techo=picoDatos se fuerza siempre (ver
+        // comentario de conPico arriba).
+        if (!conPico && techo <= v.max) return null;
+        var alto = techo * 1.08;
         var paso = Math.pow(10, Math.floor(Math.log(alto) / Math.LN10)) / 2;
         return Math.ceil(alto / paso) * paso;
       };
@@ -251,6 +276,15 @@ var Graficos = (function () {
     var ratio = Fmt.mesMini.map(function (_, i) {
       return porMes[i + 1] ? porMes[i + 1][cfg.campoRatio] : null;
     });
+    // el pico real del ratio, para que ejeValorConTecho le deje colchon al pin de
+    // arriba (markPoint 'maximo', mas abajo): sin esto, cuando el dato ya supera la
+    // meta (bastante comun), el eje se quedaba con el redondeo "natural" de ECharts,
+    // que a veces deja tan poco aire que el pin se monta encima de la leyenda -
+    // reportado con un pico de 178,3 contra un eje que ECharts redondeaba a 180.
+    var picoRatio = ratio.reduce(function (m, v) {
+      return v !== null && v !== undefined && v > m ? v : m;
+    }, -Infinity);
+    if (picoRatio === -Infinity) picoRatio = null;
     // meta es opcional: sin ella la grafica se ve igual que siempre, con ella el ratio
     // suma su propio techo, igual que serieKpi. A diferencia de serieKpi (que compara
     // la meta contra el ACUMULADO del año, rotulado '(acum.)'), aqui el ratio es del
@@ -268,7 +302,7 @@ var Graficos = (function () {
           { type: 'value', name: cfg.unidadConsumo },
           Object.assign(
             { splitLine: { show: false }, scale: true },
-            ejeValorConTecho(cfg.unidadRatio, cfg.meta)
+            ejeValorConTecho(cfg.unidadRatio, cfg.meta, picoRatio)
           ),
         ],
         tooltip: {
