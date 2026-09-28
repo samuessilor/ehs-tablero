@@ -1026,6 +1026,37 @@ alguien ya lo miró.
       páginas, 0 diferencias; 10/10 avisos confirmados y 9/9 hallazgos corregidos, sin
       errores de consola. — `68b891b`
 
+## 30. "06 Datos": metas e histórico por año, en los 7 ámbitos (28-sep-2026)
+
+Pedido: "en la pantalla datos deben estar absolutamente todas las tabulaciones de todos
+los datos de manera organizada y comprensible incluyendo los datos de históricos años
+pasados, también las metas y YTD de manera clara y comprensible y todo en relación o
+dando credibilidad y comprensión más clara de el dash completo".
+
+- [x] **Panel 03, Metas de este ámbito** — los 5 KPI con su meta vigente y fuente; las
+      metas registradas pero no vigentes (el libro trajo tres juegos para Colombia)
+      quedan en un desplegable colapsado con su propia fuente, para que se vea que la
+      vigente no se eligió a ciegas. Nacional Labs (sin meta propia, no heredada — regla
+      ya documentada en `META_DE_AMBITO`) muestra la explicación en vez de una tabla
+      vacía.
+- [x] **Panel 04, Histórico por año** — el cierre de cada año anterior (scorecard
+      corporativo, 2024 en adelante) y el año en curso calculado en vivo al mismo corte,
+      real/meta/brecha %/semáforo, misma forma para los dos casos.
+- [x] **Hallazgo real, verificado antes de escribirlo**: el filtro `anio < @anio`
+      resultó necesario — sin él, el scorecard corporativo ya trae una fila para el año
+      en curso (meta puesta, real en null) que duplicaba esa fila contra la calculada en
+      vivo. Corregido antes de desplegar.
+- [x] **Otro hallazgo real, sobre la documentación, no el código**: `ehs/CLAUDE.md`
+      decía que la meta de frequency rate y accidentes DAFW de Colombia venía del
+      scorecard corporativo — falso, verificado contra `ehs.meta`
+      (`Excel indicadores!C39:C43`, no scorecard) y contra `ehs.scorecard_anual` (sin
+      ninguna fila histórica de esos dos KPI para `nacional`). Los valores (1,6 y 5) son
+      correctos; se corrigió el texto de la fuente en el documento.
+- [x] **Verificado en los 7 ámbitos** (`curl` + navegador): sin duplicados, sin errores
+      de consola; los casos sin meta o sin histórico muestran su nota explicativa en vez
+      de una tabla vacía. Redesplegado y comparado contra la producción real: 614
+      llamadas y páginas, 0 diferencias. — `0d6ff4c`
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante
