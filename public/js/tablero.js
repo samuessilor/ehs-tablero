@@ -228,13 +228,27 @@ var Tablero = (function () {
           .join('') +
         '</table></div>';
     } catch (err) {
+      // 'sin_implementar' (ver src/datos/adaptador_json.js: /api/ehs/datos a
+      // proposito no calcula nada en modo interinato/Vercel, solo en ORIGEN_DATOS=sql)
+      // es permanente para este despliegue - reintentar nunca va a funcionar, y
+      // "Intenta de nuevo" ahi era un mensaje falso. Descubierto probando esta misma
+      // funcion en el despliegue de Vercel (donde SIEMPRE falla asi), no en la
+      // instalacion local (que corre contra SQL Server y nunca lo pisaba).
+      var permanente = err.codigo === 'sin_implementar';
       cont.innerHTML =
-        '<p class="aviso-tabla-error">No se pudo cargar la tabla. Intenta de nuevo.</p>';
+        '<p class="aviso-tabla-error">' +
+        (permanente
+          ? 'Esta tabla necesita la instalación con base de datos. No está disponible ' +
+            'en este despliegue interinato (sin SQL Server detrás).'
+          : 'No se pudo cargar la tabla. Intenta de nuevo.') +
+        '</p>';
       // en cont, no en cont.parentElement (el <details>): wireTablasAviso lee
       // cont.dataset.cargada para decidir si reintenta al volver a abrir. Con el
       // flag puesto en el elemento equivocado, "Intenta de nuevo" no reintentaba
-      // nada - colapsar y reabrir el desplegable no volvia a pedir el dato.
-      cont.dataset.cargada = '0';
+      // nada - colapsar y reabrir el desplegable no volvia a pedir el dato. Para el
+      // caso permanente se deja en '1' a propósito: reintentar un 'sin_implementar'
+      // solo repetiria el mismo error.
+      cont.dataset.cargada = permanente ? '1' : '0';
       console.error(err);
     }
   }
@@ -271,8 +285,27 @@ var Tablero = (function () {
     var url = '/api/ehs/' + recurso + (q.toString() ? '?' + q.toString() : '');
     if (!cacheApi[url]) {
       cacheApi[url] = fetch(url).then(function (r) {
-        if (!r.ok) throw new Error(recurso + ' -> ' + r.status);
-        return r.json();
+        if (r.ok) return r.json();
+        // el cuerpo del error ({error,mensaje,detalle}, ver src/errores.js) se
+        // adjunta al Error en vez de descartarse: sin esto, un 501
+        // 'sin_implementar' (ej. /api/ehs/datos en modo JSON, que a proposito
+        // nunca calcula esa vista) y una caida de red se veian identicos para
+        // quien llama - no hay forma de mostrar un mensaje distinto para "esto
+        // nunca va a funcionar en este despliegue" contra "intenta de nuevo".
+        return r
+          .json()
+          .catch(function () {
+            return null;
+          })
+          .then(function (cuerpo) {
+            var err = new Error(recurso + ' -> ' + r.status);
+            if (cuerpo && cuerpo.error) {
+              err.codigo = cuerpo.error;
+              err.mensaje = cuerpo.mensaje;
+              err.detalle = cuerpo.detalle;
+            }
+            throw err;
+          });
       });
       cacheApi[url].catch(function () {
         delete cacheApi[url];
@@ -1745,12 +1778,33 @@ var Tablero = (function () {
     );
 
     // --- 02 · de donde salen las graficas
+    // Una magnitud que JAMAS trae dato en ningun mes de este ambito no es un hueco de
+    // captura: es estructural. residuo_total_kg es el caso real - lo reporta Peru
+    // (que no desglosa peligroso/aprovechable/ordinario), nunca Celta/Estrella/
+    // Agencias (ver ehs/CLAUDE.md). residuos_por_lente suma las 4 magnitudes porque
+    // en un ambito con Peru cada sitio aporta la suya sin pisar la de otro
+    // (verificado con datos reales: Colombia+Peru trae los 4 valores, cada uno
+    // identico al de su sitio de origen - cero duplicado), pero en un ambito SIN
+    // Peru (ej. 'nacional') residuo_total_kg nunca aparece, para ningun mes. Sin
+    // esta lista, sumar() cortaba a null en cuanto tocaba esa magnitud ausente y
+    // TODA fila de residuos daba "no cuadra" - no habia ningun error real, solo una
+    // magnitud que no le corresponde a ese ambito contando como "dato faltante".
+    var noAplica = {};
+    d.magnitudes.forEach(function (g) {
+      var apareceAlgunMes = d.meses.some(function (m) {
+        return m.lecturas[g.id] !== undefined && m.lecturas[g.id] !== null;
+      });
+      if (!apareceAlgunMes) noAplica[g.id] = true;
+    });
     var sumar = function (m, lista) {
       if (!lista.length) return null;
       var s = 0;
       for (var i = 0; i < lista.length; i++) {
         var v = m.lecturas[lista[i]];
-        if (v === undefined || v === null) return null;
+        if (v === undefined || v === null) {
+          if (noAplica[lista[i]]) continue;
+          return null;
+        }
         s += Number(v);
       }
       return s;
@@ -1770,8 +1824,19 @@ var Tablero = (function () {
         .join(' + ');
     };
     var fallas = 0;
+    // unidad representativa de numerador/denominador: la de su primera magnitud. En
+    // la practica todas las de una misma lista comparten unidad (las 4 de
+    // residuos_por_lente son todas kg) - es la unidad ANTES del factor y la
+    // division, no la del KPI (k.unidad), que es la de despues.
+    var unidadDe = function (lista) {
+      if (!lista.length) return '';
+      var g = porMagnitud[lista[0]];
+      return g ? g.unidad : '';
+    };
     $('#cajaDatosKpi').innerHTML = d.kpis
       .map(function (k) {
+        var unidadNum = unidadDe(k.numerador);
+        var unidadDen = unidadDe(k.denominador);
         var formula =
           (k.numerador.length > 1 ? '(' : '') +
           nombreDe(k.numerador) +
@@ -1824,9 +1889,23 @@ var Tablero = (function () {
           Fmt.esc(formula) +
           (k.denominador.length ? '' : ' · es un conteo: no divide') +
           '</p><div class="tablabox"><table class="matriz datos-tabla"><tr><th>Mes</th>' +
-          '<th class="num">Numerador</th><th class="num">Denominador</th><th class="num">Del mes</th>' +
-          '<th class="num">Numerador acum.</th><th class="num">Denominador acum.</th>' +
-          '<th class="num">Acumulado (YTD)</th><th>Comprobación</th></tr>' +
+          '<th class="num">Numerador<small>suma del mes' +
+          (unidadNum ? ', ' + Fmt.esc(unidadNum) : '') +
+          '</small></th>' +
+          '<th class="num">Denominador<small>' +
+          (k.denominador.length ? 'suma del mes, ' + Fmt.esc(unidadDen) : 'no aplica') +
+          '</small></th>' +
+          '<th class="num">Del mes<small>numerador ÷ denominador, ' +
+          Fmt.esc(k.unidad) +
+          '</small></th>' +
+          '<th class="num">Numerador acum.<small>suma enero al mes' +
+          (unidadNum ? ', ' + Fmt.esc(unidadNum) : '') +
+          '</small></th>' +
+          '<th class="num">Denominador acum.<small>' +
+          (k.denominador.length ? 'suma enero al mes, ' + Fmt.esc(unidadDen) : 'no aplica') +
+          '</small></th>' +
+          '<th class="num">Acumulado (YTD)<small>igual que "del mes", con los acum.</small></th>' +
+          '<th>Comprobación<small>vs. la suma de la tabla 01</small></th></tr>' +
           filas +
           '</table></div></div>'
         );
@@ -1836,10 +1915,14 @@ var Tablero = (function () {
       ? fallas + (fallas === 1 ? ' fila no cuadra' : ' filas no cuadran')
       : 'todo cuadra con las lecturas de la tabla 01';
     $('#notaDatosKpi').innerHTML = nota(
-      'Estas son las cifras exactas que dibujan las fichas y las gráficas: numerador y ' +
-        'denominador del mes, y los mismos sumados de enero al mes (el acumulado se divide al ' +
-        'final, nunca se promedia). <b>Cuadra</b> quiere decir que sumar las lecturas de la ' +
-        'tabla 01 da exactamente lo que usa el cálculo.' +
+      'Estas son las cifras exactas que dibujan las fichas y las gráficas: la fórmula de cada ' +
+        'KPI, arriba de su tabla, dice qué magnitudes de la tabla 01 se suman. <b>Numerador</b> ' +
+        'y <b>denominador</b> son esa suma; <b>del mes</b> y <b>acumulado (YTD)</b> son el ' +
+        'resultado de dividirlos — el número real que usa el tablero. <b>Cuadra</b> quiere ' +
+        'decir que sumar a mano las lecturas de la tabla 01 da exactamente ese numerador y ' +
+        'ese denominador; si una magnitud de la fórmula nunca trae dato en ningún mes de este ' +
+        'ámbito (p. ej. el residuo sin desglose en un ámbito sin Perú), no cuenta como un hueco ' +
+        '— es que no le corresponde a este ámbito, y se trata como cero, no como dato faltante.' +
         ' <a href="/api/ehs/detalle?formato=csv">Descargar las lecturas en CSV</a>.'
     );
   }

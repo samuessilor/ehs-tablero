@@ -743,6 +743,107 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       `dashboard.ejs` (numeración de paneles reconciliada tras insertar el panel 03 de
       residuos).
 
+## 21. Primer despliegue a Vercel de la ronda + hallazgos del propio despliegue (28-sep-2026)
+
+- [x] **"Hecho por Samuel Galeano" del header, invisible** — `rgba(255,255,255,.28)`
+      contra el fondo oscuro del header prácticamente no se leía. Subido a `.62` en
+      `views/parciales/cabecera.ejs` — verificado en navegador, legible sin competir
+      con el título.
+- [x] **`/api/ehs/datos` (la tabla completa de un aviso, sección 17) siempre falla en
+      el despliegue interinato de Vercel** — al verificar el deploy en producción (no
+      solo contra la instalación local con SQL Server), el primer aviso que se abrió
+      dio `501 sin_implementar`. Causa: `adaptador_json.js` nunca implementó
+      `datosTabulados` a propósito ("esta vista necesita SQL Server"; ver el propio
+      comentario del archivo) — una limitación real y ya existente antes de esta
+      ronda, que la función nueva de la sección 17 recién puso a prueba por primera
+      vez porque antes nada llamaba a `/api/ehs/datos` desde fuera de la instalación
+      con base de datos. El bug de UX real: `cargarTablaAviso` mostraba "Intenta de
+      nuevo" para esto, un mensaje falso — reintentar un `sin_implementar` nunca va a
+      funcionar. Arreglado en dos partes: `api()` ahora adjunta `{codigo, mensaje,
+      detalle}` del cuerpo del error al `Error` que lanza en vez de descartarlo
+      (cambio retrocompatible: los demás llamadores que no miran `err.codigo` siguen
+      igual), y `cargarTablaAviso` distingue el caso permanente (mensaje honesto,
+      "no disponible en este despliegue interinato", sin permitir reintento) del
+      transitorio (mensaje de reintento, como antes). Verificado en el propio deploy
+      de Vercel tras el fix.
+- [x] **Dato del despliegue interinato desactualizado (31-ago-2026), no julio** —
+      confirmado en pantalla ("Actualizado 2026-08-31T16:58:43" contra el
+      "2026-09-24T21:52:12" de la instalación con SQL Server): el snapshot
+      `datos/datos-ehs.json` no se ha vuelto a generar desde agosto. Los textos de
+      hallazgos sí están al día (se parchearon a mano esta misma sesión, sección 18),
+      pero las cifras operativas (KPIs, lecturas) no. **No es un defecto de esta
+      ronda ni se corrigió aquí** — corresponde a correr de nuevo el pipeline
+      (`analisis/construir_datos.py` → `web_json.py` → `publicar_a_app.py`) con el
+      Excel de julio, una decisión y un paso aparte que le toca al área/a Samuel, no
+      algo que este cambio de UI deba disparar solo.
+- [x] **Deploy verificado en `https://deploy-web1.vercel.app`** (cuenta
+      `specifinance-7412's projects`, confirmada explícitamente por Samuel en el
+      chat antes de tocar nada — ver la conversación). Agua/Energía, Ambiental y
+      Calidad del dato revisados en el navegador contra la URL real de producción,
+      sin errores de consola tras los dos arreglos de arriba.
+
+## 22. Pin del máximo/mínimo montado sobre la leyenda (28-sep-2026)
+
+- [x] **El pin del pico (markPoint) del combo de consumo se montaba encima de la
+      leyenda** — reportado con "178,3" (residuos, junio) tapando "Consumo total
+      (kg)". Causa real: `ejeValorConTecho` solo forzaba colchón arriba del eje
+      contra la **meta**; cuando el dato YA supera la meta (frecuente, es lo que
+      "incumple" significa), la condición de colchón se saltaba entera y ECharts
+      elegía su propio máximo "redondo" sin ningún margen deliberado — a veces ese
+      redondeo dejaba casi cero aire arriba del pico real (180 de eje contra un pico
+      de 178,3), y el pin (que se dibuja hacia arriba desde el dato) quedaba
+      literalmente encima de la leyenda. Arreglado: `ejeValorConTecho` ahora acepta
+      un tercer parámetro opcional (el pico real de la serie) y calcula el colchón
+      contra el mayor de los dos — meta o pico —, forzándolo siempre que el techo sea
+      el pico (comparar el pico contra sí mismo nunca habría disparado el margen).
+      Solo `comboProduccion` lo usa (es la única función con `markPoint` en todo el
+      archivo); `serieKpi` y `composicionResiduos` siguen exactamente igual que
+      antes. Verificado en navegador: el mismo gráfico de residuos que mostraba la
+      superposición ahora tiene separación clara entre leyenda y pin, sin errores de
+      consola.
+- [x] **"Hecho por Samuel Galeano" del header, invisible** — mismo defecto que la
+      sección 21, subido de `.28` a `.62` de opacidad — verificado en navegador.
+
+## 23. "No cuadra" en TODAS las filas de Residuos, en "06 Datos" (28-sep-2026)
+
+- [x] **Investigado antes de tocar nada, como pidió Samuel**: la fórmula mostrada
+      —`(aprovechable + ordinario + peligroso + residuo total sin desglose) × 1.000 ÷
+      unidades buenas`— SÍ es la correcta, verificada contra `ehs/CLAUDE.md` (la
+      fórmula base documentada del área) y contra los datos reales de
+      `/api/ehs/datos`: para Celta/Estrella/Agencias/Nacional Labs (sin Perú) el
+      numerador del servidor coincide exacto con la suma de los tres desglosados
+      (ej. Celta julio: 16.844 + 354 + 6.768 = 23.966, igual al numerador servido);
+      para Perú coincide exacto con el residuo total solo (9.000 = 9.000); para
+      Colombia + Perú coincide con los cuatro sumados sin pisarse. **Tampoco hay
+      duplicado**, la otra sospecha de Samuel: confirmado con los datos crudos que
+      Perú JAMÁS reporta peligroso/aprovechable/ordinario (esas claves ni existen en
+      sus lecturas) y Celta/Estrella/Agencias JAMÁS reportan el residuo sin desglose
+      — cada sitio aporta su parte una sola vez, nunca las dos a la vez.
+- [x] **El bug real estaba en la comprobación del navegador, no en el cálculo**: la
+      función `sumar()` de "02 De dónde salen las gráficas" cortaba a `null` la suma
+      completa en cuanto tocaba **cualquier** magnitud ausente en `m.lecturas` — sin
+      distinguir "esta magnitud no le corresponde a este ámbito" (residuo total sin
+      desglose en un ámbito sin Perú, que JAMÁS trae dato, en ningún mes) de "esta
+      magnitud sí aplica pero falta capturarla este mes" (un hueco real). Como
+      residuos_por_lente siempre incluye esa cuarta magnitud en su numerador,
+      cualquier ámbito sin Perú (Celta, Estrella, Agencias, Nacional Labs) daba
+      "NO CUADRA" en el 100% de los meses, siempre, sin que hubiera ningún error que
+      corregir. Arreglado: antes de sumar, se calcula qué magnitudes nunca aparecen
+      en ningún mes de los datos ya cargados para este ámbito, y esas se tratan como
+      cero (no le corresponden) en vez de invalidar la suma entera. Verificado en
+      navegador: Celta/Estrella/Agencias/Nacional Labs/Colombia (`nacional`) ahora
+      muestran "cuadra" los 7 meses de Residuos; Colombia + Perú (donde la cuarta
+      magnitud sí aplica de verdad) también cuadra, con un numerador mayor que el de
+      Colombia sola — confirma que el fix no empieza a ignorar huecos reales, solo
+      los estructurales.
+- [x] **Pedido aparte: nombrar bien cada columna** — "Numerador"/"Denominador"/"Del
+      mes"/"Numerador acum."/"Denominador acum."/"Acumulado (YTD)"/"Comprobación"
+      ahora traen un subtítulo bajo el título (mismo patrón que ya usa la tabla "01
+      Las lecturas") diciendo qué es cada una: de qué magnitudes es la suma, en qué
+      unidad, y contra qué se compara. La nota de abajo de toda la sección también se
+      reescribió para explicar el concepto una sola vez y mencionar explícitamente
+      que una magnitud sin dato en ningún mes de un ámbito no cuenta como hueco.
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante
