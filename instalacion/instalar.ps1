@@ -417,11 +417,20 @@ function Revisar-SectorDeDisco {
 
 # Con un reinicio pendiente, setup.exe se niega a instalar (regla RebootRequiredCheck)
 # con un mensaje que no dice que hacer.
+# Hallazgo de la primera corrida real, 28-sep-2026 (equipo de Samuel): esta funcion solo
+# miraba dos de las tres senales estandar de reinicio pendiente. La tercera
+# (PendingFileRenameOperations — Windows Update, Office Click-to-Run o cualquier
+# instalador que reemplaza un archivo en uso la dejan puesta) SI estaba activa ese dia
+# (por Office/OneDrive, nada de EHS) y esta funcion no la vio: paso de largo, y
+# setup.exe de SQL Server fallo despues con un codigo de salida sin bootstrap log que
+# leer (0x84C4000E) — el mismo tipo de fallo silencioso que este chequeo existe para
+# evitar, solo que con un mensaje util en vez de un codigo opaco.
 function Revisar-ReinicioPendiente {
     $pendiente = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or
-                 (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired')
+                 (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') -or
+                 [bool](Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue)
     if ($pendiente) {
-        throw "Windows tiene un reinicio pendiente (actualizaciones). Reinicia y vuelve a correr este instalador."
+        throw "Windows tiene un reinicio pendiente (actualizaciones, o un instalador reciente de otro programa). Reinicia y vuelve a correr este instalador."
     }
 }
 

@@ -108,14 +108,30 @@ Browser apagado, y el permiso para que "Reparar EHS" reinicie el servicio sin
 administrador delegado con `sc.exe sdset` **solo** sobre ese servicio — nada de esto
 tocado a última hora, es la misma disciplina que el modo contenedor.
 
-**Lo que falta, y hay que hacer antes de dar por cerrada la instalación real:** correr
-`INSTALAR-EHS-NATIVO.cmd` de principio a fin en un equipo real, con administrador —
-nadie lo ha hecho todavía. Es el mismo tipo de primera corrida que ya se hizo con el
-modo contenedor el 23-sep-2026 (ver el historial de este documento): instalar, capturar
-un mes, corregir con motivo, confirmar un aviso, comprobar el respaldo automático,
-apagar el motor y ver que "Reparar" lo recupera, actualizar a una versión nueva,
-desinstalar y reinstalar. Se recomienda hacerlo en el propio equipo destino, o en un
-equipo de prueba equivalente, antes de dejarlo en producción.
+**Primer intento real, 28-sep-2026, en el equipo de Samuel (con su permiso, en una
+carpeta aparte para no tocar la instalación en modo contenedor ya en uso):** el aviso de
+UAC se aceptó, `instalar.ps1 -Motor nativo` arrancó, extrajo el medio de SQL Server y
+lanzó `setup.exe` — hasta ahí, la elevación y todo el código previo funcionaron. `setup.exe`
+terminó con un error (código `0x84C4000E`) sin dejar su registro de instalación
+(`Setup Bootstrap\Log`), así que no se pudo leer la causa directamente de ahí. Se
+encontró revisando el equipo: **quedaba un reinicio de Windows pendiente**, de
+actualizaciones de Office/OneDrive — nada de EHS —, que SQL Server sí bloquea y que
+`Revisar-ReinicioPendiente` **no detectaba**: solo miraba dos de las tres señales
+estándar de "reinicio pendiente" en Windows, y a esta máquina la tenía activa la
+tercera (`PendingFileRenameOperations`). Corregido el mismo día: la función ahora
+revisa las tres, así que la próxima vez este caso para con el mensaje claro
+("Windows tiene un reinicio pendiente…") en vez del código opaco de `setup.exe`. No
+quedó nada instalado ni ningún servicio a medias: se confirmó sin rastro en el
+registro ni en los servicios de Windows.
+
+**Lo que falta, y hay que hacer antes de dar por cerrada la instalación real:**
+reiniciar Windows en el equipo de prueba (o ya en el equipo destino) y volver a correr
+`INSTALAR-EHS-NATIVO.cmd` — el paquete y la carpeta `C:\EHS-prueba-nativo` ya están
+listos para retomarlo justo ahí. Después, el mismo recorrido que ya se hizo con el modo
+contenedor el 23-sep-2026 (ver el historial de este documento): capturar un mes,
+corregir con motivo, confirmar un aviso, comprobar el respaldo automático, apagar el
+motor y ver que "Reparar" lo recupera, actualizar a una versión nueva, desinstalar y
+reinstalar.
 
 ## 7. Actualizar, desinstalar, dónde queda cada cosa
 

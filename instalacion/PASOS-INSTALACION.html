@@ -353,14 +353,27 @@
   <code>Get-NetTCPConnection</code> antes de continuar — no solo "debería quedar así" —,
   SQL Server Browser apagado, y el permiso para que <b>Reparar EHS</b> reinicie el
   servicio sin administrador delegado <b>solo</b> sobre ese servicio.</p>
+  <p><b>Primer intento real, 28-sep-2026</b> (equipo de Samuel, en una carpeta aparte
+  para no tocar la instalación en modo contenedor ya en uso): el aviso de UAC se aceptó,
+  <code>instalar.ps1 -Motor nativo</code> arrancó, extrajo el medio de SQL Server y
+  lanzó <code>setup.exe</code> — hasta ahí, la elevación y todo el código previo
+  funcionaron. <code>setup.exe</code> terminó con un error (código
+  <code>0x84C4000E</code>) sin dejar su registro de instalación, así que la causa se
+  encontró revisando el equipo directamente: quedaba un <b>reinicio de Windows
+  pendiente</b>, de actualizaciones de Office/OneDrive (nada de EHS), que SQL Server sí
+  bloquea y que el chequeo de este instalador no detectaba — solo miraba dos de las tres
+  señales estándar de "reinicio pendiente" en Windows, y a esta máquina la tenía activa
+  la tercera. <b>Corregido el mismo día</b>: la función ahora revisa las tres. No quedó
+  nada instalado ni ningún servicio a medias: confirmado sin rastro en el registro ni en
+  los servicios de Windows.</p>
   <div class="nota">
-    <b>Lo que falta:</b> correr <code>INSTALAR-EHS-NATIVO.cmd</code> de principio a fin en
-    un equipo real, con administrador — nadie lo ha hecho todavía. Se recomienda hacerlo
-    en el propio equipo destino, o en un equipo de prueba equivalente, antes de dejarlo
-    en producción: instalar, capturar un mes, corregir con motivo, confirmar un aviso,
-    comprobar el respaldo automático, apagar el motor y ver que Reparar lo recupera,
-    actualizar a una versión nueva, desinstalar y reinstalar — el mismo recorrido que ya
-    se hizo con Docker el 23-sep-2026 (tabla de la sección 08).
+    <b>Lo que falta:</b> reiniciar Windows en el equipo de prueba (o ya en el equipo
+    destino) y volver a correr <code>INSTALAR-EHS-NATIVO.cmd</code> — el paquete y la
+    carpeta <code>C:\EHS-prueba-nativo</code> ya están listos para retomarlo justo ahí.
+    Después, capturar un mes, corregir con motivo, confirmar un aviso, comprobar el
+    respaldo automático, apagar el motor y ver que Reparar lo recupera, actualizar a
+    una versión nueva, desinstalar y reinstalar — el mismo recorrido que ya se hizo con
+    Docker el 23-sep-2026 (tabla de la sección 08).
   </div>
 </section>
 
@@ -431,8 +444,10 @@
   </div>
 </section>
 
-<p class="pie">Modo nativo (SQL Server Express): código revisado el 28-sep-2026, pendiente su
-primera corrida de punta a punta en un equipo real. Modo contenedor (Docker), sección 08:
+<p class="pie">Modo nativo (SQL Server Express): código revisado el 28-sep-2026; primer intento
+real ese mismo día (sección 07) llegó hasta lanzar el instalador de SQL Server y encontró
+(y corrigió) una detección de reinicio pendiente incompleta — pendiente reiniciar y
+completar la corrida. Modo contenedor (Docker), sección 08:
 probado el 23 de septiembre de 2026 en Windows 11 con Docker Desktop 28.3.2 — instalación sin
 administrador, captura y corrección desde las pantallas, respaldo automático, motor caído y
 Reparar, actualización, desinstalación y reinstalación.<br />
