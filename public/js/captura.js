@@ -333,7 +333,7 @@
       i.title = '';
       i.readOnly = false;
     });
-    if (!Number.isInteger(anio) || anio < 2023 || anio > 2100) {
+    if (!Number.isInteger(anio) || anio < 2024 || anio > 2100) {
       caja.hidden = true;
       return;
     }

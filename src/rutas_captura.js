@@ -111,7 +111,7 @@ async function atender(req, res, url) {
   if (ruta === '/api/ehs/captura/estado' && req.method === 'GET') {
     const crudo = url.searchParams.get('anio');
     const anio = crudo ? Number(crudo) : new Date().getFullYear();
-    if (!Number.isInteger(anio) || anio < 2023 || anio > 2100) {
+    if (!Number.isInteger(anio) || anio < 2024 || anio > 2100) {
       errores.parametroInvalido(res, `Año invalido: ${crudo}.`);
       return true;
     }

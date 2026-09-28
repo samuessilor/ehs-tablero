@@ -278,7 +278,7 @@
     var sitioUrl = q.get('sitio');
     if (mesUrl >= 1 && mesUrl <= 12) {
       $('#cMes').value = String(mesUrl);
-      if (anioUrl >= 2023 && anioUrl <= 2100) $('#cAnio').value = String(anioUrl);
+      if (anioUrl >= 2024 && anioUrl <= 2100) $('#cAnio').value = String(anioUrl);
     } else {
       try {
         var r = await fetch('/api/ehs/salud');

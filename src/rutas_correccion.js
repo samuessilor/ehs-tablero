@@ -42,7 +42,7 @@ function normalizarCorreccion(cuerpo) {
 
   const anio = Number(d.anio);
   const mes = Number(d.mes);
-  if (!Number.isInteger(anio) || anio < 2023 || anio > 2100) {
+  if (!Number.isInteger(anio) || anio < 2024 || anio > 2100) {
     return { error: `Año inválido: ${d.anio}.` };
   }
   if (!Number.isInteger(mes) || mes < 1 || mes > 12) {
@@ -109,7 +109,7 @@ async function atender(req, res, url) {
   if (ruta === '/api/ehs/correccion/historial' && req.method === 'GET') {
     const crudo = url.searchParams.get('anio');
     const anio = crudo ? Number(crudo) : new Date().getFullYear();
-    if (!Number.isInteger(anio) || anio < 2023 || anio > 2100) {
+    if (!Number.isInteger(anio) || anio < 2024 || anio > 2100) {
       errores.parametroInvalido(res, `Año inválido: ${crudo}.`);
       return true;
     }

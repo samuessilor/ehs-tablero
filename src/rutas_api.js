@@ -80,7 +80,8 @@ async function atender(req, res, url) {
 
   // sin parametro, null: el adaptador resuelve el corte publicado. Fijar 2026 y 7 aqui
   // obligaria a editar codigo cada mes, que es justo lo que este trabajo vino a quitar.
-  const anio = entero(q, 'anio', null, 2023, 2100);
+  // Minimo 2024: la misma regla del area que contraste-mensual (ver abajo).
+  const anio = entero(q, 'anio', null, 2024, 2100);
   const mes = entero(q, 'mes', null, 1, 12);
   if (Number.isNaN(anio) || Number.isNaN(mes)) {
     errores.parametroInvalido(res, 'El anio o el mes no son validos.', {
@@ -186,9 +187,8 @@ async function atender(req, res, url) {
       const ambito = q.get('ambito') || 'nacional';
       const kpi = q.get('kpi') || 'residuos_por_lente';
       // 2024: regla del area (27-sep-2026), solo datos desde 2024 en adelante. 2023
-      // nunca tuvo lecturas mensuales reales (solo el cierre anual del scorecard, que
-      // usa trayectoria-anual, no esta ruta) - antes de esto, pedir anioA=2023 aqui no
-      // fallaba, solo devolvia un mes a mes vacio, que confunde igual que un error.
+      // tiene lecturas mensuales reales en la base (migracion 0012): se excluye por la
+      // regla, no por falta de dato, y pedirlo por URL responde 400 en vez de servirlo.
       const anioA = entero(q, 'anioA', null, 2024, 2100);
       const anioB = entero(q, 'anioB', null, 2024, 2100);
       if (!AMBITOS_CON_HISTORIA.includes(ambito) || !KPIS.includes(kpi)) {

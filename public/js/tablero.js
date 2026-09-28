@@ -764,12 +764,12 @@ var Tablero = (function () {
    * solo esa tabla, no toda la vista.
    *
    * Sin 2023: regla del área (27-sep-2026), "solo datos desde 2024 en adelante" en
-   * base de datos y visualización. 2023 nunca tuvo lecturas mensuales reales (solo el
-   * cierre anual del scorecard corporativo en ehs.scorecard_anual, para la trayectoria
-   * año-contra-año) - seleccionarlo aquí ya devolvía meses en blanco, nunca datos de
-   * verdad. La fila de scorecard_anual de 2023 en sí NO se borró de la base (ver
-   * trayectoriaAnual en ambos adaptadores, que ahora la filtra al leer): borrarla es
-   * una decisión aparte, irreversible, que le corresponde a Samuel.
+   * base de datos y visualización. 2023 SÍ tiene datos reales en la base — 144
+   * lecturas mensuales (agua, energía, unidades y residuo total de los tres sitios,
+   * migración 0012) y su cierre en ehs.scorecard_anual —, así que se excluye por la
+   * regla, no por falta de dato. Nada de 2023 se borró de la base (trayectoriaAnual,
+   * en ambos adaptadores, lo filtra al leer): borrarlo es una decisión aparte,
+   * irreversible, que le corresponde a Samuel.
    */
   var ANIOS_CONTRASTE = [2024, 2025, 2026];
 

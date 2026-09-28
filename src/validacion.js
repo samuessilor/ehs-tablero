@@ -142,7 +142,7 @@ function examinarFila(fila) {
       advertencia: null,
     };
   }
-  if (!Number.isInteger(anio) || anio < 2023 || anio > 2100) {
+  if (!Number.isInteger(anio) || anio < 2024 || anio > 2100) {
     return { motivo: `Año fuera de rango: ${anio}.`, advertencia: null };
   }
   if (!Number.isInteger(mes) || mes < 1 || mes > 12) {
