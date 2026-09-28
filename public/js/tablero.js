@@ -175,7 +175,46 @@ var Tablero = (function () {
           (sitio ? Fmt.esc(sitio.rotulo) : Fmt.esc(a.sitio)) +
           '…</p></div>'
         : '') +
+      // el veredicto en si (confirmar o ya confirmado): solo los avisos de gravedad
+      // 'aviso' lo tienen — un 'error' (valor_negativo, mes_incompleto...) no se
+      // avala, se corrige, y bloqueVeredicto devuelve '' para esos.
+      bloqueVeredicto(a) +
       '</details>'
+    );
+  }
+  /**
+   * El veredicto de un aviso de salto atipico (migracion 0017): ya confirmado (con
+   * quien y cuando) o un formulario minimo para confirmarlo ahora. Nunca para
+   * gravedad 'error' — ese no es un juicio que se pueda avalar.
+   */
+  function bloqueVeredicto(a) {
+    if (a.gravedad === 'error') return '';
+    if (a.confirmado) {
+      return (
+        '<p class="aviso-confirmado-nota">✓ Confirmado por ' +
+        Fmt.esc(a.confirmadoPor) +
+        (a.confirmadoEn ? ', ' + Fmt.esc(Fmt.fechaHora(a.confirmadoEn)) : '') +
+        (a.nota ? '<i>' + Fmt.esc(a.nota) + '</i>' : '') +
+        '</p>'
+      );
+    }
+    return (
+      '<div class="aviso-confirmar" data-mes="' +
+      (a.mes || '') +
+      '" data-sitio="' +
+      Fmt.esc(a.sitio || '') +
+      '" data-metrica="' +
+      Fmt.esc(a.metrica || '') +
+      '" data-codigo="' +
+      Fmt.esc(a.codigo || '') +
+      '">' +
+      '<label class="conf-campo"><span>Confirmado por</span>' +
+      '<input type="text" class="conf-quien" maxlength="60" placeholder="Nombre"></label>' +
+      '<label class="conf-campo conf-nota"><span>Nota (opcional)</span>' +
+      '<input type="text" class="conf-nota-i" maxlength="300"></label>' +
+      '<button type="button" class="conf-boton">Ya lo revisé, es correcto</button>' +
+      '<p class="conf-error" hidden></p>' +
+      '</div>'
     );
   }
   /**
@@ -273,8 +312,9 @@ var Tablero = (function () {
   // Cache por URL, vigente mientras dure la pagina: cambiar de vista no vuelve a pedir
   // lo mismo (ej. 'panorama' lo piden cuatro vistas con los mismos parametros), y dos
   // llamadas identicas en paralelo comparten la misma promesa en vez de duplicar el
-  // viaje de red. Una correccion real recarga la pagina (/corregir es otra pantalla),
-  // asi que no hace falta invalidar nada aqui.
+  // viaje de red. Una correccion real recarga la pagina (/corregir es otra pantalla).
+  // Confirmar un aviso (migracion 0017) es la unica escritura que ocurre SIN salir de
+  // este tablero: invalidarCacheApi de abajo le hace falta a ella sola.
   var cacheApi = {};
   async function api(recurso, params) {
     var q = new URLSearchParams();
@@ -312,6 +352,14 @@ var Tablero = (function () {
       });
     }
     return cacheApi[url];
+  }
+  /** Olvida lo cacheado de un recurso (todas sus variantes de query string), para que
+   *  la proxima llamada a api() vuelva a pedirlo. Solo la usa enviarConfirmacionAviso. */
+  function invalidarCacheApi(recurso) {
+    var prefijo = '/api/ehs/' + recurso;
+    Object.keys(cacheApi).forEach(function (url) {
+      if (url === prefijo || url.indexOf(prefijo + '?') === 0) delete cacheApi[url];
+    });
   }
 
   /* --------------------------------------------------------- el estado en la URL --- */
@@ -1641,11 +1689,21 @@ var Tablero = (function () {
     var suaves = avisos.filter(function (a) {
       return a.gravedad !== 'error';
     });
+    // 'confirmado' (migracion 0017) separa lo que el area ya reviso y dio por bueno
+    // de lo que sigue esperando un veredicto — mismo criterio que 'resuelto' ya usa
+    // arriba para los hallazgos del libro.
+    var confirmados = suaves.filter(function (a) {
+      return a.confirmado;
+    });
+    var pendientes = suaves.filter(function (a) {
+      return !a.confirmado;
+    });
     $('#subAvisos').textContent = avisos.length
       ? avisos.length +
         ' · ' +
         errores.length +
-        (errores.length === 1 ? ' bloqueante' : ' bloqueantes')
+        (errores.length === 1 ? ' bloqueante' : ' bloqueantes') +
+        (confirmados.length ? ' · ' + confirmados.length + ' ya confirmados' : '')
       : 'ninguno';
 
     if (!avisos.length) {
@@ -1656,34 +1714,114 @@ var Tablero = (function () {
       $('#notaAvisos').innerHTML = '';
       return;
     }
-    $('#cajaAvisos').innerHTML =
-      '<ul class="hall">' +
-      errores
-        .concat(suaves)
-        .map(function (a) {
-          return (
-            '<li class="' +
-            (a.gravedad === 'error' ? 'grave' : '') +
-            '">' +
-            chip(
+    var filaAviso = function (a) {
+      return (
+        '<li class="' +
+        (a.gravedad === 'error' ? 'grave' : '') +
+        '">' +
+        (a.confirmado
+          ? chip('cumple', 'confirmado')
+          : chip(
               a.gravedad === 'error' ? 'incumple' : 'riesgo',
               a.gravedad === 'error' ? 'bloqueante' : 'a revisar'
-            ) +
-            '<div><p>' +
-            Fmt.esc(a.mensaje) +
-            '</p>' +
-            fichaAviso(a) +
-            '</div></li>'
-          );
-        })
-        .join('') +
-      '</ul>';
+            )) +
+        '<div><p>' +
+        Fmt.esc(a.mensaje) +
+        '</p>' +
+        fichaAviso(a) +
+        '</div></li>'
+      );
+    };
+    $('#cajaAvisos').innerHTML =
+      '<ul class="hall">' +
+      errores.concat(pendientes).map(filaAviso).join('') +
+      '</ul>' +
+      (confirmados.length
+        ? '<details class="infodato resueltos-detalle"><summary>' +
+          confirmados.length +
+          (confirmados.length === 1 ? ' aviso ya confirmado' : ' avisos ya confirmados') +
+          '</summary><ul class="hall">' +
+          confirmados.map(filaAviso).join('') +
+          '</ul></details>'
+        : '');
     $('#notaAvisos').innerHTML = nota(
       'Un aviso <b>no corrige nada ni bloquea la publicación</b>: señala. Un dato raro puede ser un ' +
         'error de captura o un mes de verdad atípico, y quien lo sabe es el área. Lo que no puede pasar ' +
         'es que nadie se entere.'
     );
     wireTablasAviso();
+    wireConfirmarAvisos();
+  }
+  /** Cablea el boton "Ya lo revisé, es correcto" de cada aviso pendiente. Igual que
+   *  wireTablasAviso, se vuelve a llamar cada vez que #cajaAvisos se repinta entero. */
+  function wireConfirmarAvisos() {
+    document.querySelectorAll('#cajaAvisos .aviso-confirmar').forEach(function (cont) {
+      cont.querySelector('.conf-boton').addEventListener('click', function () {
+        enviarConfirmacionAviso(cont);
+      });
+    });
+  }
+  /** Manda el veredicto a /api/ehs/aviso/confirmar. Al confirmar, invalida el cache de
+   *  calidad-dato (la unica escritura que ocurre sin salir de este tablero) y vuelve a
+   *  pintar la seccion entera con el estado real que devuelve la base. */
+  async function enviarConfirmacionAviso(cont) {
+    var campoQuien = cont.querySelector('.conf-quien');
+    var errorEl = cont.querySelector('.conf-error');
+    var boton = cont.querySelector('.conf-boton');
+    errorEl.hidden = true;
+    var quien = String(campoQuien.value || '').trim();
+    if (!quien) {
+      errorEl.textContent = 'Falta escribir quién confirma.';
+      errorEl.hidden = false;
+      campoQuien.focus();
+      return;
+    }
+    var notaTexto = String(cont.querySelector('.conf-nota-i').value || '').trim();
+    boton.disabled = true;
+    boton.textContent = 'Confirmando…';
+    // El reset del boton va en finally y no al final del try: dos de las tres salidas
+    // de error (!r.ok, persistido===false) hacian return antes de llegar ahi y dejaban
+    // el boton pegado en "Confirmando…" para siempre. Resetear un boton que
+    // pintarCalidad() ya reemplazo (el camino sin error) no hace nada — el elemento
+    // esta desconectado del documento — asi que es seguro hacerlo siempre.
+    try {
+      var r = await fetch('/api/ehs/aviso/confirmar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          anio: S.anio,
+          mes: parseInt(cont.dataset.mes, 10) || null,
+          sitio: cont.dataset.sitio,
+          magnitud: cont.dataset.metrica,
+          codigo: cont.dataset.codigo,
+          confirmadoPor: quien,
+          nota: notaTexto || undefined,
+        }),
+      });
+      var cuerpo = await r.json().catch(function () {
+        return null;
+      });
+      if (!r.ok) {
+        errorEl.textContent = (cuerpo && cuerpo.mensaje) || 'El servidor rechazó la confirmación.';
+        errorEl.hidden = false;
+        return;
+      }
+      if (cuerpo && cuerpo.persistido === false) {
+        // interinato/Vercel: validado pero sin base de datos donde guardarlo (ver
+        // escritura_simulada.js). Mismo mensaje que ya usan captura.js y corregir.js.
+        errorEl.textContent = cuerpo.aviso || 'Interinato sin base de datos: no se guardó nada.';
+        errorEl.hidden = false;
+        return;
+      }
+      invalidarCacheApi('calidad-dato');
+      await pintarCalidad();
+    } catch (e) {
+      errorEl.textContent = 'No se pudo hablar con el servidor: ' + e.message;
+      errorEl.hidden = false;
+    } finally {
+      boton.disabled = false;
+      boton.textContent = 'Ya lo revisé, es correcto';
+    }
   }
 
   /* -------------------------------------------------------------- 06 · datos --- */

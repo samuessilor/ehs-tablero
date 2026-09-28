@@ -1109,9 +1109,22 @@ module.exports = {
                and magnitud_id <> 'accidentes_dafw'
                and abs((valor - valor_anterior) / nullif(valor_anterior, 0)) > 0.4
         )
-        select gravedad, codigo, mes, sitio_id, magnitud_id, mensaje
-          from avisos
-         order by mes, sitio_id, rango, orden, paso;
+        -- avisos.mes es num_mes, no una fecha: se reconstruye para el join contra
+        -- ehs.aviso_confirmado (migracion 0017), que guarda fecha, no anio+mes sueltos.
+        -- Solo importa la confirmacion para 'aviso' (hoy: salto_atipico) -- los de
+        -- 'error' nunca se confirman, asi que el join da null y listo.
+        select av.gravedad, av.codigo, av.mes, av.sitio_id, av.magnitud_id, av.mensaje,
+               confirmado = case when ac.fecha is not null then 1 else 0 end,
+               confirmado_por = ac.confirmado_por,
+               confirmado_en = ac.confirmado_en,
+               nota_confirmacion = ac.nota
+          from avisos av
+          left join ehs.aviso_confirmado ac
+            on ac.fecha = datefromparts(@anio, av.mes, 1)
+           and ac.sitio_id = av.sitio_id
+           and ac.magnitud_id = av.magnitud_id
+           and ac.codigo = av.codigo
+         order by av.mes, av.sitio_id, av.rango, av.orden, av.paso;
       `);
 
     const [[resumen = {}], porMes, [diaria = {}], avisos] = r.recordsets;
@@ -1140,6 +1153,18 @@ module.exports = {
         const salida = { gravedad: a.gravedad, codigo: a.codigo, mes: a.mes, sitio: a.sitio_id };
         if (a.magnitud_id) salida.metrica = a.magnitud_id;
         salida.mensaje = a.mensaje;
+        // confirmado (migracion 0017): alguien del area ya vio esta tabla y dio su
+        // veredicto. Solo puede venir en 1 para 'aviso' -- el join de arriba nunca
+        // encuentra fila para 'error', que no se confirma.
+        salida.confirmado = Boolean(a.confirmado);
+        if (a.confirmado) {
+          salida.confirmadoPor = a.confirmado_por;
+          // igual que actualizadoEn arriba: la base guarda hora de pared sin zona
+          // (sysdatetime()); .toISOString() sin este recorte le pegaria una 'Z' que
+          // el cliente leeria como UTC y correria 5 horas (el mismo bug de fechaLegible).
+          salida.confirmadoEn = new Date(a.confirmado_en).toISOString().slice(0, 19);
+          if (a.nota_confirmacion) salida.nota = a.nota_confirmacion;
+        }
         return salida;
       }),
     };

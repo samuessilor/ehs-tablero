@@ -129,8 +129,10 @@ module.exports = {
     const validacionEscritura = new Set([
       'falta_capturador',
       'falta_corrector',
+      'falta_confirmador',
       'motivo_invalido',
       'valor_invalido',
+      'codigo_no_confirmable',
     ]);
     if (err && validacionEscritura.has(err.codigo)) {
       responder(res, 400, err.codigo, err.message, null);

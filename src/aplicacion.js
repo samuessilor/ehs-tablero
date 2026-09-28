@@ -10,6 +10,7 @@ const paginas = require('./paginas');
 const api = require('./rutas_api');
 const captura = require('./rutas_captura');
 const correccion = require('./rutas_correccion');
+const avisos = require('./rutas_avisos');
 const errores = require('./errores');
 const { obtener } = require('./datos/configuracion');
 
@@ -18,7 +19,7 @@ const { obtener } = require('./datos/configuracion');
    dos rutas, resueltas antes de cualquier otra cosa. Todo lo demas sigue rechazando
    igual que antes, asi que la superficie que escribe se puede leer entera en dos
    archivos (src/rutas_captura.js, src/rutas_correccion.js) en vez de estar repartida. */
-const RUTAS_QUE_ESCRIBEN = ['/api/ehs/captura', '/api/ehs/correccion'];
+const RUTAS_QUE_ESCRIBEN = ['/api/ehs/captura', '/api/ehs/correccion', '/api/ehs/aviso'];
 
 /* Solo el propio tablero puede escribir. Sin esto, cualquier pagina web abierta en el
    mismo equipo podia mandar un POST 'text/plain' (el navegador no pregunta antes) a
@@ -61,6 +62,10 @@ async function atender(req, res) {
 
   if (ruta === '/api/ehs/correccion' || ruta.startsWith('/api/ehs/correccion/')) {
     if (await correccion.atender(req, res, url)) return;
+  }
+
+  if (ruta === '/api/ehs/aviso' || ruta.startsWith('/api/ehs/aviso/')) {
+    if (await avisos.atender(req, res, url)) return;
   }
 
   if (req.method !== 'GET') {

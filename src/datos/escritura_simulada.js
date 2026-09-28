@@ -29,6 +29,7 @@ const {
   SITIOS,
   RANGO,
   MOTIVO_MINIMO_CORRECCION,
+  CODIGOS_AVISO_CONFIRMABLE,
   examinarLote,
   advertenciaCero,
 } = require('../validacion');
@@ -214,6 +215,40 @@ async function corregirLectura({ anio, mes, sitio, magnitud, valor, motivo, corr
   };
 }
 
+/**
+ * Igual que corregirLectura: valida con la misma regla que ehs.sp_confirmar_aviso y
+ * no guarda nada, porque no tiene donde.
+ */
+async function confirmarAviso({ anio, mes, sitio, magnitud, codigo, confirmadoPor, nota }) {
+  if (!CODIGOS_AVISO_CONFIRMABLE.includes(codigo)) {
+    const e = new Error(
+      'Solo se confirman avisos de salto atípico. Un valor negativo, un denominador ' +
+        'en cero o un mes incompleto no se confirma: se corrige, con "Consultar y corregir".'
+    );
+    e.codigo = 'codigo_no_confirmable';
+    throw e;
+  }
+  if (!confirmadoPor || !String(confirmadoPor).trim()) {
+    const e = new Error('Falta quién confirma. La bitácora tiene que poder nombrarlo.');
+    e.codigo = 'falta_confirmador';
+    throw e;
+  }
+
+  const fecha = `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-01`;
+  return {
+    modo: 'simulado',
+    persistido: false,
+    confirmado: false,
+    sentencia:
+      `exec ehs.sp_confirmar_aviso @fecha = ${txt(fecha)}, @sitio_id = ${txt(sitio)}, ` +
+      `@magnitud_id = ${txt(magnitud)}, @codigo = ${txt(codigo)}, ` +
+      `@confirmado_por = ${txt(confirmadoPor)}, @nota = ${txt(nota || null)};`,
+    aviso:
+      'Interinato sin base de datos: no se guardó nada, y no se puede. El T-SQL de ' +
+      'abajo es exactamente el que se ejecutaría contra el servidor de IT.',
+  };
+}
+
 /** Sin base de datos no hay historial que mostrar: se declara vacio, no se inventa. */
 async function historialCorrecciones({ anio }) {
   return {
@@ -228,6 +263,7 @@ module.exports = {
   capturarLote,
   estadoCaptura,
   corregirLectura,
+  confirmarAviso,
   historialCorrecciones,
   sentenciaEquivalente,
 };

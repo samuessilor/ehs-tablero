@@ -74,6 +74,18 @@ var Fmt = (function () {
     });
   }
 
+  /* Una hora que la base manda como ISO sin zona (sysdatetime(), hora de Colombia) o
+   * que el driver serializa con una 'Z' que no le corresponde (mssql: un datetime2
+   * SIN zona sale como Date, y JSON.stringify le pega una 'Z' de mas). Las dos formas
+   * traen los mismos digitos de pared; se leen tal cual, sin pasar por new Date() -
+   * eso fue justo el bug que corrio el header 5 horas en Vercel (paginas.js,
+   * fechaLegible). Antes vivia solo en corregir.js; ahora aca para que tablero.js
+   * (confirmacion de avisos) no la duplique otra vez. */
+  function fechaHora(iso) {
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(iso || ''));
+    return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : String(iso || '—');
+  }
+
   return {
     mesCorto: CORTO,
     mesLargo: LARGO,
@@ -83,5 +95,6 @@ var Fmt = (function () {
     pct: pct,
     pctDirecto: pctDirecto,
     esc: esc,
+    fechaHora: fechaHora,
   };
 })();

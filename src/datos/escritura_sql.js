@@ -264,6 +264,37 @@ async function corregirLectura({ anio, mes, sitio, magnitud, valor, motivo, corr
 }
 
 /**
+ * Confirma UN aviso automatico de salto atipico, via ehs.sp_confirmar_aviso
+ * (migracion 0017): alguien del area miro la tabla completa y da su veredicto — el
+ * dato es real, no un error de captura. No toca ehs.hecho_lectura_mensual (por eso,
+ * a diferencia de capturarLote/corregirLectura, no dispara respaldo.disparar(): esta
+ * funcion existe para "despues de un cambio de dato", y una confirmacion no lo es —
+ * el respaldo diario ya la cubre).
+ */
+async function confirmarAviso({ anio, mes, sitio, magnitud, codigo, confirmadoPor, nota }) {
+  const sql = cargarDriver();
+  const p = await pool();
+
+  const fecha = `${String(anio).padStart(4, '0')}-${String(mes).padStart(2, '0')}-01`;
+  const r = await p
+    .request()
+    .input('fecha', sql.Date, fecha)
+    .input('sitio_id', sql.VarChar(20), sitio)
+    .input('magnitud_id', sql.VarChar(40), magnitud)
+    .input('codigo', sql.VarChar(40), codigo)
+    .input('confirmado_por', sql.VarChar(60), confirmadoPor)
+    .input('nota', sql.VarChar(300), nota || null)
+    .execute('ehs.sp_confirmar_aviso');
+
+  const fila = (r.recordset || [])[0] || {};
+  return {
+    modo: 'sql',
+    persistido: true,
+    confirmado: (fila.filas_confirmadas ?? 0) > 0,
+  };
+}
+
+/**
  * El historial de correcciones (pantalla "Consultar y corregir" y, en el futuro, la
  * franja que hoy pinta franja_correccion.js desde un CSV estatico del modo JSON).
  */
@@ -299,4 +330,11 @@ async function historialCorrecciones({ anio }) {
   };
 }
 
-module.exports = { capturarLote, estadoCaptura, corregirLectura, historialCorrecciones, cerrar };
+module.exports = {
+  capturarLote,
+  estadoCaptura,
+  corregirLectura,
+  confirmarAviso,
+  historialCorrecciones,
+  cerrar,
+};

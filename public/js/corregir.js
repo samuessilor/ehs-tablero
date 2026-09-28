@@ -220,14 +220,6 @@
     }
   }
 
-  /* corregido_en es la hora LOCAL del motor (sysdatetime, con TZ America/Bogota), pero
-     el driver la serializa con una 'Z' que no le corresponde. Se muestra la hora tal
-     como viene: pasarla por new Date() la correria cinco horas. */
-  function fechaHora(iso) {
-    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(iso || ''));
-    return m ? m[3] + '/' + m[2] + '/' + m[1] + ' ' + m[4] + ':' + m[5] : String(iso || '—');
-  }
-
   function pintarHistorial(lista) {
     var cuerpo = $('#cuerpoHistorial');
     if (!lista.length) {
@@ -240,7 +232,7 @@
         var mag = porId[c.magnitud];
         return (
           '<tr><td>' +
-          Fmt.esc(fechaHora(c.corregidoEn)) +
+          Fmt.esc(Fmt.fechaHora(c.corregidoEn)) +
           '</td><td>' +
           Fmt.esc(c.sitioCorto) +
           ' · ' +

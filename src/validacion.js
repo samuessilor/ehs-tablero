@@ -80,6 +80,14 @@ const SITIO_IDS = new Set(SITIOS.map((s) => s.id));
    palabra no es un motivo. */
 const MOTIVO_MINIMO_CORRECCION = 10;
 
+/* Los unicos codigos de aviso que alguien del area puede confirmar como "ya lo revise,
+   es un dato real" (migracion 0017). Los de gravedad 'error' (valor_negativo,
+   denominador_invalido, mes_incompleto) son defectos estructurales, no un juicio que
+   se pueda avalar: esos se corrigen, no se confirman. Compartido entre
+   src/rutas_avisos.js y los dos adaptadores de escritura para que los tres rechacen
+   exactamente lo mismo, igual que MOTIVO_MINIMO_CORRECCION arriba. */
+const CODIGOS_AVISO_CONFIRMABLE = ['salto_atipico'];
+
 /* "9.614" es ambiguo en Colombia: puede ser nueve mil seiscientos catorce (punto de
    miles) o nueve coma seiscientos catorce. Sin esta regla entraba como 9,614: la
    revision final lo encontro en las horas temporales de Agencias (8.076 a 9.988 al
@@ -271,6 +279,7 @@ module.exports = {
   SITIOS,
   RANGO,
   MOTIVO_MINIMO_CORRECCION,
+  CODIGOS_AVISO_CONFIRMABLE,
   MENSAJE_MILES,
   aNumero,
   esMilesAmbiguo,

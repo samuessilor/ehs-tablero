@@ -209,5 +209,14 @@ else
         + 'volver a correr este script para completar el permiso de ehs_app.';
 go
 
+/* La tercera puerta de escritura (migracion 0017): confirmar un aviso automatico
+   de salto atipico ya revisado por el area. Mismo patron que las dos de arriba. */
+if object_id('ehs.sp_confirmar_aviso') is not null
+    grant execute on ehs.sp_confirmar_aviso to ehs_app;
+else
+    print 'Aviso: ehs.sp_confirmar_aviso todavia no existe. Correr migrar.js y '
+        + 'volver a correr este script para completar el permiso de ehs_app.';
+go
+
 print 'Base analitica y logins ehs_migrador / ehs_app listos.';
 go

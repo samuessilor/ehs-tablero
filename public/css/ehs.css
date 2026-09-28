@@ -2382,10 +2382,86 @@ body.cargando .body {
   color: var(--riesgo);
 }
 
-/* --- hallazgos ya corregidos: mismo patron que .infodato, colapsados fuera del
-   camino para que la lista abierta no se vea tan cargada como algo que ya no esta
-   pendiente (pedido explicito: "lo que ya esta corregido ya depurar"). No se borran:
-   siguen siendo la bitacora de la auditoria, solo un clic mas lejos. --- */
+/* --- confirmar un aviso de salto atipico: quien lo revisó da su veredicto y queda
+   escrito en la base (migracion 0017), en vez de perderse apenas se cierra el
+   desplegable. Solo aparece en avisos de gravedad 'aviso' (nunca en 'error': un
+   valor negativo no se avala, se corrige). --- */
+.aviso-confirmar {
+  margin-top: 11px;
+  padding-top: 9px;
+  border-top: 1px dashed var(--borde);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px 10px;
+}
+.aviso-confirmar .conf-campo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.aviso-confirmar .conf-campo span {
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tenue);
+}
+.aviso-confirmar input[type='text'] {
+  font: inherit;
+  font-size: 11.5px;
+  padding: 5px 7px;
+  border: 1px solid var(--borde);
+  border-radius: 2px;
+  min-width: 140px;
+}
+.aviso-confirmar .conf-nota input {
+  min-width: 220px;
+}
+.conf-boton {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 6px 12px;
+  border: 1px solid var(--tinta);
+  border-radius: 3px;
+  background: var(--sup);
+  color: var(--tinta);
+  cursor: pointer;
+}
+.conf-boton:hover {
+  background: var(--tinta);
+  color: #fff;
+}
+.conf-boton:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.conf-error {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 11px;
+  color: var(--incumple);
+}
+.aviso-confirmado-nota {
+  margin: 9px 0 0;
+  padding-top: 9px;
+  border-top: 1px dashed var(--borde);
+  font-size: 11px;
+  color: var(--cumple);
+  line-height: 1.5;
+}
+.aviso-confirmado-nota i {
+  display: block;
+  color: #334654;
+  font-style: normal;
+  margin-top: 2px;
+}
+
+/* --- hallazgos y avisos ya resueltos: mismo patron que .infodato, colapsados fuera
+   del camino para que la lista abierta no se vea tan cargada como algo que ya no
+   esta pendiente (pedido explicito: "lo que ya esta corregido ya depurar"). No se
+   borran: siguen siendo la bitacora de la auditoria, solo un clic mas lejos. La
+   misma clase la reusan #cajaHallazgos (hallazgos del libro) y #cajaAvisos (avisos
+   automaticos ya confirmados, migracion 0017): mismo patron visual, mismo motivo. --- */
 details.resueltos-detalle {
   margin: 10px 0 0;
   border-top: 1px solid var(--borde);
