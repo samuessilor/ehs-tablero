@@ -1497,14 +1497,16 @@ var Tablero = (function () {
   /* ------------------------------------------------------------------ calidad --- */
   async function pintarCalidad() {
     var cal = await api('calidad-dato', {});
+    // Solo los abiertos: un hallazgo ya corregido en el libro no "altera un número"
+    // hoy, y contarlo aquí haría ver el libro peor de lo que está.
     var errores = cal.hallazgos.filter(function (h) {
-      return h.gravedad === 'error';
+      return h.gravedad === 'error' && !h.resuelto;
     }).length;
     $('#tarjetasCal').innerHTML = [
       ['Meses con dato', cal.meses_con_dato.length + '<small>de 12</small>'],
       ['Lecturas cargadas', String(cal.lecturas)],
       ['Lecturas diarias de agua', String(cal.lecturas_diarias)],
-      ['Hallazgos del libro', errores + '<small>alteran un número</small>'],
+      ['Hallazgos del libro', errores + '<small>abiertos que alteran un número</small>'],
     ]
       .map(function (t) {
         return (
@@ -1580,14 +1582,14 @@ var Tablero = (function () {
     });
     $('#subHallazgos').textContent =
       activos.length +
-      ' abiertos · ' +
+      (activos.length === 1 ? ' abierto · ' : ' abiertos · ') +
       errores +
       ' alteran un número' +
       (resueltos.length ? ' · ' + resueltos.length + ' ya corregidos' : '');
     var filaHallazgo = function (h) {
       return (
         '<li class="' +
-        (h.gravedad === 'error' ? 'grave' : '') +
+        (h.gravedad === 'error' && !h.resuelto ? 'grave' : '') +
         '">' +
         (h.resuelto
           ? chip('cumple', 'ya corregido')
