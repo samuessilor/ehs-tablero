@@ -46,7 +46,8 @@ de 175 valores contra `KPI's EHS 2026-julio_versionfinal.xlsx` — ver
   histórico auditado, no como algo por reemplazar en SharePoint. El texto de "cómo
   resolver" de los hallazgos del libro (sección 25) se actualizó en consecuencia en
   `datos.json` (fuera de git). Ver sección 27.
-- [ ] Borrar o no 2023 de la base (sección 19) — decisión de Samuel, sigue pendiente.
+- [x] 2023 borrado de la base (sección 19, migración 0016) — pedido explícito de
+  Samuel, ya aplicado y verificado.
 
 **Reconciliación completa contra `git log`, 27-sep-2026** (pedida explícitamente por
 Samuel: "corrobora que todos los requisitos y solicitudes están completadas"). Recorridos
@@ -723,15 +724,17 @@ solucionar lo viable y dejar especificado con amplio detalle lo que no.
       consola. El adaptador JSON se corrigió por paridad de código (mismo cambio que
       el SQL) pero no se probó en vivo en esta ronda: esta instalación de prueba corre
       contra SQL Server, no hay un servidor en modo JSON levantado para contrastar.
-- [ ] **Pendiente, decisión de Samuel, no ejecutada**: lo de arriba (completado en la
-      sección 26) saca 2023 de **toda consulta y toda visualización** (lo que pidió
-      explícitamente), pero **no borra nada de 2023 de la base** — sigue ahí, solo
-      dejó de leerse. Son dos tablas, no una: las 144 lecturas mensuales de 2023 en
-      `ehs.hecho_lectura_mensual` y las 23 filas de 2023 en `ehs.scorecard_anual`.
-      Borrarlas es una operación destructiva e irreversible sobre la base real, y este
-      proyecto no la ejecuta sin confirmación explícita (regla del repo). Si Samuel
-      quiere que se borre, va como una migración acotada a `anio = 2023` en las dos
-      tablas, pendiente de que lo pida expresamente.
+- [x] **Borrado de la base, pedido expresamente por Samuel el 28-sep-2026** ("borra
+      2023 de la base") — migración `0016_ehs_borrar_2023.sql`, acotada a `anio = 2023`
+      en `ehs.hecho_lectura_mensual` (144 filas) y `ehs.scorecard_anual` (23 filas), sin
+      tocar nada más. Verificado antes de escribirla: sin llaves foráneas hacia ninguna
+      de las dos tablas, y `ehs.tr_lectura_mensual_hist` solo archiva `UPDATE` (no
+      `DELETE`), así que el registro de este borrado es la propia migración — mismo
+      patrón que la 0012 con la corrección del accidente. Aplicada contra la base real;
+      verificado antes/después que 2024/2025/2026 quedaron intactos en las dos tablas y
+      2023 en cero. La API no cambió ningún resultado (ya filtraba desde la sección 26);
+      confirmado con la comparación exhaustiva de siempre, local y contra
+      `deploy-web1.vercel.app` real: 614 llamadas y páginas, 0 diferencias. — `b0d4dcb`
 
 ## 20. Auditoría de calidad de esta ronda (27-sep-2026, ronda 4, cierre)
 
