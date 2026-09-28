@@ -36,12 +36,17 @@ de 175 valores contra `KPI's EHS 2026-julio_versionfinal.xlsx` — ver
   mismo propósito.
 
 **Al 28-sep-2026:**
-- [~] `deploy-web1.vercel.app` todavía no tiene las secciones 25-26 (sección 24):
-  pendiente de que Samuel confirme `vercel whoami`/`vercel teams ls` antes del próximo
-  `vercel deploy` (regla del área).
-- [ ] Reemplazar en SharePoint el libro por `KPIs EHS 2026-julio_versionfinal_corregido.xlsx`
-  (sección 25) — lo hace Samuel.
-- [ ] Borrar o no 2023 de la base (sección 19) — decisión de Samuel.
+- [x] `deploy-web1.vercel.app` desplegado con las secciones 24-26 (cuenta confirmada por
+  Samuel: `specifinance-7412` / `_deploy-web1`) — verificado con comparación exhaustiva
+  contra la producción real: **614 llamadas y páginas, 0 diferencias**.
+- [x] **Decisión de Samuel: el libro de SharePoint se retira** — "el sharepoint se
+  descarta ya todo será por este medio y esta interfaz". `KPI´s EHS 2026.xlsx` deja de
+  ser la fuente de captura; la copia corregida
+  (`ehs\KPIs EHS 2026-julio_versionfinal_corregido.xlsx`) queda solo como referencia del
+  histórico auditado, no como algo por reemplazar en SharePoint. El texto de "cómo
+  resolver" de los hallazgos del libro (sección 25) se actualizó en consecuencia en
+  `datos.json` (fuera de git). Ver sección 27.
+- [ ] Borrar o no 2023 de la base (sección 19) — decisión de Samuel, sigue pendiente.
 
 **Reconciliación completa contra `git log`, 27-sep-2026** (pedida explícitamente por
 Samuel: "corrobora que todos los requisitos y solicitudes están completadas"). Recorridos
@@ -866,13 +871,14 @@ pipeline, no las de la base).
 - [x] **Franja de estado del modo JSON** — el texto lo pone el servidor ("copia exacta
       de la instalación con base de datos"), no una cadena fija. — `b9c634e`
 - [x] **Verificado** con una instancia JSON corriendo como Vercel (TZ=UTC, Node 22)
-      contra la SQL local: 605 respuestas de la API + páginas HTML, **614 comparaciones,
-      0 diferencias** (última corrida 28-sep, después de las secciones 25 y 26).
-- [~] **Vercel todavía no tiene esta última versión** — el despliegue del 28-sep por la
-      tarde subió una instantánea anterior a las secciones 25-26, y la comparación
-      exhaustiva contra `deploy-web1.vercel.app` quedó interrumpida. Falta: Samuel
-      confirma la cuenta (`vercel whoami` / `vercel teams ls`), se redespliega y se corre
-      la misma comparación contra la URL real.
+      contra la SQL local: 605 respuestas de la API + páginas HTML, 614 comparaciones,
+      0 diferencias.
+- [x] **Desplegado y verificado contra la producción real** — Samuel confirmó la cuenta
+      (`specifinance-7412` / `_deploy-web1`), se desplegó (`vercel deploy --prod`) y se
+      corrió la comparación exhaustiva contra `https://deploy-web1.vercel.app`: **614
+      llamadas y páginas, 0 diferencias**. Encontró de paso el hallazgo de la sección 27
+      (formato de fecha dependiente del ICU del servidor), corregido y verificado con un
+      segundo despliegue.
 
 ## 25. Los cinco hallazgos del libro que alteran un número (28-sep-2026)
 
@@ -928,6 +934,23 @@ y "corroborar que todo funcione y tenga lógica".
       dicen la razón verdadera. Verificado con `curl`: todos los endpoints con año
       responden 400 para 2023 y 200 para 2026; `/captura` y `/corregir` cargan con
       `min="2024"`. — `f65a958`
+
+## 27. "Generado" del reporte, encontrado al comparar contra Vercel real (28-sep-2026)
+
+La comparación exhaustiva de la sección 24 se había corrido hasta ahora contra una
+instancia JSON local simulando Vercel, nunca contra la producción real. La primera vez
+que corrió contra `deploy-web1.vercel.app` de verdad salió una diferencia real:
+
+- [x] **El pie del reporte descargable daba un texto distinto en cada servidor para el
+      mismo instante** — `generadoEn` usaba `toLocaleString('es-CO', {dateStyle:'long',
+      timeStyle:'short'})`; esa plantilla (espacio angosto entre "p." y "m." en un Node,
+      "a las" en otro) la decide el ICU/CLDR de cada servidor, no el código — mismo
+      defecto que ya se había encontrado y evitado en `fechaLegible` (cabecera del
+      tablero, sección 21). `fechaLargaBogota()` sigue el mismo patrón: solo pide a
+      `Intl.DateTimeFormat` partes numéricas (siempre estables) y arma el texto a mano.
+      Verificado con tres instantes (mediodía, medianoche, cruce de día) y redesplegado:
+      comparación exhaustiva contra la producción real, 614 llamadas y páginas, 0
+      diferencias. — `196a4b4`
 
 ---
 
