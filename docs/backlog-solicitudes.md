@@ -985,6 +985,47 @@ partir de ella.
       consola; redesplegado y comparado contra la producción real, 614 llamadas y
       páginas, 0 diferencias.
 
+## 29. Confirmar avisos automáticos, con constancia en la base (28-sep-2026)
+
+Pedido: Samuel pegó los 10 avisos "salto atípico" del corte de julio 2026 en el chat,
+uno por uno, y dijo "todos están verificados y aprobados". El botón de "04 Avisos
+automáticos" ya decía "dar un veredicto" (sección 17) pero no existía donde guardarlo:
+el mismo aviso volvía a salir "a revisar" en cada visita, sin dejar constancia de que
+alguien ya lo miró.
+
+- [x] **Migración 0017, aplicada en la base local** — `ehs.aviso_confirmado` (quién
+      confirmó cuál aviso, cuándo, con qué nota) + `ehs.sp_confirmar_aviso`, única
+      puerta de escritura (misma disciplina que `sp_corregir_lectura`: `ehs_app` no
+      tiene `db_datawriter`). Restringida por `CHECK` a `codigo='salto_atipico'`: un
+      valor negativo, un denominador en cero o un mes incompleto no se confirma, se
+      corrige. No re-verifica el salto atípico en sí — eso ya lo calcula, una sola vez,
+      `calidadDato`; si el dato de origen cambia después, la confirmación vieja
+      simplemente deja de coincidir con ningún aviso vigente. Probada con 5 casos en
+      transacciones revertidas (3 bloqueados, 2 aceptados, sin rastro). `GRANT` agregado
+      a `instalacion/crear-logins.sql` y aplicado ya contra la base real.
+- [x] **API y capa de escritura, mismo patrón que "Consultar y corregir" en todo**:
+      `POST /api/ehs/aviso/confirmar` (`src/rutas_avisos.js`), `escritura_sql.js` (real)
+      / `escritura_simulada.js` (interinato: valida y devuelve el T-SQL exacto, no
+      guarda nada porque no puede) y `calidadDato` en `adaptador_sql.js` exponiendo
+      `confirmado`/`confirmadoPor`/`confirmadoEn`/`nota` por aviso.
+- [x] **Tablero**: un aviso confirmado pinta chip verde y colapsa a "N avisos ya
+      confirmados" (mismo patrón que hallazgos resueltos); uno pendiente trae un
+      formulario mínimo (quién confirma + nota opcional). Confirmar invalida el caché
+      de `calidad-dato` — la única escritura que ocurre sin salir del tablero — y
+      repinta la sección con el estado real de la base, sin recargar la página.
+      `formato.js` gana `Fmt.fechaHora` (antes duplicada en `corregir.js`) para mostrar
+      `confirmadoEn` sin pasar por `new Date()` — mismo motivo que ya corrigió
+      `fechaLegible` en el header (sección 24).
+- [x] **Verificado de punta a punta**: `curl` (rechaza código/confirmado_por
+      inválidos, confirma de verdad, modo JSON valida sin guardar); navegador
+      (formulario, repintado sin recargar, sin errores de consola); modo JSON en
+      Vercel confirmado de solo-lectura real (`persistido:false`, T-SQL equivalente
+      devuelto, nada escrito). Las 10 confirmaciones reales de Samuel se escribieron
+      vía la ruta (`Samuel Galeano`, con nota citando esta revisión), no por `INSERT`
+      directo. Redesplegado y comparado contra la producción real: 614 llamadas y
+      páginas, 0 diferencias; 10/10 avisos confirmados y 9/9 hallazgos corregidos, sin
+      errores de consola. — `68b891b`
+
 ---
 
 ## Cómo se usa este archivo de aquí en adelante
