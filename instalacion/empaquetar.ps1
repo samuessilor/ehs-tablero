@@ -12,6 +12,7 @@
       paquete\
         INSTALAR-EHS.cmd         doble clic: modo contenedor, SIN administrador
         INSTALAR-EHS-NATIVO.cmd  doble clic: plan B (nativo), pide administrador (UAC)
+        VERIFICAR-EQUIPO.cmd     doble clic: revisa el equipo, solo lee, no instala nada
         DESINSTALAR-EHS.cmd      doble clic: retira EHS conservando el dato
         PASOS-INSTALACION.html   el paso a paso para quien instala (doble clic)
         LEEME.txt
@@ -219,6 +220,16 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%RAIZ%app\instalacion\d
 pause
 "@
 
+# Solo lee: dice si el equipo puede recibir EHS por cada camino, sin instalar nada.
+$verificarCmd = @"
+@echo off
+setlocal
+set "RAIZ=%~dp0"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%RAIZ%app\instalacion\verificar-equipo.ps1"
+pause
+"@
+
+[IO.File]::WriteAllText((Join-Path $CarpetaSalida 'VERIFICAR-EQUIPO.cmd'), $verificarCmd.Replace("`r`n", "`n").Replace("`n", "`r`n"), [Text.Encoding]::ASCII)
 [IO.File]::WriteAllText((Join-Path $CarpetaSalida 'INSTALAR-EHS.cmd'), $instalarCmd.Replace("`r`n", "`n").Replace("`n", "`r`n"), [Text.Encoding]::ASCII)
 [IO.File]::WriteAllText((Join-Path $CarpetaSalida 'INSTALAR-EHS-NATIVO.cmd'), $instalarNativoCmd.Replace("`r`n", "`n").Replace("`n", "`r`n"), [Text.Encoding]::ASCII)
 [IO.File]::WriteAllText((Join-Path $CarpetaSalida 'DESINSTALAR-EHS.cmd'), $desinstalarCmd.Replace("`r`n", "`n").Replace("`n", "`r`n"), [Text.Encoding]::ASCII)
@@ -226,6 +237,10 @@ pause
 @"
 EHS - tablero de indicadores
 ============================
+
+Antes de instalar, para saber si el equipo sirve (solo lee, no cambia nada): doble
+clic en VERIFICAR-EQUIPO.cmd. Dice, para Docker Desktop y para SQL Server nativo, que
+esta bien, que falta y que conviene mirar.
 
 Para instalar: doble clic en INSTALAR-EHS.cmd. NO pide administrador. Necesita
 Docker Desktop ya instalado y abierto una vez en el equipo (eso lo instala IT, una

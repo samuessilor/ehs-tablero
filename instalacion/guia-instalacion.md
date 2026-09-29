@@ -21,7 +21,11 @@ contenedor es el camino principal.
 | La cuenta de la persona en el grupo `docker-users` | Al abrir Docker Desktop no sale un error de permisos |
 | Docker Desktop **abierto una vez** tras instalarlo, con sus términos aceptados | Después ya no hace falta abrirlo a mano: el instalador y el tablero lo abren solos |
 
-Instalar Docker Desktop **sí** pide administrador. Si el equipo no lo tiene, eso lo
+Para comprobar todo esto de una vez, sin instalar nada: doble clic en
+`VERIFICAR-EQUIPO.cmd`. Solo lee y termina con un resumen de lo que falta.
+
+Instalar Docker Desktop **sí** pide administrador (salvo la instalación "solo para el
+usuario" de Docker, que exige tener WSL 2 ya activo). Si el equipo no lo tiene, eso lo
 hace IT una vez: ver [requisitos-it.md](requisitos-it.md), que además explica la
 licencia. En resumen: para uso de trabajo en EssilorLuxottica, Docker Desktop requiere
 suscripción paga (Docker Business), sin importar lo pequeño del proyecto. Rancher
