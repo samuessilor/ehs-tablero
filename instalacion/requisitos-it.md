@@ -14,13 +14,6 @@ instala IT, una vez.
 | Licencia | Docker Desktop es gratis solo para empresas de menos de 250 empleados **y** menos de 10 millones de dólares de ingresos. EssilorLuxottica necesita un puesto de **Docker Business** para ese equipo, o usar **Podman Desktop** o **Rancher Desktop** con motor *dockerd* (gratis, sin esa condición). El instalador de EHS los detecta, pero el arranque automático y "Reparar EHS" están hechos para Docker Desktop, y no se han probado en vivo |
 | Memoria | 8 GB de RAM en el equipo, que es lo que pide Docker Desktop. Microsoft pide al menos 2 GB para la imagen de SQL Server en contenedor; el motor de EHS usó unos 0,8 GB medidos en el equipo de prueba |
 
-**Para saber si el equipo ya cumple todo esto sin instalar nada:** doble clic en
-`VERIFICAR-EQUIPO.cmd` (o `app\instalacion\verificar-equipo.ps1`). Solo lee, no pide
-administrador y no cambia nada: revisa Windows, memoria, disco, virtualización, WSL 2,
-Docker, el grupo `docker-users`, .NET, internet, los puertos y las directivas de IT, y
-termina con un resumen aparte para el camino A y para el C. Lo que no puede medir es la
-licencia de Docker ni la política de IT.
-
 Con eso listo, la persona del área (o Samuel con ella) hace doble clic en
 `INSTALAR-EHS.cmd` y no hace falta nada más de IT.
 

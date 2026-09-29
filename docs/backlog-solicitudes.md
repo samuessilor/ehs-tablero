@@ -1059,6 +1059,45 @@ dando credibilidad y comprensión más clara de el dash completo".
 
 ---
 
+## 31. Dejar el otro computador exactamente igual a este (29-sep-2026)
+
+Pedido de Samuel: "quiero dejar exactamente todo igual en el otro compu hasta con la
+misma estructura, data y todo". Antes de prometerlo se midió, en vez de suponerlo.
+
+- [x] **Prueba: una instalación limpia contra la de referencia.** Se levantó un motor
+      aparte (que no toca la instalación real), con los mismos pasos del instalador
+      (`crear-logins.sql`, `migrar.js --con-datos-semilla`, `crear-logins.sql`), y se
+      compararon las dos bases tabla por tabla y la estructura (columnas, índices,
+      restricciones, vistas, procedimientos, permisos). **La estructura era igual; los
+      datos no**: tres tablas diferían.
+- [x] **Hallazgo real 1**: las 2 lecturas del accidente de Celta (mayo y julio) estaban en
+      estado `corregido`, con su motivo y su origen, en la instalación de referencia, y
+      en `validado` y sin motivo en una nueva. Causa: la migración 0012 se editó
+      después de aplicarse (`migrar.js` no compara el checksum). No se vuelve a editar
+      una migración aplicada.
+- [x] **Hallazgo real 2**: las 10 confirmaciones de avisos `salto_atipico` del corte de
+      julio se dieron desde el tablero y ninguna migración las trae: una instalación
+      nueva las mostraba otra vez "a revisar".
+- [x] **Hallazgo real 3, por diff de las 605 respuestas y las páginas**: aun con los datos
+      iguales, el encabezado "Actualizado" decía la fecha de instalación en vez de
+      "24 sep 2026 21:52" (sale de `max(coalesce(modificado_en, capturado_en))`).
+- [x] **Migración 0018** (`estado de referencia`): lleva una instalación nueva al estado
+      de las dos lecturas, su historia y las 10 confirmaciones; no toca las horas.
+      **Migración 0019** (`horas de referencia`): fija las horas de la carga de
+      referencia, solo en las filas de esa carga (por su origen o su autor), para no
+      reescribir las de capturas reales de una instalación que la reciba por
+      `actualizar.ps1`. Las dos son idempotentes y el trigger de historia se apaga solo
+      dentro de la transacción.
+- [x] **Verificado**: base limpia con las 19 migraciones contra la de referencia, 13
+      tablas y 822 filas, incluidas las horas: 0 diferencias. Aplicadas en la
+      instalación real con respaldo previo (`actualizar.ps1`): sin ningún cambio en sus
+      datos. Tablero sobre la base limpia contra el de referencia: 614 llamadas y
+      páginas, 0 diferencias. Distinto a propósito y por instalación: las claves de
+      `ehs.env` (se generan al azar), `ops.migracion_aplicada` (cuándo se aplicó cada
+      migración) y los respaldos `.bak`. — `esta ronda`
+
+---
+
 ## Cómo se usa este archivo de aquí en adelante
 
 1. Cuando llegue una solicitud nueva, se agrega como `- [ ]` bajo la sección que le

@@ -21,9 +21,6 @@ contenedor es el camino principal.
 | La cuenta de la persona en el grupo `docker-users` | Al abrir Docker Desktop no sale un error de permisos |
 | Docker Desktop **abierto una vez** tras instalarlo, con sus términos aceptados | Después ya no hace falta abrirlo a mano: el instalador y el tablero lo abren solos |
 
-Para comprobar todo esto de una vez, sin instalar nada: doble clic en
-`VERIFICAR-EQUIPO.cmd`. Solo lee y termina con un resumen de lo que falta.
-
 Instalar Docker Desktop **sí** pide administrador (salvo la instalación "solo para el
 usuario" de Docker, que exige tener WSL 2 ya activo). Si el equipo no lo tiene, eso lo
 hace IT una vez: ver [requisitos-it.md](requisitos-it.md), que además explica la
@@ -147,6 +144,28 @@ demás contenedores que corren ahí.
 Restaurar un `.bak` necesita la clave de `sa`, que el instalador cambia al terminar y no
 guarda (`ehs_migrador` no puede restaurar): en modo contenedor se restablece con
 `mssql-conf set-sa-password`. Hoy ese procedimiento lo hace IT y no se ha ensayado.
+
+### Dejar otro equipo igual al de referencia (29-sep-2026)
+
+Se comparó una instalación limpia (migraciones 0001 a 0019, con datos semilla) contra la
+del equipo de Samuel, base contra base y estructura contra estructura:
+
+| Comparación | Resultado |
+|---|---|
+| Estructura: columnas, índices, restricciones, vistas, procedimientos y permisos | ✅ igual |
+| Datos: 13 tablas, 822 filas, incluidas las horas de auditoría | ✅ 0 diferencias |
+| Tablero sobre la base limpia contra el de referencia: 605 respuestas de la API y las 9 páginas | ✅ 614 comparaciones, 0 diferencias |
+
+Las migraciones 0018 y 0019 existen para eso: una instalación nueva no daba lo mismo (le
+faltaban las 10 confirmaciones de avisos y el estado de las dos correcciones del
+accidente de Celta, y el encabezado "Actualizado" decía la fecha de instalación). Lo
+único que sale distinto, a propósito, es lo que es de cada instalación: las claves de
+`config\ehs.env` (al azar), el registro de cuándo se aplicó cada migración y los
+respaldos `.bak`.
+
+Para comprobarlo en el otro equipo: el encabezado del tablero dice **Actualizado: 24 sep
+2026 21:52**, y `http://127.0.0.1:3210/api/ehs/salud` responde `"motor":"arriba"` con
+corte `mes 7, anio 2026`.
 
 ## 7. Actualizar, desinstalar, dónde queda cada cosa
 
