@@ -1,22 +1,24 @@
 ﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
-    Arma la carpeta que se lleva al equipo del area: la app, node.exe portable, el
-    instalador de SQL Server 2022 Express y los archivos de doble clic. Corre en la
-    maquina de desarrollo (con internet), nunca en la de destino.
+    Arma la carpeta que se lleva al equipo del area: la app, node.exe portable, la
+    imagen del motor para el contenedor, el instalador de SQL Server 2022 Express (plan
+    B) y los archivos de doble clic. Corre en la maquina de desarrollo (con internet),
+    nunca en la de destino.
 
 .DESCRIPTION
     Resultado:
 
       paquete\
         INSTALAR-EHS.cmd         doble clic: modo contenedor, SIN administrador
-        INSTALAR-EHS-NATIVO.cmd  doble clic: modo nativo, pide administrador (UAC)
+        INSTALAR-EHS-NATIVO.cmd  doble clic: plan B (nativo), pide administrador (UAC)
         DESINSTALAR-EHS.cmd      doble clic: retira EHS conservando el dato
         PASOS-INSTALACION.html   el paso a paso para quien instala (doble clic)
         LEEME.txt
         app\                     la aplicacion, con node_modules SOLO de produccion
         node\node.exe            Node 22 portable: el equipo del area no instala Node
-        instaladores\            SQLEXPR_x64_*.exe (y, opcional, la imagen del contenedor)
+        instaladores\            mssql-server-2022.tar (imagen del motor) y el instalador de
+                                 SQL Server para el plan B (SSEI o SQLEXPR_x64_ENU)
 
     node_modules se arma con 'npm ci --omit=dev' dentro del paquete, no copiando el
     de desarrollo: la version anterior copiaba con robocopy /XD 'config', que excluye
@@ -27,8 +29,10 @@
     Carpeta del .zip "win-x64" de Node 22 ya extraido (la que contiene node.exe).
 
 .PARAMETER RutaMedioSql
-    El paquete offline de SQL Server 2022 Express (SQLEXPR_x64_ENU.exe o _ESN.exe).
-    ENU se instala sobre Windows en cualquier idioma; ESN solo sobre Windows en espanol.
+    El instalador de SQL Server 2022 Express para el plan B (nativo): el descargador de
+    Microsoft (SQL2022-SSEI-Expr.exe, 4 MB, baja el medio en ingles al instalar: necesita
+    internet), o el paquete offline SQLEXPR_x64_ENU.exe (~700 MB). ENU se instala sobre
+    Windows en cualquier idioma; ESN (espanol de Espana) falla con formato regional es-CO.
 
 .PARAMETER ConImagenContenedor
     Ademas guarda la imagen de SQL Server 2022 para el modo contenedor, con
@@ -132,9 +136,12 @@ if ($LASTEXITCODE -ne 0) { throw "El driver mssql no carga con el node.exe del p
 Copy-Item $nodeOrigen $PaqueteNode
 Copy-Item $RutaMedioSql $PaqueteInstaladores
 $nombreMedio = Split-Path $RutaMedioSql -Leaf
-if ($nombreMedio -notmatch '_ENU') {
-    Write-Warning ("El medio de SQL Server es $nombreMedio, no ENU: el plan B (INSTALAR-EHS-NATIVO.cmd) de " +
-                   "este paquete solo instala sobre Windows en ese mismo idioma. ENU sirve en cualquiera.")
+if ($nombreMedio -match 'SSEI') {
+    Write-Host "Medio de SQL Server: el descargador de Microsoft ($nombreMedio). El plan B lo usa para bajar el medio en INGLES (necesita internet al instalar)."
+} elseif ($nombreMedio -notmatch '_ENU') {
+    Write-Warning ("El medio de SQL Server es $nombreMedio, no ENU: el plan B (INSTALAR-EHS-NATIVO.cmd) solo instala si el idioma de " +
+                   "Windows, la configuracion regional del sistema Y el formato regional coinciden con ese medio (el ESN es de Espana, es-ES: " +
+                   "con formato es-CO, el de Colombia, setup.exe falla). ENU sirve en cualquiera.")
 }
 
 if ($RutaImagenTar) {
@@ -156,8 +163,9 @@ if ($RutaImagenTar) {
 # abierto en el equipo. Si el paquete trae la imagen (.tar, con -ConImagenContenedor)
 # la carga sin internet; si no, usa la que ya este en Docker o la descarga.
 #
-# INSTALAR-EHS-NATIVO.cmd es el modo nativo (SQL Server Express como servicio de
-# Windows): pide administrador (UAC) y no necesita Docker.
+# INSTALAR-EHS-NATIVO.cmd es el plan B, el modo nativo (SQL Server Express como
+# servicio de Windows): pide administrador (UAC), para instalar y para desinstalar, y
+# no necesita Docker. Descarga el medio en ingles: necesita internet (ver -RutaMedioSql).
 #
 # Unblock-File: un .zip traido de OneDrive o de un correo marca cada archivo como
 # "descargado de internet", y con la directiva RemoteSigned esos .ps1 no corren. Es lo
@@ -219,16 +227,17 @@ pause
 EHS - tablero de indicadores
 ============================
 
-Para instalar: doble clic en INSTALAR-EHS-NATIVO.cmd. Windows pide confirmar el
-permiso de administrador (UAC) UNA SOLA VEZ, para instalar SQL Server 2022 Express
-como servicio de Windows. Tarda varios minutos. Al final se abre el tablero y
-quedan dos iconos en el escritorio: EHS (el tablero) y Reparar EHS (si la franja
-de arriba se pone roja). El tablero arranca solo cada vez que se inicia sesion en
-Windows, sin volver a pedir administrador.
+Para instalar: doble clic en INSTALAR-EHS.cmd. NO pide administrador. Necesita
+Docker Desktop ya instalado y abierto una vez en el equipo (eso lo instala IT, una
+sola vez: ver PASOS-INSTALACION.html, seccion 1). Tarda unos dos minutos y no
+descarga nada: la imagen del motor viaja dentro del paquete. Al final se abre el
+tablero y quedan dos iconos en el escritorio: EHS (el tablero) y Reparar EHS (si la
+franja de arriba se pone roja). El tablero arranca solo cada vez que se inicia
+sesion en Windows.
 
-Alternativa, si el equipo ya tiene licencia de Docker Business resuelta:
-INSTALAR-EHS.cmd instala el mismo tablero con SQL Server en un contenedor, sin
-pedir administrador para instalar (Docker Desktop si lo pide, aparte, una vez).
+Plan B, si Docker no es posible en el equipo: INSTALAR-EHS-NATIVO.cmd instala SQL
+Server 2022 Express como servicio de Windows. Ese SI pide administrador (para
+instalar y para desinstalar) y necesita internet. Detalle en app\instalacion\requisitos-it.md.
 
 Paso a paso completo: PASOS-INSTALACION.html (doble clic, se abre en el navegador).
 "@.Replace("`r`n", "`n").Replace("`n", "`r`n") | Set-Content -Path (Join-Path $CarpetaSalida 'LEEME.txt') -Encoding ASCII
@@ -277,4 +286,4 @@ if ($rutaZip) {
 
 Write-Host ""
 Write-Host "=== Listo ===" -ForegroundColor Green
-Write-Host "En el equipo del area: extraer en una carpeta fija (p. ej. C:\EHS) y doble clic en INSTALAR-EHS-NATIVO.cmd."
+Write-Host "En el equipo del area: extraer en una carpeta fija (p. ej. C:\EHS) y doble clic en INSTALAR-EHS.cmd."

@@ -7,18 +7,20 @@
 .DESCRIPTION
     Dos condiciones gobiernan este script, tal como las fija el encargo de Fase D:
 
-      1. Quien instala necesita UN comando (el doble clic en INSTALAR-EHS-NATIVO.cmd).
+      1. Quien instala necesita UN comando (el doble clic en INSTALAR-EHS.cmd).
       2. Quien USA el tablero despues ve un icono, cuatro pantallas y cero
          configuracion — nunca una consola, un puerto, ni el motor.
 
-    Con -Motor nativo (el modo del paquete, decision del 28-sep-2026: ver
-    instalacion/requisitos-it.md) instala SQL Server 2022 Express como servicio de
-    Windows via su instalador oficial; ese modo SI necesita administrador, una sola
-    vez, para instalar. Con -Motor contenedor levanta SQL Server 2022 en Docker
-    Desktop o Podman, SIN administrador para instalar — queda documentado como
-    alternativa, para si la licencia de Docker Business de la empresa se resuelve mas
-    adelante. Todo lo demas — migraciones, logins, configuracion, accesos directos —
-    es IDENTICO entre los dos modos: la unica diferencia es como aparece el motor.
+    Con -Motor contenedor (el modo principal: lo que hace INSTALAR-EHS.cmd) levanta
+    SQL Server 2022 en Docker Desktop o Podman, SIN administrador para instalar; lo
+    unico que pide permisos es Docker Desktop, una vez, y lo instala IT (ver
+    instalacion/requisitos-it.md, que ademas explica la licencia de Docker Business).
+    Con -Motor nativo (plan B, INSTALAR-EHS-NATIVO.cmd) instala SQL Server 2022
+    Express como servicio de Windows via su instalador oficial, para un equipo donde
+    Docker no sea posible; ese modo SI necesita administrador, para instalar y para
+    desinstalar. Todo lo demas — migraciones, logins, configuracion, accesos
+    directos — es IDENTICO entre los dos modos: la unica diferencia es como aparece
+    el motor.
 
     Se corre COMO LA CUENTA DE QUIEN VA A USAR EL EQUIPO. En modo nativo, si el
     aviso de UAC lo eleva otra cuenta (la de IT), el arranque automatico, los
@@ -294,7 +296,7 @@ function Preparar-MedioSqlExpress {
     if ($nombre -match 'SSEI') {
         Write-Host "Descargando el medio de SQL Server Express (Core, necesita internet)…"
         $p = Start-Process -FilePath $Ruta -Wait -PassThru `
-            -ArgumentList "/ACTION=Download /MEDIAPATH=`"$trabajo`" /MEDIATYPE=Core /QUIET"
+            -ArgumentList "/ACTION=Download /MEDIAPATH=`"$trabajo`" /MEDIATYPE=Core /LANGUAGE=en-US /QUIET"
         if ($p.ExitCode -ne 0) { throw "El descargador de SQL Server Express termino con codigo $($p.ExitCode)." }
         $paquete = Get-ChildItem $trabajo -Filter 'SQLEXPR*.exe' | Select-Object -First 1 -ExpandProperty FullName
         if (-not $paquete) { throw "El descargador no dejo ningun SQLEXPR*.exe en $trabajo." }
@@ -417,20 +419,34 @@ function Revisar-SectorDeDisco {
 
 # Con un reinicio pendiente, setup.exe se niega a instalar (regla RebootRequiredCheck)
 # con un mensaje que no dice que hacer.
-# Hallazgo de la primera corrida real, 28-sep-2026 (equipo de Samuel): esta funcion solo
-# miraba dos de las tres senales estandar de reinicio pendiente. La tercera
-# (PendingFileRenameOperations — Windows Update, Office Click-to-Run o cualquier
-# instalador que reemplaza un archivo en uso la dejan puesta) SI estaba activa ese dia
-# (por Office/OneDrive, nada de EHS) y esta funcion no la vio: paso de largo, y
-# setup.exe de SQL Server fallo despues con un codigo de salida sin bootstrap log que
-# leer (0x84C4000E) — el mismo tipo de fallo silencioso que este chequeo existe para
-# evitar, solo que con un mensaje util en vez de un codigo opaco.
 function Revisar-ReinicioPendiente {
     $pendiente = (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending') -or
-                 (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired') -or
-                 [bool](Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Control\Session Manager' -Name PendingFileRenameOperations -ErrorAction SilentlyContinue)
+                 (Test-Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired')
     if ($pendiente) {
-        throw "Windows tiene un reinicio pendiente (actualizaciones, o un instalador reciente de otro programa). Reinicia y vuelve a correr este instalador."
+        throw "Windows tiene un reinicio pendiente (actualizaciones). Reinicia y vuelve a correr este instalador."
+    }
+}
+
+# Primera corrida real, 28-sep-2026 (equipo de Samuel, Windows en es-ES con formato
+# regional es-CO): setup.exe termino con 0x84C4000E SIN dejar bootstrap log, y este
+# script solo mostraba el codigo. Una primera lectura culpo a un reinicio pendiente y
+# estaba equivocada (un reinicio real no lo arreglo). Corriendo setup.exe a mano con su
+# salida capturada, el mensaje era otro: "no soporta el idioma del sistema". El medio en
+# espanol (ESN) es de ESPANA (3082) y exige que el idioma de Windows, la configuracion
+# regional del sistema Y el formato regional sean 3082 — en Colombia el formato es es-CO
+# (9226) y falla. El medio en ingles (ENU) instala en cualquier idioma. Se comprueba
+# ANTES de instalar, para que salga el motivo y no un codigo sin explicacion.
+function Revisar-IdiomaDelMedio {
+    param([string]$Ruta)
+    if ((Split-Path $Ruta -Leaf) -notmatch 'ESN') { return }
+    $ui = (Get-UICulture).LCID
+    $sistema = (Get-WinSystemLocale).LCID
+    $formato = (Get-Culture).LCID
+    if ($ui -ne 3082 -or $sistema -ne 3082 -or $formato -ne 3082) {
+        throw ("El instalador de SQL Server es SQLEXPR_x64_ESN (espanol de Espana, 3082) y este Windows no coincide: " +
+               "idioma $((Get-UICulture).Name), configuracion regional del sistema $((Get-WinSystemLocale).Name), " +
+               "formato $((Get-Culture).Name). Usa SQLEXPR_x64_ENU.exe (ingles), que instala en cualquier idioma: " +
+               "-RutaInstaladorSqlExpress <ruta a SQLEXPR_x64_ENU.exe>.")
     }
 }
 
@@ -618,6 +634,7 @@ if ($Motor -eq 'contenedor') {
         }
         if ($firma.Status -ne 'Valid') { Write-Warning "Firma de Microsoft sin poder validarla en linea ($($firma.Status)); se continua." }
         Revisar-ReinicioPendiente
+        Revisar-IdiomaDelMedio $RutaInstaladorSqlExpress
         Revisar-SectorDeDisco
         $setup = Preparar-MedioSqlExpress $RutaInstaladorSqlExpress
 
@@ -634,14 +651,19 @@ if ($Motor -eq 'contenedor') {
         $admins = ([Security.Principal.SecurityIdentifier]'S-1-5-32-544').Translate([Security.Principal.NTAccount]).Value
 
         Write-Host "Instalando SQL Server 2022 Express (instancia EHSLOCAL)… tarda varios minutos."
-        $p = Start-Process -FilePath $setup -Wait -PassThru -ArgumentList (
+        $salidaSetup = Join-Path $env:TEMP 'ehs-setup-salida.txt'
+        $p = Start-Process -FilePath $setup -Wait -PassThru -RedirectStandardOutput $salidaSetup -ArgumentList (
             "/ConfigurationFile=`"$iniTemporal`" /SAPWD=`"$ClaveSa`" /SQLSYSADMINACCOUNTS=`"$admins`" " +
             "/INSTALLSQLDATADIR=`"$CarpetaMotorNativo`" /IACCEPTSQLSERVERLICENSETERMS /SUPPRESSPRIVACYSTATEMENTNOTICE")
         Remove-Item $iniTemporal -Force -ErrorAction SilentlyContinue
         # 3010 = instalado, pide reiniciar Windows en algun momento (no ahora).
         if ($p.ExitCode -notin @(0, 3010)) {
-            throw ("El instalador de SQL Server termino con codigo $($p.ExitCode). El detalle esta en " +
-                   "C:\Program Files\Microsoft SQL Server\160\Setup Bootstrap\Log\Summary.txt")
+            # setup.exe a veces falla ANTES de crear su bootstrap log (idioma, por ejemplo):
+            # lo unico que dice por que es lo que imprime en pantalla.
+            $dijo = if (Test-Path $salidaSetup) { (Get-Content $salidaSetup -Raw).Trim() } else { '' }
+            throw ("El instalador de SQL Server termino con codigo $($p.ExitCode). " +
+                   $(if ($dijo) { "Dijo: $dijo " } else { '' }) +
+                   "Mas detalle en C:\Program Files\Microsoft SQL Server\160\Setup Bootstrap\Log\Summary.txt (si existe).")
         }
     } elseif ((Get-Service $NombreServicio).Status -ne 'Running') {
         Start-Service $NombreServicio -ErrorAction Stop
