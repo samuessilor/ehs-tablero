@@ -41,6 +41,40 @@ Con eso listo, la persona del área (o Samuel con ella) hace doble clic en
   el instalador la cambia por una que no queda guardada en ningún lado (ni en ese
   archivo ni en la configuración del contenedor).
 
+## Las opciones de implementación, una por una
+
+Hay cinco caminos. El paquete instala A y B con el mismo `INSTALAR-EHS.cmd`, y C con
+`INSTALAR-EHS-NATIVO.cmd`. Las cifras de descarga se midieron el 28-sep-2026.
+
+| | A. Contenedor con **Docker Desktop** (el que se instala) | B. Contenedor con **Podman / Rancher Desktop** | C. **Nativo**: SQL Server Express como servicio | D. **Solo lectura**, sin base de datos | E. **Servidor de la empresa** (IT) |
+|---|---|---|---|---|---|
+| Administrador para instalar EHS | No | No | **Sí** (UAC) | No | Lo hace IT |
+| Administrador para desinstalar | No | No | **Sí** | No | IT |
+| Administrador para lo previo | **Sí, una vez, IT**: instalar Docker Desktop (activa WSL 2; puede pedir reiniciar) y agregar la cuenta a `docker-users` | **Sí, una vez, IT**: instalar el programa | Está en el propio instalador de EHS | No | IT |
+| Qué hay que descargar | **Docker Desktop**, 628 MB (docker.com). Lo demás ya viaja en el paquete: la imagen del motor (596 MB), Node portable, la aplicación | El instalador de Podman Desktop o de Rancher Desktop (motor *dockerd*); no medido | Nada aparte del paquete, **pero al instalar** baja 714 MB de Microsoft (SQL Server en inglés): **necesita internet** | Nada: Node portable ya está en el paquete | Lo define IT |
+| Internet al instalar EHS | No | No | **Sí** | No | Según IT |
+| Licencia | **Docker Business** (pago, decisión de la organización) | Gratis | Gratis | Gratis | La de IT |
+| ¿Captura, corrige y confirma avisos? | Sí | Sí | Sí | **No**: las escrituras son simuladas, no guardan nada | Sí |
+| Arranque automático, respaldos y Reparar | Sí, probados | El instalador funciona; el arranque automático y Reparar están hechos para Docker Desktop y **no se han probado** | Sí (en el código), **nunca corrido de punta a punta** | Nada de eso | Lo define IT |
+| Estado de prueba | ✅ de punta a punta, dos veces (23 y 28-sep) | ⚠️ sin probar | ⚠️ el primer intento se detuvo por el idioma del instalador; sin repetir | Existe en el código (es el que corre en Vercel), pero el paquete **no trae lanzador** | No aplica todavía: IT no ha entregado el servidor |
+
+**Cuál conviene.** En orden de practicidad:
+
+1. **A, Docker Desktop.** Es la única que se probó completa y la única donde lo elevado es
+   una sola cosa, hecha una vez por IT. La persona del área no vuelve a ver un aviso de
+   administrador. Su costo es la licencia y unos 2 GB de memoria para el motor. **Es la
+   recomendada, si IT aprueba la licencia.**
+2. **B, Podman o Rancher Desktop**, si la licencia de Docker no se aprueba: mismo
+   paquete, sin costo, pero hay que ensayarla una vez antes de dársela a la persona.
+3. **E, servidor de la empresa**, que es el destino definitivo de la fase 1: EHS instala
+   allí la misma aplicación contra un SQL Server de IT (ver "Migrar más adelante"). El
+   equipo local es el puente mientras IT lo entrega.
+4. **C, nativo**, solo si no hay ningún motor de contenedores posible: pide
+   administrador dos veces, cambia más cosas del sistema, necesita internet y no está
+   probado.
+5. **D, solo lectura**, no reemplaza a las demás: sirve para mostrar el tablero, no para
+   capturar datos.
+
 ## Qué permisos pide cada camino (medido en el código, 28-sep-2026)
 
 | Permiso o cambio en el equipo | Contenedor (el que se instala) | Nativo (plan B) |
