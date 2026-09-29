@@ -511,8 +511,12 @@ if ($Motor -eq 'contenedor') {
     # despues de instalar Docker Desktop hay que aceptar sus terminos en su ventana:
     # eso no se puede hacer por la persona, y si no se hace, esto termina en el aviso
     # de siempre al cabo de tres minutos.
-    $escritorioDocker = Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'
-    if ($LASTEXITCODE -ne 0 -and $script:Herramienta -eq 'docker' -and (Test-Path $escritorioDocker) -and
+    # Docker Desktop puede estar instalado para todos (Program Files) o solo para este
+    # usuario (`install --user`, sin administrador): se busca en los dos sitios.
+    $escritorioDocker = @((Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'),
+                          (Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\Docker Desktop.exe')) |
+        Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($LASTEXITCODE -ne 0 -and $script:Herramienta -eq 'docker' -and $escritorioDocker -and
         $infoMotor -notmatch 'Access is denied|acceso denegado|permission denied') {
         Write-Host "Docker Desktop esta cerrado: abriendolo y esperando su motor (hasta 3 minutos)…"
         Start-Process $escritorioDocker

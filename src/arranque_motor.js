@@ -20,12 +20,17 @@ const { execFile, spawn } = require('child_process');
 const { setTimeout } = require('timers');
 const { obtener } = require('./datos/configuracion');
 
-const EJECUTABLE = path.join(
-  process.env.ProgramFiles || 'C:\\Program Files',
-  'Docker',
-  'Docker',
-  'Docker Desktop.exe'
-);
+// Docker Desktop se instala en uno de dos sitios: para todos los usuarios (pide
+// administrador) o solo para el usuario actual (`install --user`, sin administrador).
+const CANDIDATOS = [
+  path.join(
+    process.env.ProgramFiles || 'C:\\Program Files',
+    'Docker',
+    'Docker',
+    'Docker Desktop.exe'
+  ),
+  path.join(process.env.LOCALAPPDATA || '', 'Programs', 'DockerDesktop', 'Docker Desktop.exe'),
+];
 // Unos segundos de gracia al iniciar sesion: si Docker Desktop tiene su propio arranque
 // automatico encendido, se le deja aparecer primero en vez de lanzar un segundo intento.
 const ESPERA_MS = 20 * 1000;
@@ -35,7 +40,7 @@ const ESPERA_MS = 20 * 1000;
  * @returns {Promise<string>} Lo que hizo: 'no aplica', 'ya estaba abierto', 'abierto'.
  */
 function asegurarDockerDesktop(opciones = {}) {
-  const exe = opciones.exe || EJECUTABLE;
+  const exe = opciones.exe || CANDIDATOS.find((c) => fs.existsSync(c)) || CANDIDATOS[0];
   const espera = opciones.esperaMs ?? ESPERA_MS;
   return new Promise((resolve) => {
     if (!opciones.exe && (process.platform !== 'win32' || obtener('EHS_MOTOR') !== 'contenedor')) {

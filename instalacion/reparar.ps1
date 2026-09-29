@@ -64,8 +64,11 @@ if ($cfg['EHS_MOTOR'] -eq 'contenedor') {
 
     & $herramienta info *> $null
     if ($LASTEXITCODE -ne 0 -and $herramienta -eq 'docker') {
-        $escritorio = Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'
-        if (-not (Test-Path $escritorio)) { Fallar "Docker no responde y no se encontro Docker Desktop en $escritorio." }
+        # Instalado para todos (Program Files) o solo para este usuario (install --user).
+        $escritorio = @((Join-Path $env:ProgramFiles 'Docker\Docker\Docker Desktop.exe'),
+                        (Join-Path $env:LOCALAPPDATA 'Programs\DockerDesktop\Docker Desktop.exe')) |
+            Where-Object { Test-Path $_ } | Select-Object -First 1
+        if (-not $escritorio) { Fallar "Docker no responde y no se encontro Docker Desktop (buscado en Program Files y en %LOCALAPPDATA%\Programs\DockerDesktop)." }
         Write-Host "Docker Desktop esta cerrado: abriendolo (puede tardar un minuto)…"
         Start-Process $escritorio
         $limite = (Get-Date).AddSeconds(180)
