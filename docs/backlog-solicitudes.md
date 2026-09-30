@@ -1098,6 +1098,57 @@ misma estructura, data y todo". Antes de prometerlo se midió, en vez de suponer
 
 ---
 
+## 32. Libro de agosto: agregarlo, relacionarlo y publicarlo (30-sep-2026)
+
+Pedido de Samuel: "este excel tiene los datos de agosto, agrégalos, vincúlalos,
+relaciónalos y todo el proyecto, y sube rápidamente esa versión ya final con agosto a
+Vercel, que en local ya estaría perfecto, igual esa info dentro del proyecto".
+
+- [x] **Lectura del libro** (`KPI´s EHS 2026 - agosto.xlsx`, copiado a `ehs\`) con la misma
+      extracción de `construir_datos.py` (apuntada ahora al libro de agosto, igual que
+      `proceso-actualizacion.md`). Comparado con el libro de julio: de enero a julio el
+      único valor que cambia es Celta julio, accidentes 0 → 1 (el área lo corrigió, y la
+      base ya lo tenía por la 0012). La corrección de julio de `correcciones.csv`
+      caducó sola, como está diseñado; la de mayo sigue aplicándose.
+- [x] **Migración 0020, agosto de 2026**: 27 lecturas (Celta, Estrella y Agencias por las
+      9 magnitudes), generada desde el CSV ya validado, solo inserta, con `capturado_en`
+      fijo para que el encabezado "Actualizado" dé lo mismo en toda instalación.
+      Aplicada en la instalación real con respaldo previo: el corte pasa a agosto.
+- [x] **Cifras verificadas de forma independiente**: 50 valores (5 KPI, YTD y mes, 5 ámbitos
+      de Colombia) recalculados directamente desde el libro y comparados con la API: 0
+      diferencias. Frequency rate nacional a agosto 0,54; agua 5,25; energía 1,31;
+      residuos 141,76.
+- [x] **Hallazgo real al cargar agosto: Perú no trae agosto.** Dos cosas se rompían y antes no
+      podían verse porque todos los sitios reportaban los mismos meses: (1) el ámbito Perú
+      respondía 404 y la pantalla decía "el servidor de datos no responde"; (2) Colombia +
+      Perú sumaba Colombia sola y mezclaba Colombia a agosto con Perú a julio. **Migración
+      0021** (vista `ehs.v_lectura_ambito`): un mes cuenta para un ámbito solo si todos sus
+      sitios que reportaron ese año lo reportaron. Medido antes de escribirla sobre los 1904
+      registros de la vista: saca exactamente 27 filas (Colombia en agosto dentro de
+      Colombia + Perú) y ninguna más. `panorama` devuelve el corte propio del ámbito (el
+      último mes que sí tiene), y el tablero rearma la fila de meses al cambiar de ámbito.
+      Regla 3 en `ehs/CLAUDE.md`.
+- [x] **Lo que NO se hizo, a propósito**: no se corrió `publicar_a_app.py` ni se regeneró
+      `datos.json`. `web_json.py` tiene el corte de julio fijo en el código y al
+      regenerar retrocedía lo hecho a mano después (la etiqueta "Colombia", el
+      histórico, los hallazgos). Se corrigieron en su sitio las dos etiquetas de fuente.
+      Vercel sirve la instantánea exportada de la base, que sí trae agosto.
+- [x] **Avisos de calidad**: agosto trae 3 `salto_atipico` sin confirmar (Celta residuo
+      peligroso +50 %, Estrella residuo peligroso −41 %, Estrella residuo ordinario
+      +126 %). No se confirmaron: es un veredicto del área, no mío.
+- [x] **Aviso sobre el libro**: mayo de Celta sigue en 1 accidente; el libro cuenta 2 en el
+      año y la base 1. Queda escrito en el hallazgo `accidente-mes-equivocado` y en
+      `ehs/CLAUDE.md`.
+- [x] **Verificado**: instalación limpia con las 21 migraciones contra la de referencia, 13
+      tablas y 849 filas con horas, y la estructura: iguales (solo difiere `lectura_id`,
+      una clave autonumérica que la app nunca expone). Tablero sobre la base limpia
+      contra el de referencia: 614 llamadas y páginas, 0 diferencias. Modo SQL contra
+      modo JSON (el de Vercel) con la instantánea nueva: 614, 0. Navegador: Colombia a
+      agosto, Perú y Colombia + Perú a julio con agosto deshabilitado, sin errores de
+      consola. `eslint` y `prettier` limpios. — `esta ronda`
+
+---
+
 ## Cómo se usa este archivo de aquí en adelante
 
 1. Cuando llegue una solicitud nueva, se agrega como `- [ ]` bajo la sección que le

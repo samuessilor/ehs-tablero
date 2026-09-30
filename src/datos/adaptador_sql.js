@@ -417,9 +417,20 @@ module.exports = {
       .input('ambito_meta', sql.VarChar(20), META_DE_AMBITO[ambito] ?? null).query(`
         ${VALORES_DEL_AMBITO}
 
+        /* El corte es del ambito, no solo de Colombia: 'Peru' y 'Colombia + Peru' pueden ir
+           un mes atras (0021). Si el mes pedido esta dentro del corte publicado pero el
+           ambito todavia no lo tiene, se responde el ultimo que si tiene, y el mes real
+           va en corte.mes. Un mes posterior al corte sigue siendo "sin dato". */
+        declare @mes_ef tinyint = case
+            when exists (select 1 from @mensual where num_mes = @mes) then @mes
+            when @mes <= @corte then (select max(num_mes) from @mensual where num_mes < @mes)
+        end;
+
         select nombre = ${NOMBRE_AMBITO},
-               hay_dato = case when exists (select 1 from @mensual where num_mes = @mes)
-                               then 1 else 0 end;
+               hay_dato = case when @mes_ef is not null then 1 else 0 end,
+               mes_ef = @mes_ef,
+               nombre_mes = (select top 1 mes from ref.dim_fecha
+                              where anio = @anio and num_mes = @mes_ef);
 
         select k.kpi_id, k.kpi, k.unidad, k.familia, k.formato,
                valor = y.valor,
@@ -430,8 +441,8 @@ module.exports = {
                brecha_pct = ${brechaSql('mt.valor', 'y.valor')},
                estado = ${estadoSql('mt.valor', 'y.valor')}
           from ref.dim_kpi k
-          left join @ytd y on y.kpi_id = k.kpi_id and y.num_mes = @mes
-          left join @mensual m on m.kpi_id = k.kpi_id and m.num_mes = @mes
+          left join @ytd y on y.kpi_id = k.kpi_id and y.num_mes = @mes_ef
+          left join @mensual m on m.kpi_id = k.kpi_id and m.num_mes = @mes_ef
           left join ehs.meta mt
                  on mt.anio = @anio and mt.vigente = 1
                 and mt.ambito_id = @ambito_meta and mt.kpi_id = k.kpi_id
@@ -449,9 +460,12 @@ module.exports = {
                 and mt.ambito_id = @ambito_meta and mt.kpi_id = y.kpi_id
          where exists (select 1 from @mensual d where d.num_mes = y.num_mes)
          order by y.kpi_id, y.num_mes;
+
+        -- los meses que ESTE ambito tiene: el selector de mes del tablero se arma con ellos
+        select num_mes from @mensual group by num_mes order by num_mes;
       `);
 
-    const [[general = {}], kpis, serie] = r.recordsets;
+    const [[general = {}], kpis, serie, mesesAmbito] = r.recordsets;
     if (!general.hay_dato || !kpis.length) return null;
 
     const porKpi = new Map();
@@ -467,6 +481,13 @@ module.exports = {
 
     return {
       ...cabecera(ctx),
+      // el corte del ambito: igual al publicado para Colombia y sus sitios; un mes atras
+      // para 'Peru' y 'Colombia + Peru' mientras Peru no reporte el mes nuevo
+      corte: {
+        mes: general.mes_ef,
+        nombre: general.nombre_mes,
+        mesesConDato: mesesAmbito.map((x) => x.num_mes),
+      },
       ambito: { id: ambito, nombre: general.nombre },
       kpi: kpis.map((k) => ({
         kpi_id: k.kpi_id,

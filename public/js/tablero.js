@@ -391,6 +391,40 @@ var Tablero = (function () {
   }
 
   /* ------------------------------------------------------------------ controles --- */
+  // Los meses que tiene el ambito elegido. Peru y Colombia + Peru pueden ir un mes atras
+  // de Colombia (migracion 0021), asi que la fila de meses se vuelve a pintar cada vez
+  // que cambia el ambito y no solo al cargar.
+  function pintarMeses() {
+    $('#segMes').innerHTML = Fmt.mesCorto
+      .map(function (m, i) {
+        var hay = mesesConDato.indexOf(i + 1) >= 0;
+        return (
+          '<button type="button" data-mes="' +
+          (i + 1) +
+          '"' +
+          (hay
+            ? ' title="' + Fmt.mesLargo[i] + '"'
+            : ' disabled title="' + Fmt.mesLargo[i] + ' · próximamente"') +
+          '>' +
+          m +
+          '</button>'
+        );
+      })
+      .join('');
+  }
+
+  // El ambito para el que ya se resolvieron sus meses y su corte propio. El servidor
+  // contesta con el ultimo mes que el ambito si tiene, asi que pedir Peru en agosto da
+  // julio y corte.mes lo dice: el mes elegido se ajusta a ese antes de pintar nada.
+  var ambitoResuelto = null;
+  async function resolverAmbito() {
+    var pan = await api('panorama', { mes: S.mes, ambito: S.ambito });
+    mesesConDato = pan.corte.mesesConDato;
+    if (mesesConDato.indexOf(S.mes) < 0) S.mes = pan.corte.mes;
+    pintarMeses();
+    ambitoResuelto = S.ambito;
+  }
+
   function construirControles() {
     // class="tab" y los dos span: ehs.css estiliza '.nav-in .tab', con el numero (.n)
     // y el rotulo (.l) por separado. Sin ellos las pestañas salian como botones
@@ -435,22 +469,7 @@ var Tablero = (function () {
         '</div></div>'
       );
     }).join('');
-    $('#segMes').innerHTML = Fmt.mesCorto
-      .map(function (m, i) {
-        var hay = mesesConDato.indexOf(i + 1) >= 0;
-        return (
-          '<button type="button" data-mes="' +
-          (i + 1) +
-          '"' +
-          (hay
-            ? ' title="' + Fmt.mesLargo[i] + '"'
-            : ' disabled title="' + Fmt.mesLargo[i] + ' · próximamente"') +
-          '>' +
-          m +
-          '</button>'
-        );
-      })
-      .join('');
+    pintarMeses();
 
     document.body.addEventListener('click', function (e) {
       var b = e.target.closest('button');
@@ -2264,6 +2283,7 @@ var Tablero = (function () {
     pintando = true;
     document.body.classList.add('cargando');
     try {
+      if (ambitoResuelto !== S.ambito) await resolverAmbito();
       escribirUrl();
       marcarControles();
       var amb = AMBITOS.filter(function (a) {
@@ -2321,6 +2341,7 @@ var Tablero = (function () {
       mesesConDato = pan.corte.mesesConDato;
       S.anio = pan.anio;
       if (mesesConDato.indexOf(S.mes) < 0) S.mes = pan.corte.mes;
+      ambitoResuelto = S.ambito;
       construirControles();
       return render();
     })

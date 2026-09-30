@@ -145,15 +145,15 @@ Restaurar un `.bak` necesita la clave de `sa`, que el instalador cambia al termi
 guarda (`ehs_migrador` no puede restaurar): en modo contenedor se restablece con
 `mssql-conf set-sa-password`. Hoy ese procedimiento lo hace IT y no se ha ensayado.
 
-### Dejar otro equipo igual al de referencia (29-sep-2026)
+### Dejar otro equipo igual al de referencia (29 y 30-sep-2026)
 
-Se comparó una instalación limpia (migraciones 0001 a 0019, con datos semilla) contra la
-del equipo de Samuel, base contra base y estructura contra estructura:
+Se comparó una instalación limpia (migraciones 0001 a 0021, con datos semilla y el corte de
+agosto) contra la del equipo de Samuel, base contra base y estructura contra estructura:
 
 | Comparación | Resultado |
 |---|---|
 | Estructura: columnas, índices, restricciones, vistas, procedimientos y permisos | ✅ igual |
-| Datos: 13 tablas, 822 filas, incluidas las horas de auditoría | ✅ 0 diferencias |
+| Datos: 13 tablas, 849 filas, incluidas las horas de auditoría | ✅ 0 diferencias (salvo `lectura_id`, un autonumérico interno que la aplicación nunca muestra) |
 | Tablero sobre la base limpia contra el de referencia: 605 respuestas de la API y las 9 páginas | ✅ 614 comparaciones, 0 diferencias |
 
 Las migraciones 0018 y 0019 existen para eso: una instalación nueva no daba lo mismo (le
@@ -163,9 +163,10 @@ accidente de Celta, y el encabezado "Actualizado" decía la fecha de instalació
 `config\ehs.env` (al azar), el registro de cuándo se aplicó cada migración y los
 respaldos `.bak`.
 
-Para comprobarlo en el otro equipo: el encabezado del tablero dice **Actualizado: 24 sep
-2026 21:52**, y `http://127.0.0.1:3210/api/ehs/salud` responde `"motor":"arriba"` con
-corte `mes 7, anio 2026`.
+Para comprobarlo en el otro equipo: el encabezado del tablero dice **Actualizado: 30 sep
+2026 · 15:55**, y `http://127.0.0.1:3210/api/ehs/salud` responde `"motor":"arriba"` con
+corte `mes 8, anio 2026`. Perú y Colombia + Perú aparecen con corte a julio: Perú todavía
+no trae agosto.
 
 ## 7. Actualizar, desinstalar, dónde queda cada cosa
 

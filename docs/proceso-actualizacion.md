@@ -50,7 +50,7 @@ npx vercel --prod
 Una línea, en `analisis\construir_datos.py`:
 
 ```python
-XLSX = os.path.join(RAIZ, "ehs", "KPI´s EHS 2026-julio_versionfinal.xlsx")
+XLSX = os.path.join(RAIZ, "ehs", "KPI´s EHS 2026 - agosto.xlsx")
 ```
 
 Es lo único que cambia de mes a mes. El resto del pipeline no sabe cómo se llama el libro.
