@@ -1876,6 +1876,20 @@ var Tablero = (function () {
       porMagnitud[g.id] = g;
     });
 
+    // Una magnitud que JAMAS trae dato en ningun mes de este ambito no es un hueco de
+    // captura: es estructural. residuo_total_kg es el caso real - lo reporta Peru (que
+    // no desglosa peligroso/aprovechable/ordinario), nunca Celta/Estrella/Agencias (ver
+    // ehs/CLAUDE.md). En un ambito SIN Peru (p. ej. 'nacional') esa columna queda vacia
+    // en LAS DOS tablas de esta pantalla, a proposito: lo dice aqui para que no se lea
+    // como un hueco, y en sumar() (tabla 02) para que no tumbe la comprobacion.
+    var noAplica = {};
+    d.magnitudes.forEach(function (g) {
+      var apareceAlgunMes = d.meses.some(function (m) {
+        return m.lecturas[g.id] !== undefined && m.lecturas[g.id] !== null;
+      });
+      if (!apareceAlgunMes) noAplica[g.id] = true;
+    });
+
     // --- 01 · las lecturas
     $('#subDatosLect').textContent = unSitio
       ? d.ambito.nombre + ' · ' + d.corte.nombre + ' ' + d.anio
@@ -1885,7 +1899,11 @@ var Tablero = (function () {
       d.magnitudes
         .map(function (g) {
           return (
-            '<th class="num">' + Fmt.esc(g.nombre) + '<small>' + Fmt.esc(g.unidad) + '</small></th>'
+            '<th class="num">' +
+            Fmt.esc(g.nombre) +
+            '<small>' +
+            (noAplica[g.id] ? 'no la reporta ningún sitio de este ámbito' : Fmt.esc(g.unidad)) +
+            '</small></th>'
           );
         })
         .join('') +
@@ -1903,23 +1921,29 @@ var Tablero = (function () {
                 var v = m.lecturas[g.id];
                 var parcial =
                   v !== undefined && (m.sitiosConLectura[g.id] || 0) < d.ambito.sitios.length;
-                var editar = unSitio
-                  ? ' <a class="datos-editar" title="Corregir este valor" href="/corregir?' +
-                    new URLSearchParams({
-                      anio: d.anio,
-                      mes: m.mes,
-                      sitio: sitio,
-                      magnitud: g.id,
-                    }).toString() +
-                    '">✎</a>'
-                  : '';
+                var titulo = noAplica[g.id]
+                  ? 'No aplica a este ámbito: ningún sitio de aquí reporta esta magnitud (no es un hueco)'
+                  : parcial
+                    ? 'Falta la lectura de algún sitio: la suma es parcial'
+                    : '';
+                var editar =
+                  unSitio && !noAplica[g.id]
+                    ? ' <a class="datos-editar" title="Corregir este valor" href="/corregir?' +
+                      new URLSearchParams({
+                        anio: d.anio,
+                        mes: m.mes,
+                        sitio: sitio,
+                        magnitud: g.id,
+                      }).toString() +
+                      '">✎</a>'
+                    : '';
                 return (
                   '<td class="num' +
-                  (parcial ? ' datos-parcial' : '') +
+                  (noAplica[g.id] ? ' datos-noaplica' : parcial ? ' datos-parcial' : '') +
                   '"' +
-                  (parcial ? ' title="Falta la lectura de algún sitio: la suma es parcial"' : '') +
+                  (titulo ? ' title="' + titulo + '"' : '') +
                   '>' +
-                  crudo(v) +
+                  (noAplica[g.id] ? '<span aria-hidden="true">n/a</span>' : crudo(v)) +
                   editar +
                   '</td>'
                 );
@@ -1941,27 +1965,16 @@ var Tablero = (function () {
     );
 
     // --- 02 · de donde salen las graficas
-    // Una magnitud que JAMAS trae dato en ningun mes de este ambito no es un hueco de
-    // captura: es estructural. residuo_total_kg es el caso real - lo reporta Peru
-    // (que no desglosa peligroso/aprovechable/ordinario), nunca Celta/Estrella/
-    // Agencias (ver ehs/CLAUDE.md). residuos_por_lente suma las 4 magnitudes porque
-    // en un ambito con Peru cada sitio aporta la suya sin pisar la de otro
-    // (verificado con datos reales: Colombia+Peru trae los 4 valores, cada uno
-    // identico al de su sitio de origen - cero duplicado), pero en un ambito SIN
-    // Peru (ej. 'nacional') residuo_total_kg nunca aparece, para ningun mes. Sin
-    // esta lista, sumar() cortaba a null en cuanto tocaba esa magnitud ausente y
-    // TODA fila de residuos daba "no cuadra" - no habia ningun error real, solo una
-    // magnitud que no le corresponde a ese ambito contando como "dato faltante".
-    var noAplica = {};
-    d.magnitudes.forEach(function (g) {
-      var apareceAlgunMes = d.meses.some(function (m) {
-        return m.lecturas[g.id] !== undefined && m.lecturas[g.id] !== null;
-      });
-      if (!apareceAlgunMes) noAplica[g.id] = true;
-    });
+    // residuos_por_lente suma las 4 magnitudes de residuo porque en un ambito con Peru
+    // cada sitio aporta la suya sin pisar la de otro (verificado con datos reales:
+    // Colombia+Peru trae los 4 valores, cada uno identico al de su sitio de origen -
+    // cero duplicado). noAplica (arriba) es lo que evita que sumar() corte a null en
+    // cuanto toca una magnitud estructuralmente ausente de este ambito - sin eso, TODA
+    // fila de residuos daba "no cuadra" sin que hubiera ningun error real.
     var sumar = function (m, lista) {
       if (!lista.length) return null;
       var s = 0;
+      var huboValor = false;
       for (var i = 0; i < lista.length; i++) {
         var v = m.lecturas[lista[i]];
         if (v === undefined || v === null) {
@@ -1969,8 +1982,17 @@ var Tablero = (function () {
           return null;
         }
         s += Number(v);
+        huboValor = true;
       }
-      return s;
+      // Si TODAS las magnitudes de la lista son estructuralmente ajenas a este ambito
+      // (frequency_rate/accidentes_dafw en Peru, que no reporta horas ni accidentes:
+      // ver ehs/CLAUDE.md), el KPI entero es "sin dato" para este ambito, no cero -
+      // null, igual que lo que ya responde la API. Sin esto, una lista de UNA sola
+      // magnitud noAplica sumaba 0 (bucle vacio) y "0" nunca es igual a "sin dato":
+      // toda fila de ese KPI, en ese ambito, daba "no cuadra" sin que hubiera ningun
+      // error real. Distinto del caso de residuos (CUATRO magnitudes, solo UNA
+      // noAplica): ahi SI hubo valor real que sumar, y el resultado se queda como esta.
+      return huboValor ? s : null;
     };
     var igual = function (a, b) {
       var faltaA = a === null || a === undefined;
@@ -1983,6 +2005,19 @@ var Tablero = (function () {
         .map(function (id) {
           var g = porMagnitud[id];
           return g ? g.nombre + ' (' + g.unidad + ')' : id;
+        })
+        .join(' + ');
+    };
+    // Misma lista que nombreDe, pero como HTML con cada nombre envuelto para el badge
+    // ① / ② de la formula y de los encabezados — escapando cada nombre y unidad por
+    // separado, nunca la cadena entera (los conectores '+', '×', '÷' son fijos).
+    var nombreDeHtml = function (lista) {
+      return lista
+        .map(function (id) {
+          var g = porMagnitud[id];
+          return g
+            ? Fmt.esc(g.nombre) + ' <small>(' + Fmt.esc(g.unidad) + ')</small>'
+            : Fmt.esc(id);
         })
         .join(' + ');
     };
@@ -2000,7 +2035,11 @@ var Tablero = (function () {
       .map(function (k) {
         var unidadNum = unidadDe(k.numerador);
         var unidadDen = unidadDe(k.denominador);
-        var formula =
+        // La misma formula, dos veces: en texto plano (para el 'title' de los badges de
+        // los encabezados, que no acepta HTML) y en HTML (para pintarla arriba de la
+        // tabla con los badges ① ② que tambien llevan los encabezados — asi se ve, sin
+        // adivinar, que magnitudes entran en cada columna).
+        var formulaTexto =
           (k.numerador.length > 1 ? '(' : '') +
           nombreDe(k.numerador) +
           (k.numerador.length > 1 ? ')' : '') +
@@ -2009,6 +2048,22 @@ var Tablero = (function () {
             ? ' ÷ ' +
               (k.denominador.length > 1 ? '(' : '') +
               nombreDe(k.denominador) +
+              (k.denominador.length > 1 ? ')' : '')
+            : '');
+        var formulaHtml =
+          '<span class="datos-badge n" title="① numerador: ' +
+          Fmt.esc(nombreDe(k.numerador)) +
+          '">①</span> ' +
+          (k.numerador.length > 1 ? '(' : '') +
+          nombreDeHtml(k.numerador) +
+          (k.numerador.length > 1 ? ')' : '') +
+          (k.factor !== 1 ? ' × ' + Fmt.num(k.factor) : '') +
+          (k.denominador.length
+            ? ' ÷ <span class="datos-badge d" title="② denominador: ' +
+              Fmt.esc(nombreDe(k.denominador)) +
+              '">②</span> ' +
+              (k.denominador.length > 1 ? '(' : '') +
+              nombreDeHtml(k.denominador) +
               (k.denominador.length > 1 ? ')' : '')
             : '');
         var filas = d.meses
@@ -2027,13 +2082,13 @@ var Tablero = (function () {
               crudo(x.numerador) +
               '</td><td class="num">' +
               (k.denominador.length ? crudo(x.denominador) : '—') +
-              '</td><td class="num fuerte">' +
+              '</td><td class="num fuerte clave">' +
               Fmt.num(x.valor, k.dec) +
               '</td><td class="num">' +
               crudo(x.ytd_numerador) +
               '</td><td class="num">' +
               (k.denominador.length ? crudo(x.ytd_denominador) : '—') +
-              '</td><td class="num fuerte">' +
+              '</td><td class="num fuerte clave">' +
               Fmt.num(x.ytd, k.dec) +
               '</td><td class="datos-ok">' +
               (ok
@@ -2049,26 +2104,45 @@ var Tablero = (function () {
           ' <small>' +
           Fmt.esc(k.unidad) +
           '</small></h3><p class="datos-formula">' +
-          Fmt.esc(formula) +
+          formulaHtml +
           (k.denominador.length ? '' : ' · es un conteo: no divide') +
           '</p><div class="tablabox"><table class="matriz datos-tabla"><tr><th>Mes</th>' +
-          '<th class="num">Numerador<small>suma del mes' +
-          (unidadNum ? ', ' + Fmt.esc(unidadNum) : '') +
+          '<th class="num" title="① numerador: ' +
+          Fmt.esc(formulaTexto) +
+          '"><span class="datos-badge n">①</span> Numerador<small>lo que se suma este mes' +
+          (unidadNum ? ', en ' + Fmt.esc(unidadNum) : '') +
           '</small></th>' +
-          '<th class="num">Denominador<small>' +
-          (k.denominador.length ? 'suma del mes, ' + Fmt.esc(unidadDen) : 'no aplica') +
+          '<th class="num"' +
+          (k.denominador.length
+            ? ' title="② denominador: ' + Fmt.esc(nombreDe(k.denominador)) + '"'
+            : '') +
+          '>' +
+          (k.denominador.length
+            ? '<span class="datos-badge d">②</span> Denominador'
+            : 'Denominador') +
+          '<small>' +
+          (k.denominador.length
+            ? 'contra qué se divide, ' + Fmt.esc(unidadDen)
+            : 'no aplica: es un conteo') +
           '</small></th>' +
-          '<th class="num">Del mes<small>numerador ÷ denominador, ' +
+          '<th class="num clave">Indicador del mes<small>① ÷ ②' +
+          (k.factor !== 1 ? ' × ' + Fmt.num(k.factor) : '') +
+          ', en ' +
           Fmt.esc(k.unidad) +
-          '</small></th>' +
-          '<th class="num">Numerador acum.<small>suma enero al mes' +
+          ' — solo este mes</small></th>' +
+          '<th class="num">① acumulado<small>el mismo numerador, sumado de enero al mes' +
           (unidadNum ? ', ' + Fmt.esc(unidadNum) : '') +
           '</small></th>' +
-          '<th class="num">Denominador acum.<small>' +
-          (k.denominador.length ? 'suma enero al mes, ' + Fmt.esc(unidadDen) : 'no aplica') +
+          '<th class="num">' +
+          (k.denominador.length ? '② acumulado' : 'Denominador acum.') +
+          '<small>' +
+          (k.denominador.length
+            ? 'el mismo denominador, sumado de enero al mes, ' + Fmt.esc(unidadDen)
+            : 'no aplica: es un conteo') +
           '</small></th>' +
-          '<th class="num">Acumulado (YTD)<small>igual que "del mes", con los acum.</small></th>' +
-          '<th>Comprobación<small>vs. la suma de la tabla 01</small></th></tr>' +
+          '<th class="num clave">★ Acumulado (YTD)<small>el número que muestra la ficha del ' +
+          'tablero, arriba de esta pantalla</small></th>' +
+          '<th>Verificación<small>¿sumar la tabla 01 a mano da este ① y este ②?</small></th></tr>' +
           filas +
           '</table></div></div>'
         );
@@ -2078,14 +2152,17 @@ var Tablero = (function () {
       ? fallas + (fallas === 1 ? ' fila no cuadra' : ' filas no cuadran')
       : 'todo cuadra con las lecturas de la tabla 01';
     $('#notaDatosKpi').innerHTML = nota(
-      'Estas son las cifras exactas que dibujan las fichas y las gráficas: la fórmula de cada ' +
-        'KPI, arriba de su tabla, dice qué magnitudes de la tabla 01 se suman. <b>Numerador</b> ' +
-        'y <b>denominador</b> son esa suma; <b>del mes</b> y <b>acumulado (YTD)</b> son el ' +
-        'resultado de dividirlos — el número real que usa el tablero. <b>Cuadra</b> quiere ' +
-        'decir que sumar a mano las lecturas de la tabla 01 da exactamente ese numerador y ' +
-        'ese denominador; si una magnitud de la fórmula nunca trae dato en ningún mes de este ' +
-        'ámbito (p. ej. el residuo sin desglose en un ámbito sin Perú), no cuenta como un hueco ' +
-        '— es que no le corresponde a este ámbito, y se trata como cero, no como dato faltante.' +
+      'Esta tabla prueba, con los números crudos, cómo se arma cada ficha del tablero — nada se ' +
+        'escribe a mano. Arriba de cada tabla, la fórmula dice qué magnitudes de la tabla 01 son ' +
+        '<b>① el numerador</b> (lo que se mide) y <b>② el denominador</b> (contra qué se mide, casi ' +
+        'siempre los lentes producidos). <b>① y ②</b> son esa suma, del mes o acumulada; ' +
+        '<b>indicador del mes</b> y <b>★ acumulado (YTD)</b> son el resultado de dividirlos — y el ' +
+        '★ es, columna por columna, el mismo número que muestra la ficha de arriba. ' +
+        '<b>Verificación</b> dice si sumar a mano las lecturas de la tabla 01 da exactamente ese ' +
+        '① y ese ②; si una magnitud de la fórmula nunca trae dato en ningún mes de este ámbito ' +
+        '(p. ej. el residuo sin desglose en un ámbito sin Perú — ver la tabla 01, esa columna ' +
+        'queda vacía ahí a propósito), no cuenta como un hueco: no le corresponde a este ámbito y ' +
+        'se trata como cero, no como dato faltante.' +
         ' <a href="/api/ehs/detalle?formato=csv">Descargar las lecturas en CSV</a>.'
     );
 

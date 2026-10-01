@@ -1193,6 +1193,44 @@ main {
 .datos-tabla td.datos-parcial {
   color: var(--riesgo);
 }
+/* n/a estructural (p. ej. el residuo sin desglose en un ambito sin Peru): discreto y
+   sin el color de alerta de .datos-parcial — no es un error, es que esa magnitud no le
+   corresponde a este ambito. */
+.datos-tabla td.datos-noaplica {
+  color: var(--tenue);
+  font-style: italic;
+}
+/* El badge ①/② de la formula y de los encabezados de la tabla 02: ata visualmente cada
+   columna a la parte de la formula que representa, sin tener que leer el texto largo. */
+.datos-badge {
+  display: inline-block;
+  min-width: 15px;
+  padding: 0 3px;
+  border-radius: 3px;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  text-align: center;
+  cursor: help;
+}
+.datos-badge.n {
+  background: rgba(33, 160, 160, 0.16);
+  color: #0f6a6a;
+}
+.datos-badge.d {
+  background: rgba(100, 116, 142, 0.16);
+  color: var(--tenue);
+}
+/* La columna "clave" de la tabla 02 (indicador del mes y, sobre todo, el acumulado YTD):
+   es el numero que de verdad usa el tablero, resaltado para que no se confunda con los
+   pasos intermedios (numerador/denominador) que lo rodean. */
+.datos-tabla th.clave,
+.datos-tabla td.clave {
+  background: rgba(33, 160, 160, 0.1);
+}
+.datos-tabla tr.datos-sel td.clave {
+  background: rgba(33, 160, 160, 0.18);
+}
 .datos-editar {
   margin-left: 6px;
   color: var(--amb);
