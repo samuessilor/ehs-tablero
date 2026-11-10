@@ -10,8 +10,16 @@
  * un despliegue mal configurado se queda sin escribir, que es el fallo inocuo. Al
  * reves —que por defecto intentara grabar— un error de configuracion se convertiria en
  * dato operativo en un sitio equivocado.
+ *
+ * Los tres require() quedan literales por el mismo motivo que en datos/index.js:
+ * un require(variable) es invisible para el trazador de dependencias de Vercel.
  */
 const origen = require('./configuracion').obtener('ORIGEN_DATOS') || 'json';
 
-const ESCRITURAS = { sql: './escritura_sql', pg: './escritura_pg' };
-module.exports = require(ESCRITURAS[origen] || './escritura_simulada');
+function cargar(origenDatos) {
+  if (origenDatos === 'sql') return require('./escritura_sql');
+  if (origenDatos === 'pg') return require('./escritura_pg');
+  return require('./escritura_simulada');
+}
+
+module.exports = cargar(origen);

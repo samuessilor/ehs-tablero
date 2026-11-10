@@ -8,7 +8,7 @@
   ],
   "functions": {
     "api/servidor.js": {
-      "includeFiles": "{views,datos,src}/**"
+      "includeFiles": "{views,datos}/**"
     }
   },
   "headers": [
