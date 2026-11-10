@@ -8,7 +8,11 @@ const datos = require('./datos');
 const { obtener } = require('./datos/configuracion');
 
 const VISTAS = path.join(__dirname, '..', 'views');
-const MODO = obtener('ORIGEN_DATOS') === 'sql' ? 'sql' : 'simulado';
+/* 'sql' y 'pg' graban de verdad (ver escritura.js); cualquier otro valor cae en el
+   interinato sin persistencia. captura.ejs/corregir.ejs usan este modo para decidir
+   si muestran el aviso de "no guarda nada". */
+const ORIGEN = obtener('ORIGEN_DATOS');
+const MODO = ORIGEN === 'sql' || ORIGEN === 'pg' ? ORIGEN : 'simulado';
 
 const MESES_CORTO = [
   'ene',

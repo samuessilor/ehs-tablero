@@ -1287,7 +1287,7 @@ module.exports = {
       await consulta('select 1 as ok');
       const ctx = await contexto();
       return {
-        modo: 'sql',
+        modo: 'pg',
         motor: 'arriba',
         disponible: true,
         tardoMs: Date.now() - inicio,
@@ -1303,7 +1303,7 @@ module.exports = {
         ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EHOSTUNREACH'].includes(err.code) ||
         (typeof err.code === 'string' && err.code.startsWith('08'));
       return {
-        modo: 'sql',
+        modo: 'pg',
         motor: 'abajo',
         disponible: false,
         tardoMs: Date.now() - inicio,
