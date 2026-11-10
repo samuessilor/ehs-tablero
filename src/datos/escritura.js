@@ -3,6 +3,7 @@
  * mismo con la lectura y con la misma variable.
  *
  *   ORIGEN_DATOS=sql   -> escritura_sql: graba de verdad, via ehs.sp_capturar_lote.
+ *   ORIGEN_DATOS=pg    -> escritura_pg: igual, contra Postgres (Neon).
  *   cualquier otro     -> escritura_simulada: valida y no guarda.
  *
  * Que el interinato sea el caso por defecto, y no el que hay que pedir, es deliberado:
@@ -12,4 +13,5 @@
  */
 const origen = require('./configuracion').obtener('ORIGEN_DATOS') || 'json';
 
-module.exports = origen === 'sql' ? require('./escritura_sql') : require('./escritura_simulada');
+const ESCRITURAS = { sql: './escritura_sql', pg: './escritura_pg' };
+module.exports = require(ESCRITURAS[origen] || './escritura_simulada');
