@@ -49,17 +49,28 @@ const { pool } = require('./conexion_pg');
 
 const RUTA_METADATOS = path.join(__dirname, '..', '..', 'datos', 'datos.json');
 
+/* El manifiesto (hallazgos, correcciones, procedencia) es del pipeline SQL Server ->
+   JSON de antes del porte, y ahi "publicarlo" significaba dejarlo en el disco del
+   equipo que corre el servidor Node. Esa idea no existe en Vercel: el filesystem de
+   una funcion serverless es efimero (no sobrevive entre invocaciones ni builds) y el
+   archivo, a proposito, NUNCA viaja en el repositorio. Contra Neon/pg no hace falta de
+   todas formas -- hallazgos y correcciones ya tienen su propia vista en vivo
+   (ehs.v_calidad_avisos, ehs.v_correcciones). Sin el archivo, esta funcion devuelve
+   los campos vacios (ausencia de metadato, no un error) en vez de tumbar TODO el
+   tablero -- antes, faltando el archivo, cualquier ambito (nuevo o viejo) caia en
+   "Todavia no hay un mes publicado" sin importar si el mes si estaba publicado. */
 let metadatosCache = null;
 function metadatos() {
   if (metadatosCache) return metadatosCache;
   if (!fs.existsSync(RUTA_METADATOS)) {
-    const e = new Error(
-      'Falta datos.json en app/datos. Guarda los metadatos del corte publicado ' +
-        '(hallazgos, correcciones y procedencia) y no viaja en el repositorio: ' +
-        'publicalo con "python scripts/publicar_a_app.py".'
-    );
-    e.codigo = 'sin_datos_publicados';
-    throw e;
+    metadatosCache = {
+      actualizadoEn: null,
+      fuente: null,
+      origen: null,
+      hallazgos: [],
+      correcciones: [],
+    };
+    return metadatosCache;
   }
   const d = JSON.parse(fs.readFileSync(RUTA_METADATOS, 'utf-8'));
   metadatosCache = {
