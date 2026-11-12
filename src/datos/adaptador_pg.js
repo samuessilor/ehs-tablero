@@ -420,7 +420,23 @@ async function corteDeAmbito(ctx, ambito) {
     `select mes from ref.dim_fecha where anio = $1 and num_mes = $2 limit 1`,
     [ctx.anio, corte]
   );
-  return { ...ctx, corte, corteNombre: nombreRows[0]?.mes ?? null, mesesConDato };
+
+  // ctx.metaVigente trae el texto fijo de contexto() ("Nacional: libro KPIs ...
+  // sitios: scorecard corporativo"), armado mirando solo ambito_id = 'nacional'.
+  // Para un pais LATAM eso es una fuente que no es la suya (la de ellos es el Excel
+  // "EHS BD LATAM", hoja TARGETS) -- se reemplaza por la fuente real de SU meta.
+  const { rows: metaRows } = await consulta(
+    `select max(fuente) as fuente from ehs.meta where anio = $1 and vigente and ambito_id = $2`,
+    [ctx.anio, ambito]
+  );
+
+  return {
+    ...ctx,
+    corte,
+    corteNombre: nombreRows[0]?.mes ?? null,
+    mesesConDato,
+    metaVigente: metaRows[0]?.fuente ?? ctx.metaVigente,
+  };
 }
 
 module.exports = {
