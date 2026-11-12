@@ -2565,6 +2565,9 @@ var Tablero = (function () {
       ambitoResuelto = S.ambito;
       ambitoSinDato = true;
       mesesConDato = [];
+      // Sin pan.anio que leer, S.anio se queda en lo que haya en la URL (nada, casi
+      // siempre): sin esto, la tira de estado mostraba "CORTE ENERO null" literal.
+      if (!S.anio) S.anio = new Date().getFullYear();
       construirControles();
       render();
     });
