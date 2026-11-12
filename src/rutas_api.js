@@ -42,6 +42,22 @@ function json(res, cuerpo) {
   res.end(JSON.stringify(cuerpo));
 }
 
+/* Igual que json(), pero cacheable en el borde de Vercel (CDN), no en el navegador
+   (max-age=0: el navegador siempre revalida; quien responde rapido sin tocar Neon es
+   el borde). Solo para lecturas agregadas del tablero publico: el dato real cambia una
+   vez al mes (captura) mas correcciones sueltas, pero se mira constantemente durante
+   ese mes sin cambiar — cada vista repetida dentro de la ventana de cache no abre
+   conexion a Neon. 5 min de cache + 30 min de revalidacion en segundo plano (el viewer
+   nunca espera por la revalidacion: ve la version cacheada mientras el borde refresca).
+   NUNCA usar esto en /salud (tiene que poder fallar en vivo) ni en /detalle (el dato
+   de auditoria/correccion tiene que ser siempre el real, nunca el de hace 5 minutos). */
+function jsonCacheable(res, cuerpo) {
+  res.statusCode = 200;
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  res.setHeader('Cache-Control', 'public, max-age=0, s-maxage=300, stale-while-revalidate=1800');
+  res.end(JSON.stringify(cuerpo));
+}
+
 /* excel: separador ';' y coma decimal, que es lo que espera Excel con la configuracion
    regional de Colombia. Con ',' y punto decimal, el doble clic abria todo el archivo en
    una sola columna, justo en el paso de "verificar los datos". El CSV normal (',' y
@@ -100,7 +116,7 @@ async function atender(req, res, url) {
       }
       const r = await datos.panorama({ anio, mes, ambito });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/kpi-por-sitio') {
@@ -111,7 +127,7 @@ async function atender(req, res, url) {
       }
       const r = await datos.kpiPorSitio({ anio, mes, kpi });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/serie-mensual') {
@@ -123,7 +139,7 @@ async function atender(req, res, url) {
       }
       const r = await datos.serieMensual({ anio, ambito, kpi });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/agua-mensual') {
@@ -134,7 +150,7 @@ async function atender(req, res, url) {
       }
       const r = await datos.aguaMensual({ anio, ambito });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/energia-mensual') {
@@ -145,13 +161,13 @@ async function atender(req, res, url) {
       }
       const r = await datos.energiaMensual({ anio, ambito });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/agua-diaria') {
       const r = await datos.aguaDiaria({ anio, mes, sitio: q.get('sitio') });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/residuos-composicion') {
@@ -162,7 +178,7 @@ async function atender(req, res, url) {
       }
       const r = await datos.residuosComposicion({ anio, ambito });
       if (!r) return (errores.noEncontrado(res, `Sin composicion de residuos para ${anio}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/trayectoria-anual') {
@@ -180,7 +196,7 @@ async function atender(req, res, url) {
       const r = await datos.trayectoriaAnual({ kpi, ambito });
       if (!r)
         return (errores.noEncontrado(res, `El scorecard no publica ${kpi} para ${ambito}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/contraste-mensual') {
@@ -210,13 +226,13 @@ async function atender(req, res, url) {
       const r = await datos.contrasteMensual({ ambito, kpi, anioA, anioB });
       if (!r)
         return (errores.noEncontrado(res, `Sin datos para comparar ${anioA} y ${anioB}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/calidad-dato') {
       const r = await datos.calidadDato({ anio });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/datos') {
@@ -228,7 +244,7 @@ async function atender(req, res, url) {
       }
       const r = await datos.datosTabulados({ anio, ambito });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
-      return (json(res, r), true);
+      return (jsonCacheable(res, r), true);
     }
 
     if (ruta === '/api/ehs/detalle') {

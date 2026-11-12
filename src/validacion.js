@@ -55,6 +55,7 @@ const SITIOS = [
   { id: 'celta', etiqueta: 'Laboratorio Celta' },
   { id: 'estrella', etiqueta: 'Laboratorio La Estrella' },
   { id: 'agencias', etiqueta: 'Consolidado Agencias' },
+  { id: 'peru', etiqueta: 'Perú' },
 ];
 
 /* Rango historico con 50% de holgura, el mismo que carga ehs.dim_magnitud. Se declara
