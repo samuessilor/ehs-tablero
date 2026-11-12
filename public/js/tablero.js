@@ -682,7 +682,7 @@ var Tablero = (function () {
     // que SI habian respondido bien.
     var previos = await Promise.all([
       api('serie-mensual', { ambito: S.ambito, kpi: S.kpi }),
-      api('kpi-por-sitio', { mes: S.mes, kpi: S.kpi }),
+      api('kpi-por-sitio', { mes: S.mes, kpi: S.kpi, ambito: S.ambito }),
       api('trayectoria-anual', { kpi: S.kpi, ambito: 'colombia_peru' }).catch(function () {
         return null;
       }),
@@ -1257,7 +1257,7 @@ var Tablero = (function () {
       api('agua-diaria', { mes: S.mes, sitio: S.ambito }),
       api('panorama', { mes: S.mes, ambito: S.ambito }),
       api('energia-mensual', { ambito: S.ambito }),
-      api('kpi-por-sitio', { mes: S.mes, kpi: 'energia_por_lente' }),
+      api('kpi-por-sitio', { mes: S.mes, kpi: 'energia_por_lente', ambito: S.ambito }),
     ]);
     var agua = previos[0];
     var diario = previos[1];
@@ -1401,7 +1401,11 @@ var Tablero = (function () {
     Graficos.serieKpi('gResiduos', res, S.mes);
     $('#notaResiduos').innerHTML = nota(textoContraMeta(kRes));
 
-    var porSitio = await api('kpi-por-sitio', { mes: S.mes, kpi: 'residuos_por_lente' });
+    var porSitio = await api('kpi-por-sitio', {
+      mes: S.mes,
+      kpi: 'residuos_por_lente',
+      ambito: S.ambito,
+    });
     $('#subResSitios').textContent = 'acumulado a ' + mesElegido(pan);
     Graficos.porSitio('gResSitios', porSitio, 1);
     var fuera = porSitio.sitios.filter(function (s) {
@@ -1586,7 +1590,11 @@ var Tablero = (function () {
         ' El denominador son las horas-hombre de personal fijo más temporal.'
     );
 
-    var porSitio = await api('kpi-por-sitio', { mes: S.mes, kpi: 'frequency_rate' });
+    var porSitio = await api('kpi-por-sitio', {
+      mes: S.mes,
+      kpi: 'frequency_rate',
+      ambito: S.ambito,
+    });
     $('#subSegTabla').textContent = 'frequency rate · acumulado a ' + mesElegido(pan);
     $('#tSeguridad').innerHTML =
       '<table class="matriz"><tr><th>Sitio</th><th class="num">FR acumulado</th><th class="num">Meta</th>' +

@@ -511,10 +511,20 @@ module.exports = {
     if (!def) return null;
 
     const esLatam = AMBITOS_LATAM.has(ambito);
+    // 'peru' no tiene hermanos propios en este set de datos (es el unico sitio no
+    // colombiano operativo): mostrarlo junto a los tres de Colombia bajo
+    // en_colombia_peru es mas util que lo que habia antes -- s.en_nacional siempre,
+    // sin mirar el ambito -- que dejaba a Peru viendo la comparativa de Colombia como
+    // si fuera la suya.
+    const familiaColombiaPeru = ambito === 'colombia_peru' || ambito === 'peru';
     const filtroSitios = esLatam
       ? `join ref.bridge_ambito_sitio b on b.sitio_id = s.sitio_id and b.ambito_id = $4`
       : '';
-    const whereSitios = esLatam ? 'where s.activo' : 'where s.activo and s.en_nacional';
+    const whereSitios = esLatam
+      ? 'where s.activo'
+      : familiaColombiaPeru
+        ? 'where s.activo and s.en_colombia_peru'
+        : 'where s.activo and s.en_nacional';
     const parametros = esLatam ? [anio, mes, kpi, ambito] : [anio, mes, kpi];
 
     const { rows: sitios } = await consulta(
