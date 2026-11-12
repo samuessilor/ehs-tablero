@@ -2551,13 +2551,22 @@ var Tablero = (function () {
       S.anio = pan.anio;
       if (mesesConDato.indexOf(S.mes) < 0) S.mes = pan.corte.mes;
       ambitoResuelto = S.ambito;
+      ambitoSinDato = false;
       construirControles();
       return render();
     })
     .catch(function (err) {
+      // El ambito de la URL inicial (un enlace a un pais LATAM nuevo, o a un ambito
+      // que ya no tiene corte) puede no tener ninguna lectura -- no es una falla real
+      // del motor. Sin este catch, ni siquiera se llegaba a construirControles(): la
+      // pagina quedaba completamente en blanco, sin pills ni pestañas, nada, en vez
+      // de mostrar la navegacion con el aviso neutral que render() ya sabe pintar.
       console.error(err);
-      document.getElementById('tiraEstado').innerHTML =
-        '<span class="chip incumple">el servidor de datos no responde</span>';
+      ambitoResuelto = S.ambito;
+      ambitoSinDato = true;
+      mesesConDato = [];
+      construirControles();
+      render();
     });
 
   return { estado: S, render: render };
