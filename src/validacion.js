@@ -98,6 +98,13 @@ const SITIOS = [
   { id: 'brasil_tecnolens', etiqueta: 'Tecnolens Feira de Santana' },
   { id: 'brasil_unilab', etiqueta: 'Unilab Fortaleza' },
   { id: 'brasil_visolab', etiqueta: 'Visolab Sergipe' },
+  // Agencias con lectura propia, separada de su laboratorio (Excel "EHS BD LATAM
+  // (3).xlsx": la mayoria de las filas "... AGENCIES (N)" de LATAM no traen ningun
+  // dato real -- son ruido, confirmado celda por celda -- pero estas 3 si, y antes
+  // quedaban sumadas dentro de la lectura de su laboratorio en vez de aparecer solas.
+  { id: 'chile_megalux_ag', etiqueta: 'Agencias Megalux Chile' },
+  { id: 'honduras_popular_ag', etiqueta: 'Agencias Optica Popular Honduras' },
+  { id: 'brasil_unilab_ag', etiqueta: 'Agencias Unilab Fortaleza' },
 ];
 
 /* Rango historico con 50% de holgura, el mismo que carga ehs.dim_magnitud. Se declara
