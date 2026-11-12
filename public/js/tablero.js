@@ -28,8 +28,13 @@ var Tablero = (function () {
   // no tocar leerUrl/escribirUrl ni el resto de los usos existentes.
   var GRUPOS_AMBITO = [
     {
+      // LATAM primero: es el consolidado mas amplio de todos (ver
+      // postgres/06_paises_latam.sql). Un grupo aparte solo para esta pildora se veia
+      // como un grupo vacio/roto -- el titulo y la pildora decian lo mismo y no habia
+      // nada mas al lado.
       titulo: 'Consolidados',
       items: [
+        { id: 'latam', rotulo: 'LATAM' },
         { id: 'colombia_peru', rotulo: 'Colombia + Perú' },
         { id: 'nacional', rotulo: 'Colombia' },
         { id: 'peru', rotulo: 'Perú' },
@@ -43,13 +48,6 @@ var Tablero = (function () {
         { id: 'estrella', rotulo: 'La Estrella' },
         { id: 'agencias', rotulo: 'Agencias' },
       ],
-    },
-    // Expansion LATAM (postgres/06_paises_latam.sql): metas 2026 ya cargadas, sin
-    // lecturas todavia — por eso se ven con estado "Sin dato" hasta que cada pais
-    // empiece a capturar. Mismo patron: un consolidado primero, los paises despues.
-    {
-      titulo: 'LATAM',
-      items: [{ id: 'latam', rotulo: 'LATAM' }],
     },
     {
       titulo: 'Andina',
