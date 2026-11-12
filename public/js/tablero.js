@@ -452,10 +452,28 @@ var Tablero = (function () {
   // contesta con el ultimo mes que el ambito si tiene, asi que pedir Peru en agosto da
   // julio y corte.mes lo dice: el mes elegido se ajusta a ese antes de pintar nada.
   var ambitoResuelto = null;
+  // Si el ultimo ambito resuelto (arriba) no tiene ninguna lectura capturada todavia
+  // -- cualquier pais LATAM nuevo antes de su primera captura, o Peru antes de la
+  // suya. render() lo usa para mostrar un aviso neutral en vez de intentar pintar
+  // paneles que no tienen nada que mostrar.
+  var ambitoSinDato = false;
   async function resolverAmbito() {
-    var pan = await api('panorama', { mes: S.mes, ambito: S.ambito });
-    mesesConDato = pan.corte.mesesConDato;
-    if (mesesConDato.indexOf(S.mes) < 0) S.mes = pan.corte.mes;
+    // Capturado aparte: un ambito que todavia no capturo ningun mes (cualquier pais
+    // LATAM nuevo, o Peru antes de su primera captura) responde 404 aqui, en lo
+    // PRIMERO que corre cada render(). Sin este catch, ni siquiera se llegaba a
+    // intentar pintar la vista -- quedaba el error generico de "no se pudo leer el
+    // dato del servidor" para un ambito que simplemente no tiene nada que mostrar
+    // todavia, que es un estado normal, no una falla.
+    var pan = await api('panorama', { mes: S.mes, ambito: S.ambito }).catch(function () {
+      return null;
+    });
+    ambitoSinDato = !pan;
+    if (pan) {
+      mesesConDato = pan.corte.mesesConDato;
+      if (mesesConDato.indexOf(S.mes) < 0) S.mes = pan.corte.mes;
+    } else {
+      mesesConDato = [];
+    }
     pintarMeses();
     ambitoResuelto = S.ambito;
   }
@@ -2428,6 +2446,22 @@ var Tablero = (function () {
     );
   }
 
+  /** El aviso "este ámbito no tiene lecturas todavía", creado una sola vez y
+   *  reutilizado (no se reconstruye el DOM en cada render). Vive como primer hijo de
+   *  #cuerpo, al margen de las 6 secciones .vista que ya trae dashboard.ejs. */
+  function avisoSinDatoAmbito() {
+    var el = document.getElementById('avisoSinDatoAmbito');
+    if (el) return el;
+    el = document.createElement('section');
+    el.id = 'avisoSinDatoAmbito';
+    el.className = 'panel c12 cap-aviso';
+    el.hidden = true;
+    el.innerHTML = '<div class="cuerpo"><p></p></div>';
+    var cuerpo = $('#cuerpo');
+    cuerpo.insertBefore(el, cuerpo.firstChild);
+    return el;
+  }
+
   /* ------------------------------------------------------------------- render --- */
   async function render() {
     // Un clic mientras se dibuja NO se descarta: se recuerda y se atiende al terminar.
@@ -2456,12 +2490,30 @@ var Tablero = (function () {
         S.anio +
         '</b></span>';
 
-      if (S.vista === 'panorama') await pintarPanorama();
-      else if (S.vista === 'agua') await pintarAgua();
-      else if (S.vista === 'ambiental') await pintarAmbiental();
-      else if (S.vista === 'seguridad') await pintarSeguridad();
-      else if (S.vista === 'calidad') await pintarCalidad();
-      else if (S.vista === 'datos') await pintarDatos();
+      // Un ambito sin ninguna lectura capturada (cualquier pais LATAM nuevo, o Peru
+      // antes de su primera captura) no es una falla: es su estado normal hasta que
+      // capture su primer mes. marcarControles() ya des-oculto la vista activa; aqui
+      // se vuelve a ocultar y se deja un aviso neutral en su lugar, en vez de intentar
+      // pintar paneles que no tienen nada que mostrar (y que antes del fix de
+      // resolverAmbito tumbaban render() entero con el error generico).
+      var vistaActiva = document.getElementById('v-' + S.vista);
+      var aviso = avisoSinDatoAmbito();
+      if (ambitoSinDato) {
+        if (vistaActiva) vistaActiva.hidden = true;
+        aviso.hidden = false;
+        aviso.querySelector('p').textContent =
+          (amb ? amb.rotulo : S.ambito) +
+          ' todavía no tiene ninguna lectura capturada. En cuanto capture su primer mes, esta vista se llena sola.';
+      } else {
+        aviso.hidden = true;
+
+        if (S.vista === 'panorama') await pintarPanorama();
+        else if (S.vista === 'agua') await pintarAgua();
+        else if (S.vista === 'ambiental') await pintarAmbiental();
+        else if (S.vista === 'seguridad') await pintarSeguridad();
+        else if (S.vista === 'calidad') await pintarCalidad();
+        else if (S.vista === 'datos') await pintarDatos();
+      }
 
       Graficos.redibujar();
       $('#viva').textContent =
