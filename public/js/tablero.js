@@ -659,10 +659,17 @@ var Tablero = (function () {
 
     // De aqui en adelante todo depende solo de pan/S.kpi/S.mes, ya resueltos: se pide
     // en paralelo en vez de en fila (eran cuatro viajes de red uno detras de otro).
+    // trayectoria-anual se captura aparte (igual que ya hace pintarTrayectoriaPropia):
+    // sin esto, un ambito/kpi sin cierre anual (scorecard_anual vacio para el, por
+    // ejemplo cualquiera de los paises LATAM nuevos o un ambiente recien migrado)
+    // hacia fallar el Promise.all entero y con el se perdian serie/porSitio/matriz,
+    // que SI habian respondido bien.
     var previos = await Promise.all([
       api('serie-mensual', { ambito: S.ambito, kpi: S.kpi }),
       api('kpi-por-sitio', { mes: S.mes, kpi: S.kpi }),
-      api('trayectoria-anual', { kpi: S.kpi, ambito: 'colombia_peru' }),
+      api('trayectoria-anual', { kpi: S.kpi, ambito: 'colombia_peru' }).catch(function () {
+        return null;
+      }),
       pintarMatrizSitios(pan),
     ]);
     var serie = previos[0];
@@ -728,10 +735,20 @@ var Tablero = (function () {
     // perimetro fijo en colombia_peru a proposito, no S.ambito: este panel siempre
     // referencia el scorecard mas amplio (Colombia + Peru), nunca el ambito elegido
     // arriba — asi lo explica textoTrayectoria ("perímetro más amplio que el de
-    // este tablero"). tray ya se pidio arriba, en paralelo con serie/porSitio.
-    $('#subTray').textContent = tray.kpi + ' · perímetro ' + tray.perimetro;
-    Graficos.trayectoria('gTray', tray);
-    $('#notaTray').innerHTML = nota(textoTrayectoria(tray));
+    // este tablero"). tray ya se pidio arriba, en paralelo con serie/porSitio; puede
+    // venir null (scorecard_anual sin cierres para este kpi todavia, ver el catch de
+    // arriba) y este panel se vacia solo, sin tumbar el resto de pintarPanorama.
+    if (!tray) {
+      $('#subTray').textContent = '';
+      $('#gTray').innerHTML = '';
+      $('#notaTray').innerHTML = nota(
+        'El scorecard corporativo no publica cierres anteriores de este indicador todavía.'
+      );
+    } else {
+      $('#subTray').textContent = tray.kpi + ' · perímetro ' + tray.perimetro;
+      Graficos.trayectoria('gTray', tray);
+      $('#notaTray').innerHTML = nota(textoTrayectoria(tray));
+    }
   }
 
   function textoTrayectoria(t) {
