@@ -44,6 +44,41 @@ var Tablero = (function () {
         { id: 'agencias', rotulo: 'Agencias' },
       ],
     },
+    // Expansion LATAM (postgres/06_paises_latam.sql): metas 2026 ya cargadas, sin
+    // lecturas todavia — por eso se ven con estado "Sin dato" hasta que cada pais
+    // empiece a capturar. Mismo patron: un consolidado primero, los paises despues.
+    {
+      titulo: 'LATAM',
+      items: [{ id: 'latam', rotulo: 'LATAM' }],
+    },
+    {
+      titulo: 'Andina',
+      items: [
+        { id: 'andina', rotulo: 'Andina' },
+        { id: 'argentina', rotulo: 'Argentina' },
+        { id: 'chile', rotulo: 'Chile' },
+      ],
+    },
+    {
+      titulo: 'Centroamérica y Caribe',
+      items: [
+        { id: 'ca_caribe', rotulo: 'CA y Caribe' },
+        { id: 'costa_rica', rotulo: 'Costa Rica' },
+        { id: 'nicaragua', rotulo: 'Nicaragua' },
+        { id: 'rep_dominicana', rotulo: 'Rep. Dominicana' },
+        { id: 'guatemala', rotulo: 'Guatemala' },
+        { id: 'honduras', rotulo: 'Honduras' },
+      ],
+    },
+    {
+      titulo: 'México, Brasil y otros',
+      items: [
+        { id: 'mexico', rotulo: 'México' },
+        { id: 'brasil', rotulo: 'Brasil' },
+        { id: 'ecuador', rotulo: 'Ecuador' },
+        { id: 'eua', rotulo: 'EUA' },
+      ],
+    },
   ];
   var AMBITOS = GRUPOS_AMBITO.reduce(function (acc, g) {
     return acc.concat(g.items);

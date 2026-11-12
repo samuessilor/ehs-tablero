@@ -98,7 +98,45 @@ const META_DE_AMBITO = {
   nacional_labs: null,
   peru: 'peru',
   colombia_peru: 'colombia_peru',
+  // Expansion LATAM: cada ambito nuevo tiene su propia fila en ehs.meta con el mismo
+  // id (ver postgres/06_paises_latam.sql) — a diferencia de 'nacional_labs', ninguno
+  // de estos necesita apuntar a otro ambito distinto de si mismo.
+  latam: 'latam',
+  andina: 'andina',
+  ca_caribe: 'ca_caribe',
+  mexico: 'mexico',
+  brasil: 'brasil',
+  argentina: 'argentina',
+  chile: 'chile',
+  costa_rica: 'costa_rica',
+  nicaragua: 'nicaragua',
+  rep_dominicana: 'rep_dominicana',
+  guatemala: 'guatemala',
+  honduras: 'honduras',
+  ecuador: 'ecuador',
+  eua: 'eua',
 };
+
+/* Ambitos de la expansion LATAM (postgres/06_paises_latam.sql): salen de
+   ref.dim_ambito/ref.bridge_ambito_sitio, no de las columnas booleanas de
+   ref.dim_sitio. kpiPorSitio() los distingue para no alterar la consulta ya
+   verificada de Colombia (ver la funcion mas abajo). */
+const AMBITOS_LATAM = new Set([
+  'latam',
+  'andina',
+  'ca_caribe',
+  'mexico',
+  'brasil',
+  'argentina',
+  'chile',
+  'costa_rica',
+  'nicaragua',
+  'rep_dominicana',
+  'guatemala',
+  'honduras',
+  'ecuador',
+  'eua',
+]);
 
 /* El valor tal como lo publica la vista: redondeado a 6 decimales, igual que
  * el motor validado lo publica. 'v.valor' es numeric en las vistas Postgres,
@@ -440,8 +478,16 @@ module.exports = {
     };
   },
 
-  /** Cada sitio contra SU meta para un KPI. Las metas por sitio no son comparables. */
-  async kpiPorSitio({ anio, mes, kpi }) {
+  /** Cada sitio contra SU meta para un KPI. Las metas por sitio no son comparables.
+   *
+   * 'ambito' decide DE DONDE sale la lista de sitios a comparar, no cambia nada mas
+   * de la consulta (meta/brecha/estado siguen siendo del propio sitio, igual que
+   * siempre). Sin ambito, o con uno de la familia Colombia (celta/estrella/agencias/
+   * nacional/nacional_labs/peru/colombia_peru), la consulta es LA MISMA que antes de
+   * la expansion LATAM, literal — nada de lo ya verificado para Colombia cambia. Con
+   * un ambito de postgres/06_paises_latam.sql (mexico, brasil, ...) los sitios salen
+   * de ref.bridge_ambito_sitio en vez de las columnas en_nacional*. */
+  async kpiPorSitio({ anio, mes, kpi, ambito }) {
     const ctx = await contexto();
     ({ anio, mes } = alCorte(ctx, anio, mes));
     if (anio !== ctx.anio || mes > ctx.corte) return null;
@@ -453,12 +499,19 @@ module.exports = {
     const def = defRows[0];
     if (!def) return null;
 
+    const esLatam = AMBITOS_LATAM.has(ambito);
+    const filtroSitios = esLatam
+      ? `join ref.bridge_ambito_sitio b on b.sitio_id = s.sitio_id and b.ambito_id = $4`
+      : '';
+    const whereSitios = esLatam ? 'where s.activo' : 'where s.activo and s.en_nacional';
+    const parametros = esLatam ? [anio, mes, kpi, ambito] : [anio, mes, kpi];
+
     const { rows: sitios } = await consulta(
       `with ytd as (
           select v.ambito_id, ${VALOR_RECUPERADO} as valor
             from ehs.v_kpi_ytd v
             join ref.dim_kpi k on k.kpi_id = v.kpi_id
-            join ref.dim_sitio s on s.sitio_id = v.ambito_id and s.activo and s.en_nacional
+            join ref.dim_sitio s on s.sitio_id = v.ambito_id and s.activo
            where v.anio = $1 and v.num_mes_corte = $2 and v.kpi_id = $3
       )
       select s.sitio_id, s.sitio, s.nombre_corporativo as corporativo,
@@ -467,13 +520,14 @@ module.exports = {
              ${brechaSql('mt.valor', 'y.valor')} as brecha_pct,
              ${estadoSql('mt.valor', 'y.valor')} as estado
         from ref.dim_sitio s
+        ${filtroSitios}
         left join ytd y on y.ambito_id = s.sitio_id
         left join ehs.meta mt
                on mt.anio = $1 and mt.vigente and mt.ambito_id = s.sitio_id and mt.kpi_id = $3
-       where s.activo and s.en_nacional
+       ${whereSitios}
        -- los dos laboratorios primero y Agencias despues: el orden del reporte del area
        order by s.en_nacional_labs desc, s.sitio_id`,
-      [anio, mes, kpi]
+      parametros
     );
 
     return {

@@ -14,6 +14,23 @@ const AMBITOS = [
   'nacional',
   'peru',
   'colombia_peru',
+  // Expansion LATAM (postgres/06_paises_latam.sql) — estos no tienen fila booleana en
+  // ref.dim_sitio (en_nacional/en_colombia_peru): salen de ref.dim_ambito +
+  // ref.bridge_ambito_sitio, la cuarta rama generica de ehs.v_ambito.
+  'latam',
+  'andina',
+  'ca_caribe',
+  'mexico',
+  'brasil',
+  'argentina',
+  'chile',
+  'costa_rica',
+  'nicaragua',
+  'rep_dominicana',
+  'guatemala',
+  'honduras',
+  'ecuador',
+  'eua',
 ];
 /* Ambitos que tienen fila propia en ref.dim_sitio y por lo tanto pueden tener
    trayectoria (ehs.scorecard_anual) o contraste anio contra anio: todos menos
@@ -121,11 +138,16 @@ async function atender(req, res, url) {
 
     if (ruta === '/api/ehs/kpi-por-sitio') {
       const kpi = q.get('kpi') || 'residuos_por_lente';
+      const ambito = q.get('ambito') || 'nacional';
       if (!KPIS.includes(kpi)) {
         errores.parametroInvalido(res, `KPI desconocido: ${kpi}.`, { validos: KPIS });
         return true;
       }
-      const r = await datos.kpiPorSitio({ anio, mes, kpi });
+      if (!AMBITOS.includes(ambito)) {
+        errores.parametroInvalido(res, `Ambito desconocido: ${ambito}.`, { validos: AMBITOS });
+        return true;
+      }
+      const r = await datos.kpiPorSitio({ anio, mes, kpi, ambito });
       if (!r) return (errores.noEncontrado(res, `Sin datos para ${anio}.`), true);
       return (jsonCacheable(res, r), true);
     }
