@@ -118,6 +118,14 @@ svg {
   width: auto;
   display: block;
 }
+/* El logo de EssilorLuxottica es una marca horizontal (300x33), muy distinta de
+   la marca de Servioptica (371x215, casi cuadrada): a los mismos 40px de alto
+   quedaba casi 4 veces mas ancha que el resto de la cabecera. Se fija por alto
+   mas chico en vez de por ancho, que es lo que de verdad varia entre logos con
+   esta proporcion. */
+.marca img.logo-essilor {
+  height: 20px;
+}
 .marca .t {
   font-size: 12.5px;
   font-weight: 650;
