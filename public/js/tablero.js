@@ -1019,13 +1019,25 @@ var Tablero = (function () {
   }
 
   async function pintarMatrizSitios(pan) {
-    // Siempre los cinco ambitos y en el mismo orden. Antes era [el elegido] + los tres
-    // sitios: con Celta elegido, Celta salia dos veces y faltaban los agregados.
-    var filas = await Promise.all(
-      AMBITOS.map(function (a) {
-        return a.id === S.ambito ? pan : api('panorama', { mes: S.mes, ambito: a.id });
-      })
-    );
+    // Siempre los mismos ambitos y en el mismo orden (la lista completa de
+    // GRUPOS_AMBITO, que crece con cada pais que se agregue). Antes era [el elegido] +
+    // los tres sitios: con Celta elegido, Celta salia dos veces y faltaban los
+    // agregados. Cada peticion se captura aparte (.catch): un ambito que todavia no
+    // capturo ningun mes (cualquier pais LATAM nuevo, o Peru antes de su primera
+    // captura) responde 404 -- sin esto, UN solo ambito sin dato tumbaba el
+    // Promise.all entero y con el toda la vista de panorama. Se descarta (null),
+    // no se inventa una fila "sin dato": la matriz solo lista lo que si reporto.
+    var filas = (
+      await Promise.all(
+        AMBITOS.map(function (a) {
+          return a.id === S.ambito
+            ? pan
+            : api('panorama', { mes: S.mes, ambito: a.id }).catch(function () {
+                return null;
+              });
+        })
+      )
+    ).filter(Boolean);
     var cab =
       '<tr><th>Ámbito</th>' +
       pan.kpi
@@ -1606,11 +1618,27 @@ var Tablero = (function () {
         'Un mes en cero no borra un caso anterior.'
     );
 
-    // mismo criterio que gTray en Panorama: perimetro fijo, no el ambito elegido
-    var tray = await api('trayectoria-anual', { kpi: 'frequency_rate', ambito: 'colombia_peru' });
-    $('#subTraySeg').textContent = tray.kpi + ' · perímetro ' + tray.perimetro;
-    Graficos.trayectoria('gTraySeg', tray);
-    $('#notaTraySeg').innerHTML = nota(textoTrayectoria(tray));
+    // mismo criterio que gTray en Panorama: perimetro fijo, no el ambito elegido.
+    // Capturado aparte (igual que gTray y pintarTrayectoriaPropia): sin esto, un
+    // scorecard_anual sin cierres para frequency_rate tumbaba esta funcion DESPUES de
+    // que ya habia pintado FR/tabla/accidentes, dejando el error generico de render()
+    // encima de una vista que en realidad si tenia casi todo bien.
+    var tray = await api('trayectoria-anual', { kpi: 'frequency_rate', ambito: 'colombia_peru' }).catch(
+      function () {
+        return null;
+      }
+    );
+    if (!tray) {
+      $('#subTraySeg').textContent = '';
+      $('#gTraySeg').innerHTML = '';
+      $('#notaTraySeg').innerHTML = nota(
+        'El scorecard corporativo no publica cierres anteriores de este indicador todavía.'
+      );
+    } else {
+      $('#subTraySeg').textContent = tray.kpi + ' · perímetro ' + tray.perimetro;
+      Graficos.trayectoria('gTraySeg', tray);
+      $('#notaTraySeg').innerHTML = nota(textoTrayectoria(tray));
+    }
   }
 
   /* ------------------------------------------------------------------ calidad --- */
