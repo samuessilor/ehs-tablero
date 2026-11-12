@@ -381,10 +381,52 @@ function alCorte(ctx, anio, mes) {
   return { anio: anio == null ? ctx.anio : anio, mes: mes == null ? ctx.corte : mes };
 }
 
+/* Los 7 ambitos de siempre (las primeras 3 ramas de ehs.v_ambito + el sitio
+   individual) comparten el corte de ehs.v_corte_publicado, calculado sobre
+   en_nacional -- eso no se toca, es el mismo corte ya verificado mes a mes.
+   Cualquier otro ambito (la 4a rama generica: LATAM, sus 2 regiones, sus 11
+   paises, y el sitio individual de cada uno) tiene su PROPIO corte: el ultimo
+   mes que ehs.v_lectura_ambito ya resuelve como completo para ESE ambito (la
+   misma vista, misma regla de negocio 3, nada nuevo que mantener en paralelo).
+   Sin esto, Mexico/Brasil/etc quedaban pegados al corte de Colombia aunque su
+   propia captura ya llegara mas lejos -- un pais no puede nunca adelantarse al
+   mes que Colombia tiene publicado, y ese nunca fue el limite real de nadie
+   mas que de Colombia mismo. */
+const AMBITOS_COLOMBIA_PERU = new Set([
+  'celta',
+  'estrella',
+  'agencias',
+  'peru',
+  'nacional',
+  'nacional_labs',
+  'colombia_peru',
+]);
+
+async function corteDeAmbito(ctx, ambito) {
+  if (ambito == null || AMBITOS_COLOMBIA_PERU.has(ambito)) return ctx;
+
+  const { rows } = await consulta(
+    `select distinct la.num_mes
+       from ehs.v_lectura_ambito la
+      where la.anio = $1 and la.ambito_id = $2
+      order by la.num_mes`,
+    [ctx.anio, ambito]
+  );
+  const mesesConDato = rows.map((r) => r.num_mes);
+  if (!mesesConDato.length) return { ...ctx, corte: null, corteNombre: null, mesesConDato: [] };
+
+  const corte = mesesConDato[mesesConDato.length - 1];
+  const { rows: nombreRows } = await consulta(
+    `select mes from ref.dim_fecha where anio = $1 and num_mes = $2 limit 1`,
+    [ctx.anio, corte]
+  );
+  return { ...ctx, corte, corteNombre: nombreRows[0]?.mes ?? null, mesesConDato };
+}
+
 module.exports = {
   /** Los cinco KPI del ambito al corte, con meta, brecha y estado ya resueltos. */
   async panorama({ anio, mes, ambito }) {
-    const ctx = await contexto();
+    const ctx = await corteDeAmbito(await contexto(), ambito);
     ({ anio, mes } = alCorte(ctx, anio, mes));
     if (anio !== ctx.anio) return null;
 
@@ -499,7 +541,7 @@ module.exports = {
    * un ambito de postgres/06_paises_latam.sql (mexico, brasil, ...) los sitios salen
    * de ref.bridge_ambito_sitio en vez de las columnas en_nacional*. */
   async kpiPorSitio({ anio, mes, kpi, ambito }) {
-    const ctx = await contexto();
+    const ctx = await corteDeAmbito(await contexto(), ambito);
     ({ anio, mes } = alCorte(ctx, anio, mes));
     if (anio !== ctx.anio || mes > ctx.corte) return null;
 
@@ -570,7 +612,7 @@ module.exports = {
 
   /** Los doce meses del anio: mensual y YTD. Sin dato = null, nunca ausente. */
   async serieMensual({ anio, ambito, kpi }) {
-    const ctx = await contexto();
+    const ctx = await corteDeAmbito(await contexto(), ambito);
     ({ anio } = alCorte(ctx, anio, null));
     if (anio !== ctx.anio) return null;
 
@@ -627,7 +669,7 @@ module.exports = {
 
   /** La hoja de agua del area: consumo, lentes, ratio y variaciones, por ambito. */
   async aguaMensual({ anio, ambito }) {
-    const ctx = await contexto();
+    const ctx = await corteDeAmbito(await contexto(), ambito);
     ({ anio } = alCorte(ctx, anio, null));
     if (anio !== ctx.anio) return null;
 
@@ -670,7 +712,7 @@ module.exports = {
    * area no publica un reporte externo de energia que excluya Nacional Labs.
    */
   async energiaMensual({ anio, ambito }) {
-    const ctx = await contexto();
+    const ctx = await corteDeAmbito(await contexto(), ambito);
     ({ anio } = alCorte(ctx, anio, null));
     if (anio !== ctx.anio) return null;
 
@@ -755,7 +797,7 @@ module.exports = {
    * suman los lentes, y se divide AL FINAL (regla 2 del area).
    */
   async residuosComposicion({ anio, ambito }) {
-    const ctx = await contexto();
+    const ctx = await corteDeAmbito(await contexto(), ambito);
     ({ anio } = alCorte(ctx, anio, null));
     if (anio !== ctx.anio) return null;
 
@@ -1196,7 +1238,7 @@ module.exports = {
    * calcula nada nuevo: pone a la vista de donde sale cada numero.
    */
   async datosTabulados({ anio, ambito }) {
-    const ctx = await contexto();
+    const ctx = await corteDeAmbito(await contexto(), ambito);
     ({ anio } = alCorte(ctx, anio, null));
     if (anio !== ctx.anio) return null;
 
