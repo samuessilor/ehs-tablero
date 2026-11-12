@@ -142,7 +142,7 @@ async function dashboard(_req, res) {
       anio: pan ? pan.anio : new Date().getFullYear(),
       corte: pan ? pan.corte : { mes: null, nombre: '—', mesesConDato: [] },
       actualizadoEn: pan ? fechaLegible(pan.actualizado_en) : null,
-      fuente: pan ? pan.fuente : '',
+      fuente: pan ? pan.fuente || '' : '',
       metaVigente: pan ? pan.meta_vigente : '',
     },
     { rmWhitespace: false }

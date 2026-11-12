@@ -1696,10 +1696,10 @@ var Tablero = (function () {
     $('#cajaOrigen').innerHTML =
       '<div class="kv2">' +
       '<span class="et">Origen</span><b>' +
-      Fmt.esc(cal.origen) +
+      Fmt.esc(cal.origen || '—') +
       '</b>' +
       '<span class="et">Meta vigente</span><b>' +
-      Fmt.esc(cal.meta_vigente) +
+      Fmt.esc(cal.meta_vigente || '—') +
       '</b>' +
       '<span class="et">Corte</span><b>' +
       Fmt.esc(cal.corte.nombre) +
@@ -1707,7 +1707,7 @@ var Tablero = (function () {
       cal.anio +
       '</b>' +
       '<span class="et">Actualizado</span><b>' +
-      Fmt.esc(cal.actualizado_en) +
+      Fmt.esc(cal.actualizado_en || '—') +
       '</b>' +
       '<span class="et">Estado</span><b>' +
       Fmt.esc(cal.estado) +

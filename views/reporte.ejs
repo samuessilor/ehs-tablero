@@ -176,8 +176,8 @@
 
   <footer class="pie">
     <div class="pie-in">
-      <div><span class="et">Fuente</span><b><%= pan.fuente %></b></div>
-      <div><span class="et">Meta vigente</span><b><%= pan.meta_vigente %></b></div>
+      <div><span class="et">Fuente</span><b><%= pan.fuente || '—' %></b></div>
+      <div><span class="et">Meta vigente</span><b><%= pan.meta_vigente || '—' %></b></div>
       <div><span class="et">Generado</span><b><%= generadoEn %></b></div>
     </div>
     <p class="pie-nota">
