@@ -50,27 +50,22 @@ var Tablero = (function () {
       ],
     },
     {
-      titulo: 'Andina',
+      // Un solo grupo con los 11 paises y sus 2 regiones: separarlos en
+      // "Andina"/"Centroamerica y Caribe"/"Mexico, Brasil y otros" repartia
+      // paises de forma pareja a simple vista (por que Mexico y Brasil van con
+      // "otros" y no son su propia region) -- un solo listado plano evita esa
+      // lectura.
+      titulo: 'Países',
       items: [
         { id: 'andina', rotulo: 'Andina' },
         { id: 'argentina', rotulo: 'Argentina' },
         { id: 'chile', rotulo: 'Chile' },
-      ],
-    },
-    {
-      titulo: 'Centroamérica y Caribe',
-      items: [
         { id: 'ca_caribe', rotulo: 'CA y Caribe' },
         { id: 'costa_rica', rotulo: 'Costa Rica' },
         { id: 'nicaragua', rotulo: 'Nicaragua' },
         { id: 'rep_dominicana', rotulo: 'Rep. Dominicana' },
         { id: 'guatemala', rotulo: 'Guatemala' },
         { id: 'honduras', rotulo: 'Honduras' },
-      ],
-    },
-    {
-      titulo: 'México, Brasil y otros',
-      items: [
         { id: 'mexico', rotulo: 'México' },
         { id: 'brasil', rotulo: 'Brasil' },
         { id: 'ecuador', rotulo: 'Ecuador' },
