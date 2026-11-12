@@ -51,11 +51,53 @@ const MAGNITUDES = [
   { id: 'horas_temp', etiqueta: 'Horas-hombre personal temporal', unidad: 'h', grupo: 'Seguridad' },
 ];
 
+/* Los cuatro de siempre (Colombia + Peru) mas los sitios LATAM que ya existen en
+   ref.dim_sitio (postgres/06_paises_latam.sql) y que ahora tienen lectura real que
+   capturar (Excel "EHS BD LATAM (3).xlsx", hojas por pais). El procedimiento
+   ehs.sp_capturar_lote valida el sitio otra vez contra ref.dim_sitio -- esta lista
+   es el primer filtro, del lado del servidor Node, antes de llegar ahi. */
 const SITIOS = [
   { id: 'celta', etiqueta: 'Laboratorio Celta' },
   { id: 'estrella', etiqueta: 'Laboratorio La Estrella' },
   { id: 'agencias', etiqueta: 'Consolidado Agencias' },
   { id: 'peru', etiqueta: 'Perú' },
+  { id: 'mexico_norte', etiqueta: 'EMEX Norte' },
+  { id: 'mexico_occidente', etiqueta: 'EMEX Occidente' },
+  { id: 'arg_essilor', etiqueta: 'Essilor Argentina' },
+  { id: 'arg_optovision', etiqueta: 'Optovision Buenos Aires' },
+  { id: 'arg_mas_vision', etiqueta: 'Mas Vision Buenos Aires' },
+  { id: 'chile_megalux', etiqueta: 'Megalux Chile' },
+  { id: 'costa_rica_san_jose', etiqueta: 'Vision Costa Rica San Jose' },
+  { id: 'nicaragua_managua', etiqueta: 'Vision Rx Lab Managua' },
+  { id: 'rd_santo_domingo', etiqueta: 'Opti-Express Santo Domingo' },
+  { id: 'rd_santiago', etiqueta: 'Opti-Express Santiago' },
+  { id: 'guatemala_express', etiqueta: 'Lab Express Guatemala' },
+  { id: 'guatemala_central_oe', etiqueta: 'Lab Central OE Guatemala' },
+  { id: 'honduras_popular', etiqueta: 'Optica Popular Honduras' },
+  { id: 'ecuador_quito', etiqueta: 'Indulentes Quito' },
+  { id: 'ecuador_guayaquil', etiqueta: 'Indulentes Guayaquil' },
+  { id: 'ecuador_quito_gyq', etiqueta: 'Indulentes Quito Express GYQ' },
+  { id: 'ecuador_sto_dgo', etiqueta: 'Indulentes Quito Santo Domingo' },
+  { id: 'ecuador_cuenca', etiqueta: 'Indulentes Quito Cuenca' },
+  { id: 'brasil_ceditop', etiqueta: 'Ceditop Porto Alegre' },
+  { id: 'brasil_comprol', etiqueta: 'Comprol Brasilia' },
+  { id: 'brasil_digitop', etiqueta: 'Digitop Pinhais' },
+  { id: 'brasil_embrapol', etiqueta: 'Embrapol Pinhais' },
+  { id: 'brasil_grown', etiqueta: 'Grown Optical Sao Paulo' },
+  { id: 'brasil_lab_rio', etiqueta: 'Lab Rio de Janeiro' },
+  { id: 'brasil_multi_bras', etiqueta: 'Multi Bras' },
+  { id: 'brasil_m_fortaleza', etiqueta: 'Multi Fortaleza' },
+  { id: 'brasil_multi_pr', etiqueta: 'Multi PR (Pinhais)' },
+  { id: 'brasil_porto_alegre', etiqueta: 'Multi Porto Alegre' },
+  { id: 'brasil_optilab', etiqueta: 'Optilab Curitiba' },
+  { id: 'brasil_psa_nilo_bh', etiqueta: 'PSA Nilo Belo Horizonte' },
+  { id: 'brasil_lab_repro', etiqueta: 'Lab Repro Florianopolis' },
+  { id: 'brasil_riachuelo', etiqueta: 'Riachuelo Sao Paulo' },
+  { id: 'brasil_rx_optical', etiqueta: 'RX Optical Solutions Recife' },
+  { id: 'brasil_technopark', etiqueta: 'Technopark Sao Paulo' },
+  { id: 'brasil_tecnolens', etiqueta: 'Tecnolens Feira de Santana' },
+  { id: 'brasil_unilab', etiqueta: 'Unilab Fortaleza' },
+  { id: 'brasil_visolab', etiqueta: 'Visolab Sergipe' },
 ];
 
 /* Rango historico con 50% de holgura, el mismo que carga ehs.dim_magnitud. Se declara
