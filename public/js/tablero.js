@@ -26,12 +26,17 @@ var Tablero = (function () {
   // -al lado de Colombia-, Nacional Labs), abajo los sitios propios de Colombia.
   // AMBITOS sigue siendo la lista plana de siempre — el mismo orden de antes — para
   // no tocar leerUrl/escribirUrl ni el resto de los usos existentes.
+  /* Reestructurado sobre lo que el Excel "EHS BD LATAM (3).xlsx" realmente trae, hoja
+     por hoja: cada pais consolida uno o mas LABORATORIOS, y algunos ademas tienen un
+     consolidado de AGENCIAS aparte (Colombia, Chile, Honduras, y el de Unilab en
+     Brasil -- los unicos cuya fila "... AGENCIES (N)" trae lectura real y no solo
+     ruido, verificado celda por celda). Laboratorios y Agencias van en un
+     <select> propio (tipo:'dropdown', agrupado por pais con <optgroup>) en vez de
+     pildoras sueltas: Brasil solo ya trae 18 laboratorios, y una fila de botones de
+     ese tamaño se volvia ilegible. Andina y CA y Caribe son consolidados (regiones),
+     no paises: viven en Consolidados, no en Paises ni repetidos como "agrupacion". */
   var GRUPOS_AMBITO = [
     {
-      // LATAM primero: es el consolidado mas amplio de todos (ver
-      // postgres/06_paises_latam.sql). Un grupo aparte solo para esta pildora se veia
-      // como un grupo vacio/roto -- el titulo y la pildora decian lo mismo y no habia
-      // nada mas al lado.
       titulo: 'Consolidados',
       items: [
         { id: 'latam', rotulo: 'LATAM' },
@@ -39,43 +44,136 @@ var Tablero = (function () {
         { id: 'nacional', rotulo: 'Colombia' },
         { id: 'peru', rotulo: 'Perú' },
         { id: 'nacional_labs', rotulo: 'Nacional Labs' },
+        { id: 'andina', rotulo: 'Andina' },
+        { id: 'ca_caribe', rotulo: 'CA y Caribe' },
       ],
     },
     {
-      titulo: 'Laboratorios y agencias',
-      items: [
-        { id: 'celta', rotulo: 'Celta' },
-        { id: 'estrella', rotulo: 'La Estrella' },
-        { id: 'agencias', rotulo: 'Agencias' },
+      titulo: 'Laboratorios',
+      tipo: 'dropdown',
+      paises: [
+        { nombre: 'Colombia', items: [
+          { id: 'celta', rotulo: 'Celta' },
+          { id: 'estrella', rotulo: 'La Estrella' },
+        ] },
+        { nombre: 'Perú', items: [{ id: 'peru', rotulo: 'TOPSA Perú' }] },
+        { nombre: 'México', items: [
+          { id: 'mexico_norte', rotulo: 'EMEX Norte' },
+          { id: 'mexico_occidente', rotulo: 'EMEX Occidente' },
+        ] },
+        { nombre: 'Brasil', items: [
+          { id: 'brasil_lab_rio', rotulo: 'Lab Rio de Janeiro' },
+          { id: 'brasil_comprol', rotulo: 'Comprol Brasilia' },
+          { id: 'brasil_digitop', rotulo: 'Digitop Pinhais' },
+          { id: 'brasil_embrapol', rotulo: 'Embrapol Pinhais' },
+          { id: 'brasil_grown', rotulo: 'Grown Optical Sao Paulo' },
+          { id: 'brasil_multi_bras', rotulo: 'Multi Bras' },
+          { id: 'brasil_m_fortaleza', rotulo: 'Multi Fortaleza' },
+          { id: 'brasil_multi_pr', rotulo: 'Multi PR (Pinhais)' },
+          { id: 'brasil_porto_alegre', rotulo: 'Multi Porto Alegre' },
+          { id: 'brasil_optilab', rotulo: 'Optilab Curitiba' },
+          { id: 'brasil_psa_nilo_bh', rotulo: 'PSA Nilo Belo Horizonte' },
+          { id: 'brasil_lab_repro', rotulo: 'Lab Repro Florianopolis' },
+          { id: 'brasil_riachuelo', rotulo: 'Riachuelo Sao Paulo' },
+          { id: 'brasil_rx_optical', rotulo: 'RX Optical Solutions Recife' },
+          { id: 'brasil_technopark', rotulo: 'Technopark Sao Paulo' },
+          { id: 'brasil_tecnolens', rotulo: 'Tecnolens Feira de Santana' },
+          { id: 'brasil_unilab', rotulo: 'Unilab Fortaleza' },
+          { id: 'brasil_visolab', rotulo: 'Visolab Sergipe' },
+        ] },
+        { nombre: 'Nicaragua', items: [{ id: 'nicaragua_managua', rotulo: 'Vision Rx Managua' }] },
+        { nombre: 'Chile', items: [{ id: 'chile_megalux', rotulo: 'Megalux' }] },
+        { nombre: 'Argentina', items: [
+          { id: 'arg_essilor', rotulo: 'Essilor Argentina' },
+          { id: 'arg_optovision', rotulo: 'Optovision Buenos Aires' },
+        ] },
+        { nombre: 'Costa Rica', items: [{ id: 'costa_rica_san_jose', rotulo: 'Vision Costa Rica' }] },
+        { nombre: 'Guatemala', items: [
+          { id: 'guatemala_express', rotulo: 'Lab Express' },
+          { id: 'guatemala_central_oe', rotulo: 'Lab Central OE' },
+        ] },
+        { nombre: 'Ecuador', items: [
+          { id: 'ecuador_quito', rotulo: 'Quito' },
+          { id: 'ecuador_guayaquil', rotulo: 'Guayaquil' },
+          { id: 'ecuador_quito_gyq', rotulo: 'Quito Express GYQ' },
+          { id: 'ecuador_sto_dgo', rotulo: 'Quito Santo Domingo' },
+          { id: 'ecuador_cuenca', rotulo: 'Quito Cuenca' },
+        ] },
+        { nombre: 'Rep. Dominicana', items: [
+          { id: 'rd_santo_domingo', rotulo: 'Santo Domingo' },
+          { id: 'rd_santiago', rotulo: 'Santiago' },
+        ] },
+        { nombre: 'Honduras', items: [{ id: 'honduras_popular', rotulo: 'Optica Popular' }] },
       ],
     },
     {
-      // Un solo grupo con los 11 paises y sus 2 regiones: separarlos en
-      // "Andina"/"Centroamerica y Caribe"/"Mexico, Brasil y otros" repartia
-      // paises de forma pareja a simple vista (por que Mexico y Brasil van con
-      // "otros" y no son su propia region) -- un solo listado plano evita esa
-      // lectura.
+      titulo: 'Agencias',
+      tipo: 'dropdown',
+      paises: [
+        { nombre: 'Colombia', items: [{ id: 'agencias', rotulo: 'Agencias (29)' }] },
+        { nombre: 'Chile', items: [{ id: 'chile_megalux_ag', rotulo: 'Agencias Megalux' }] },
+        { nombre: 'Honduras', items: [{ id: 'honduras_popular_ag', rotulo: 'Agencias Optica Popular' }] },
+        { nombre: 'Brasil', items: [{ id: 'brasil_unilab_ag', rotulo: 'Agencias Unilab' }] },
+      ],
+    },
+    {
       titulo: 'Países',
       items: [
-        { id: 'andina', rotulo: 'Andina' },
+        { id: 'nacional', rotulo: 'Colombia' },
+        { id: 'peru', rotulo: 'Perú' },
+        { id: 'mexico', rotulo: 'México' },
+        { id: 'brasil', rotulo: 'Brasil' },
         { id: 'argentina', rotulo: 'Argentina' },
         { id: 'chile', rotulo: 'Chile' },
-        { id: 'ca_caribe', rotulo: 'CA y Caribe' },
         { id: 'costa_rica', rotulo: 'Costa Rica' },
         { id: 'nicaragua', rotulo: 'Nicaragua' },
         { id: 'rep_dominicana', rotulo: 'Rep. Dominicana' },
         { id: 'guatemala', rotulo: 'Guatemala' },
         { id: 'honduras', rotulo: 'Honduras' },
-        { id: 'mexico', rotulo: 'México' },
-        { id: 'brasil', rotulo: 'Brasil' },
         { id: 'ecuador', rotulo: 'Ecuador' },
         { id: 'eua', rotulo: 'EUA' },
       ],
     },
   ];
-  var AMBITOS = GRUPOS_AMBITO.reduce(function (acc, g) {
-    return acc.concat(g.items);
-  }, []);
+  // AMBITOS sigue siendo la lista plana de siempre (leerUrl/escribirUrl y el resto de
+  // los usos existentes no la distinguen por grupo): aplana tanto los grupos de
+  // pildoras (g.items) como los de desplegable (g.paises[].items). 'nacional' y 'peru'
+  // aparecen en mas de un grupo (Consolidados/Paises, Laboratorios) a proposito -- es
+  // el mismo ambito, Peru no tiene un sitio de laboratorio distinto de si mismo -- asi
+  // que se filtran duplicados por id.
+  var AMBITOS = (function () {
+    var vistos = {};
+    var lista = [];
+    GRUPOS_AMBITO.forEach(function (g) {
+      var items = g.tipo === 'dropdown' ? g.paises.reduce(function (a, p) { return a.concat(p.items); }, []) : g.items;
+      items.forEach(function (a) {
+        if (vistos[a.id]) return;
+        vistos[a.id] = true;
+        lista.push(a);
+      });
+    });
+    return lista;
+  })();
+  // Solo los ambitos "de panorama" (Consolidados + Paises): los que de verdad tiene
+  // sentido comparar uno contra otro en la matriz ambito x KPI. Los laboratorios y
+  // agencias de Laboratorios/Agencias (AMBITOS si los trae, para leerUrl/validacion)
+  // quedarian fuera de esta lista a proposito -- son decenas (Brasil solo trae 18),
+  // y la matriz dejaria de ser una comparacion de alto nivel para volverse un listado
+  // de sitios sueltos, ademas de multiplicar por tres las peticiones de cada render.
+  var AMBITOS_PRINCIPALES = (function () {
+    var vistos = {};
+    var lista = [];
+    GRUPOS_AMBITO.filter(function (g) {
+      return g.tipo !== 'dropdown';
+    }).forEach(function (g) {
+      g.items.forEach(function (a) {
+        if (vistos[a.id]) return;
+        vistos[a.id] = true;
+        lista.push(a);
+      });
+    });
+    return lista;
+  })();
   var ROTULO_ESTADO = {
     cumple: 'Cumple',
     riesgo: 'En riesgo',
@@ -495,30 +593,60 @@ var Tablero = (function () {
         '</span></button>'
       );
     }).join('');
-    // Dos subgrupos con su propio rotulo chiquito arriba (consolidados / sitios),
-    // en vez de una sola fila de 7 botones sin distincion — pedido explicito: "en
-    // el filtro de sitio meter sub secciones de las opciones".
+    // Subgrupos con su propio rotulo chiquito arriba (consolidados / laboratorios /
+    // agencias / paises) — pedido explicito: "en el filtro de sitio meter sub
+    // secciones de las opciones". Laboratorios y Agencias son tipo:'dropdown': un
+    // <select> con un <optgroup> por pais en vez de pildoras sueltas (Brasil solo ya
+    // trae 18 laboratorios; una fila de botones de ese tamaño no se podia leer).
     $('#segSitio').innerHTML = GRUPOS_AMBITO.map(function (g) {
+      var controlHtml;
+      if (g.tipo === 'dropdown') {
+        controlHtml =
+          '<select class="seg-select" data-ambito-select="' +
+          g.titulo +
+          '" aria-label="' +
+          g.titulo +
+          '"><option value="">Elegir…</option>' +
+          g.paises
+            .map(function (p) {
+              return (
+                '<optgroup label="' +
+                Fmt.esc(p.nombre) +
+                '">' +
+                p.items
+                  .map(function (a) {
+                    return '<option value="' + a.id + '">' + Fmt.esc(a.rotulo) + '</option>';
+                  })
+                  .join('') +
+                '</optgroup>'
+              );
+            })
+            .join('') +
+          '</select>';
+      } else {
+        controlHtml =
+          '<div class="seg" role="radiogroup" aria-label="' +
+          g.titulo +
+          '">' +
+          g.items
+            .map(function (a) {
+              return (
+                '<button type="button" role="radio" data-ambito="' +
+                a.id +
+                '">' +
+                a.rotulo +
+                '</button>'
+              );
+            })
+            .join('') +
+          '</div>';
+      }
       return (
-        '<div class="seg-grupo">' +
-        '<span class="seg-grupo-titulo">' +
+        '<div class="seg-grupo"><span class="seg-grupo-titulo">' +
         g.titulo +
         '</span>' +
-        '<div class="seg" role="radiogroup" aria-label="' +
-        g.titulo +
-        '">' +
-        g.items
-          .map(function (a) {
-            return (
-              '<button type="button" role="radio" data-ambito="' +
-              a.id +
-              '">' +
-              a.rotulo +
-              '</button>'
-            );
-          })
-          .join('') +
-        '</div></div>'
+        controlHtml +
+        '</div>'
       );
     }).join('');
     pintarMeses();
@@ -533,6 +661,18 @@ var Tablero = (function () {
       else return;
       render();
     });
+
+    // Los <select> de Laboratorios/Agencias no pasan por el click-delegation de
+    // arriba (un <select> no dispara 'click' con un boton real adentro): escuchan su
+    // propio 'change'. Si alguien elige otro ambito por otro control mientras uno de
+    // estos dropdown seguia en una opcion, marcarControles() lo vuelve a "Elegir…".
+    document.querySelectorAll('#segSitio select[data-ambito-select]').forEach(function (sel) {
+      sel.addEventListener('change', function () {
+        if (!sel.value) return;
+        S.ambito = sel.value;
+        render();
+      });
+    });
   }
 
   function marcarControles() {
@@ -544,6 +684,14 @@ var Tablero = (function () {
     // elegido de Sitio o Mes nunca se veía resaltado, aunque el estado sí cambiara.
     document.querySelectorAll('#segSitio button').forEach(function (b) {
       b.setAttribute('aria-checked', String(b.dataset.ambito === S.ambito));
+    });
+    // Si S.ambito es una de sus opciones lo refleja; si no (se eligio por otro
+    // control), vuelve al placeholder en vez de quedarse en una opcion vieja.
+    document.querySelectorAll('#segSitio select[data-ambito-select]').forEach(function (sel) {
+      var tieneOpcion = Array.prototype.some.call(sel.options, function (o) {
+        return o.value === S.ambito;
+      });
+      sel.value = tieneOpcion ? S.ambito : '';
     });
     document.querySelectorAll('#segMes button').forEach(function (b) {
       b.setAttribute('aria-checked', String(parseInt(b.dataset.mes, 10) === S.mes));
@@ -1046,7 +1194,7 @@ var Tablero = (function () {
     // no se inventa una fila "sin dato": la matriz solo lista lo que si reporto.
     var filas = (
       await Promise.all(
-        AMBITOS.map(function (a) {
+        AMBITOS_PRINCIPALES.map(function (a) {
           return a.id === S.ambito
             ? pan
             : api('panorama', { mes: S.mes, ambito: a.id }).catch(function () {
