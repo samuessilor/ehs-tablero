@@ -421,6 +421,12 @@ var Tablero = (function () {
       '?' +
         new URLSearchParams({ vista: S.vista, sitio: S.ambito, mes: S.mes, kpi: S.kpi }).toString()
     );
+    // "Descargar reporte" es un link estatico en la cabecera (parciales/cabecera.ejs):
+    // sin esto, apuntaba siempre a /reporte sin ambito, y ese endpoint por su cuenta
+    // cae en 'nacional' (Colombia) -- quien estuviera viendo Mexico o Peru y le diera
+    // clic se encontraba el reporte de Colombia, no el del ambito que tenia en pantalla.
+    var linkReporte = document.querySelector('a[href^="/reporte"]');
+    if (linkReporte) linkReporte.href = '/reporte?ambito=' + encodeURIComponent(S.ambito);
   }
 
   /* ------------------------------------------------------------------ controles --- */
