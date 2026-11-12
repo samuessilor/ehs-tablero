@@ -1204,7 +1204,19 @@ module.exports = {
     };
   },
 
-  /** El crudo exportable: las magnitudes tal como se capturaron. */
+  /**
+   * El crudo exportable: las magnitudes tal como se capturaron, de TODOS los
+   * sitios (Colombia + Peru y toda la rama LATAM) -- esta consulta nunca tuvo
+   * filtro de sitio ni de ambito, es plana a proposito.
+   *
+   * Sin tope de mes: a diferencia de un KPI agregado (donde un mes a medio
+   * reportar daria una razon enganosa), aqui cada fila es una lectura atomica
+   * que o existe o no existe -- "hasta el corte" no aplicaba. Con un solo
+   * ctx.corte global (el de Colombia) de techo, octubre de Mexico/Chile/etc
+   * -- ya capturado, ya verificado -- quedaba fuera de este export aunque el
+   * resto del tablero si lo mostrara (corteDeAmbito, mas arriba). Colombia y
+   * Peru no cambian: no tienen ninguna fila mas alla de su propio corte.
+   */
   async detalle({ anio }) {
     const ctx = await contexto();
     ({ anio } = alCorte(ctx, anio, null));
@@ -1225,9 +1237,9 @@ module.exports = {
          from ehs.hecho_lectura_mensual l
          join ref.dim_fecha f on f.fecha = l.fecha
          join ref.dim_magnitud g on g.magnitud_id = l.magnitud_id and g.area = 'ehs'
-        where f.anio = $1 and f.num_mes <= $2
+        where f.anio = $1
         order by l.sitio_id, f.num_mes, g.orden`,
-      [anio, ctx.corte]
+      [anio]
     );
 
     const filas = [];
