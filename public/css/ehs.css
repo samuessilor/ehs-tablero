@@ -170,10 +170,17 @@ svg {
 }
 .seg {
   display: flex;
+  flex-wrap: wrap;
   background: rgba(255, 255, 255, 0.055);
   border: 1px solid rgba(255, 255, 255, 0.17);
   border-radius: 3px;
-  overflow: hidden;
+  /* antes "overflow: hidden" (para redondear las esquinas del grupo) recortaba sin
+     avisar cualquier boton que no cupiera en una sola fila -- un grupo largo (Centro-
+     america y Caribe, 6 botones) podia perder botones enteros, invisibles y por lo
+     tanto imposibles de pulsar, en una ventana mas angosta que la de diseno. Con
+     flex-wrap ya no hace falta recortar para redondear: clip-path solo redondea,
+     nunca esconde contenido. */
+  clip-path: inset(0 round 3px);
 }
 .seg button {
   font: inherit;
