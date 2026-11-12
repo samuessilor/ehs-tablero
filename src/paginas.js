@@ -138,7 +138,7 @@ async function dashboard(_req, res) {
   const html = await ejs.renderFile(
     path.join(VISTAS, 'dashboard.ejs'),
     {
-      titulo: 'Tablero EHS 2026 · Servioptica',
+      titulo: 'Tablero EHS 2026 · EssilorLuxottica',
       anio: pan ? pan.anio : new Date().getFullYear(),
       corte: pan ? pan.corte : { mes: null, nombre: '—', mesesConDato: [] },
       actualizadoEn: pan ? fechaLegible(pan.actualizado_en) : null,
@@ -164,7 +164,7 @@ async function captura(_req, res) {
   const html = await ejs.renderFile(
     path.join(VISTAS, 'captura.ejs'),
     {
-      titulo: 'Captura mensual EHS · Servioptica',
+      titulo: 'Captura mensual EHS · EssilorLuxottica',
       magnitudes: MAGNITUDES,
       sitios: SITIOS,
       modo,
@@ -191,7 +191,7 @@ async function corregir(_req, res) {
   const html = await ejs.renderFile(
     path.join(VISTAS, 'corregir.ejs'),
     {
-      titulo: 'Consultar y corregir · EHS · Servióptica',
+      titulo: 'Consultar y corregir · EHS · EssilorLuxottica',
       magnitudes: MAGNITUDES,
       sitios: SITIOS,
       modo,
@@ -215,12 +215,12 @@ async function reporte(_req, res, url) {
   const pan = await datos.panorama({ ambito });
 
   // con el mes en el titulo: es lo que Chrome sugiere como nombre de archivo al
-  // guardar el PDF ("Reporte EHS · Servioptica · Julio 2026.pdf" en vez de un
+  // guardar el PDF ("Reporte EHS · EssilorLuxottica · Julio 2026.pdf" en vez de un
   // nombre generico igual mes a mes, que se presta a sobrescribir el anterior sin
   // darse cuenta.
   const titulo = pan
-    ? 'Reporte EHS · Servióptica · ' + pan.corte.nombre + ' ' + pan.anio
-    : 'Reporte EHS · Servióptica';
+    ? 'Reporte EHS · EssilorLuxottica · ' + pan.corte.nombre + ' ' + pan.anio
+    : 'Reporte EHS · EssilorLuxottica';
 
   const html = await ejs.renderFile(
     path.join(VISTAS, 'reporte.ejs'),

@@ -2,7 +2,7 @@
   "name": "ehs-tablero",
   "version": "1.0.0",
   "private": true,
-  "description": "Tablero de indicadores EHS - Servioptica Colombia. Stack del estandar de integracion: Node + EJS + CSS + JS + ECharts. Interinato en Vercel; destino: servidor propio de la empresa (fase 1).",
+  "description": "Tablero de indicadores EHS - EssilorLuxottica LATAM. Stack del estandar de integracion: Node + EJS + CSS + JS + ECharts. Interinato en Vercel; destino: servidor propio de la empresa (fase 1).",
   "engines": {
     "node": "22.x"
   },
