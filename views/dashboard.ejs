@@ -2,8 +2,18 @@
 
 <main class="body" id="cuerpo">
 
+  <!-- ================================ 00 · MAPA GENERAL ===================== -->
+  <!-- Pantalla de inicio: los 13 paises a la vez, un mapa de calor para detectar
+       de un vistazo cual pais alarma antes de entrar a verlo en detalle. -->
+  <section class="vista" id="v-mapa" role="tabpanel" aria-labelledby="tab-mapa" hidden>
+    <section class="panel c12">
+      <header><span class="ix">00</span><h2>Mapa general · los 13 países</h2><span class="sub">acumulado al corte de cada uno</span></header>
+      <div class="cuerpo tablabox" id="mapaCalor"></div>
+    </section>
+  </section>
+
   <!-- ================================ 01 · PANORAMA ======================== -->
-  <section class="vista" id="v-panorama" role="tabpanel" aria-labelledby="tab-panorama">
+  <section class="vista" id="v-panorama" role="tabpanel" aria-labelledby="tab-panorama" hidden>
     <div id="correcciones" class="c12"></div>
 
     <div class="tarjetas" id="tarjetas"></div>

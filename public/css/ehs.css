@@ -988,6 +988,151 @@ main {
   outline-offset: -2px;
 }
 
+/* ============================ MAPA GENERAL (inicio) ====================== */
+/* Pedido explicito del 17-nov-2026: "que haya un color... amarillo o algo
+   llamativo, donde no haya el dato, para dejar claro que no esta el dato" --
+   por eso .mapa-celda.falta no reutiliza el .chip.pend tenue de siempre (ese
+   vive en contextos donde "sin dato" es una fila mas entre muchas; aqui tiene
+   que saltar a la vista antes que ningun otro color). */
+.mapa-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  table-layout: fixed;
+}
+.mapa-tabla th,
+.mapa-tabla td {
+  border: 1px solid var(--borde);
+  padding: 0;
+}
+.mapa-tabla thead th {
+  background: #edf1f6;
+  font-family: var(--mono);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tinta);
+  padding: 7px 8px;
+  text-align: center;
+}
+.mapa-tabla thead th:first-child {
+  text-align: left;
+  width: 16%;
+}
+.mapa-corte-ej {
+  font-weight: 400;
+  color: var(--tenue);
+  text-transform: none;
+  letter-spacing: 0;
+}
+.mapa-pais {
+  background: #fafcfd;
+  text-align: left;
+  padding: 10px 10px;
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--tinta);
+  cursor: pointer;
+}
+.mapa-pais:hover {
+  background: #eef3f7;
+}
+.mapa-corte,
+.mapa-atraso {
+  display: block;
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  margin-top: 2px;
+  color: var(--tenue);
+}
+.mapa-atraso {
+  color: #946200;
+}
+.mapa-celda {
+  display: block;
+  padding: 8px 9px;
+  text-align: center;
+  cursor: pointer;
+  font-weight: 700;
+  font-size: 15px;
+}
+.mapa-celda .mapa-sub {
+  display: block;
+  font-family: var(--mono);
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+.mapa-celda.cumple {
+  background: rgba(22, 163, 74, 0.14);
+  color: #0f6d33;
+}
+.mapa-celda.riesgo {
+  background: rgba(217, 131, 36, 0.18);
+  color: #8a4e13;
+}
+.mapa-celda.incumple {
+  background: rgba(192, 57, 43, 0.17);
+  color: #8e2a1f;
+}
+.mapa-celda.sinmeta {
+  background: rgba(100, 116, 142, 0.08);
+  color: var(--tenue);
+  font-weight: 500;
+}
+.mapa-celda.falta {
+  background: #fff3b0;
+  color: #705c00;
+  font-family: var(--mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mapa-leyenda {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 2px 2px;
+  font-size: 11px;
+  color: var(--tenue);
+}
+.mapa-chip {
+  font-family: var(--mono);
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 2px;
+}
+.mapa-chip.cumple {
+  background: rgba(22, 163, 74, 0.14);
+  color: #0f6d33;
+}
+.mapa-chip.riesgo {
+  background: rgba(217, 131, 36, 0.18);
+  color: #8a4e13;
+}
+.mapa-chip.incumple {
+  background: rgba(192, 57, 43, 0.17);
+  color: #8e2a1f;
+}
+.mapa-chip.sinmeta {
+  background: rgba(100, 116, 142, 0.08);
+  color: var(--tenue);
+}
+.mapa-chip.falta {
+  background: #fff3b0;
+  color: #705c00;
+}
+
 /* ============================ MATRIZ CONDICIONAL ========================= */
 .matriz {
   width: 100%;

@@ -14,6 +14,7 @@ var Tablero = (function () {
   'use strict';
 
   var VISTAS = [
+    { id: 'mapa', rotulo: '00 Mapa general' },
     { id: 'panorama', rotulo: '01 Panorama' },
     { id: 'agua', rotulo: '02 Agua y Energía' },
     { id: 'ambiental', rotulo: '03 Ambiental' },
@@ -37,15 +38,17 @@ var Tablero = (function () {
      no paises: viven en Consolidados, no en Paises ni repetidos como "agrupacion". */
   var GRUPOS_AMBITO = [
     {
+      // LATAM, Colombia+Peru, Andina y CA y Caribe salieron de aqui (feedback del
+      // 17-nov-2026: "generan redundancia... no hacen que se vea estructurado").
+      // LATAM como vista de conjunto ahora es el Mapa general (ve todos los paises a
+      // la vez); Andina y CA y Caribe siguen existiendo como ambito en el servidor
+      // (ehs.meta, bridge_ambito_sitio) por si hace falta retomarlos, solo no son
+      // seleccionables desde aqui.
       titulo: 'Consolidados',
       items: [
-        { id: 'latam', rotulo: 'LATAM' },
-        { id: 'colombia_peru', rotulo: 'Colombia + Perú' },
         { id: 'nacional', rotulo: 'Colombia' },
         { id: 'peru', rotulo: 'Perú' },
         { id: 'nacional_labs', rotulo: 'Nacional Labs' },
-        { id: 'andina', rotulo: 'Andina' },
-        { id: 'ca_caribe', rotulo: 'CA y Caribe' },
       ],
     },
     {
@@ -491,6 +494,11 @@ var Tablero = (function () {
   /* --------------------------------------------------------- el estado en la URL --- */
   function leerUrl() {
     var q = new URLSearchParams(location.search);
+    // Sin parametros (entrar por "/" o por el logo): aterriza en el Mapa general en
+    // vez de en el panorama de Colombia -- es la pantalla de inicio nueva, pedida
+    // explicitamente (17-nov-2026). Un enlace que SI trae vista o sitio (un marcador
+    // viejo, un link compartido) respeta lo que pide, igual que siempre.
+    if (!q.get('vista') && !q.get('sitio')) S.vista = 'mapa';
     if (
       VISTAS.some(function (v) {
         return v.id === q.get('vista');
@@ -655,7 +663,12 @@ var Tablero = (function () {
       var b = e.target.closest('button');
       if (!b) return;
       if (b.dataset.vista) S.vista = b.dataset.vista;
-      else if (b.dataset.ambito) S.ambito = b.dataset.ambito;
+      else if (b.dataset.ambito) {
+        S.ambito = b.dataset.ambito;
+        // Elegir un sitio desde el Mapa general es "entrar a ese pais": sin esto el
+        // clic no mostraba nada, porque el Mapa general no depende de S.ambito.
+        if (S.vista === 'mapa') S.vista = 'panorama';
+      }
       else if (b.dataset.mes) S.mes = parseInt(b.dataset.mes, 10);
       else if (b.dataset.kpi) S.kpi = b.dataset.kpi;
       else return;
@@ -670,6 +683,7 @@ var Tablero = (function () {
       sel.addEventListener('change', function () {
         if (!sel.value) return;
         S.ambito = sel.value;
+        if (S.vista === 'mapa') S.vista = 'panorama';
         render();
       });
     });
@@ -802,6 +816,140 @@ var Tablero = (function () {
       '.' +
       rumbo
     );
+  }
+
+  /* ------------------------------------------------------------- mapa general --- */
+  // Pantalla de inicio (pedida 17-nov-2026): los 13 paises a la vez, un mapa de calor
+  // en vez de un numero a la vez, para detectar de un vistazo cual pais alarma antes
+  // de entrar a mirarlo en detalle. No calcula nada propio: pide el mismo /panorama
+  // de siempre, uno por pais, y colorea con el mismo 'estado' que ya trae resuelto el
+  // servidor (R.5.2.1/R.5.2.2) -- nunca compara el valor del mes contra la meta anual
+  // (esa comparacion no existe en la regla de negocio del area, ver ehs/CLAUDE.md:
+  // "YTD = suma de numeradores / suma de denominadores", nunca una cifra mensual
+  // sola). Lo unico que mira "el mes" es si el pais ya reporto el mismo corte que los
+  // demas, o se quedo atras -- eso si es comparable entre paises.
+  var KPIS_MAPA = [
+    { id: 'agua_por_lente', rotulo: 'Agua' },
+    { id: 'energia_por_lente', rotulo: 'Energía' },
+    { id: 'residuos_por_lente', rotulo: 'Residuos' },
+    { id: 'frequency_rate', rotulo: 'Frequency rate' },
+    { id: 'accidentes_dafw', rotulo: 'Accidentes DAFW' },
+  ];
+  async function pintarMapa() {
+    var cont = $('#mapaCalor');
+    if (!cont) return;
+    cont.innerHTML = '<p class="nota">Cargando los 13 países…</p>';
+
+    var paisesGrupo = GRUPOS_AMBITO.filter(function (g) {
+      return g.titulo === 'Países';
+    })[0];
+    var paises = paisesGrupo ? paisesGrupo.items : [];
+
+    // Un pais LATAM nuevo (o Peru antes de su primera captura) responde 404: no es
+    // una falla del mapa, es ese pais sin ningun dato todavia -- se pinta "sin dato"
+    // en toda la fila, no se tumba el resto.
+    var resultados = await Promise.all(
+      paises.map(function (p) {
+        return api('panorama', { ambito: p.id }).catch(function () {
+          return null;
+        });
+      })
+    );
+
+    var corteMax = resultados.reduce(function (max, pan) {
+      return pan && pan.corte && pan.corte.mes > max ? pan.corte.mes : max;
+    }, 0);
+
+    var filasHtml = paises
+      .map(function (p, i) {
+        var pan = resultados[i];
+        if (!pan) {
+          return (
+            '<tr>' +
+            '<th class="mapa-pais" data-ambito="' +
+            p.id +
+            '">' +
+            Fmt.esc(p.rotulo) +
+            '</th>' +
+            KPIS_MAPA.map(function () {
+              return '<td class="mapa-celda falta" data-ambito="' + p.id + '">Sin dato</td>';
+            }).join('') +
+            '</tr>'
+          );
+        }
+        var atrasado = corteMax > 0 && pan.corte.mes < corteMax;
+        var kpiPorId = {};
+        pan.kpi.forEach(function (k) {
+          kpiPorId[k.kpi_id] = k;
+        });
+        var celdasHtml = KPIS_MAPA.map(function (def) {
+          var k = kpiPorId[def.id];
+          var sinDato = !k || k.valor === null || k.valor === undefined || k.estado === 'sin_dato';
+          if (sinDato) {
+            return '<td class="mapa-celda falta" data-ambito="' + p.id + '">Sin dato</td>';
+          }
+          return (
+            '<td class="mapa-celda ' +
+            (CHIP[k.estado] || 'pend') +
+            '" data-ambito="' +
+            p.id +
+            '">' +
+            '<b>' +
+            Fmt.num(k.valor, k.dec) +
+            '</b>' +
+            '<span class="mapa-sub">' +
+            (ROTULO_ESTADO[k.estado] || '') +
+            '</span>' +
+            '</td>'
+          );
+        }).join('');
+        return (
+          '<tr>' +
+          '<th class="mapa-pais" data-ambito="' +
+          p.id +
+          '">' +
+          Fmt.esc(p.rotulo) +
+          (atrasado
+            ? '<span class="mapa-atraso" title="Su corte mas reciente es ' +
+              Fmt.mesLargo[pan.corte.mes - 1] +
+              '; otros paises ya tienen ' +
+              Fmt.mesLargo[corteMax - 1] +
+              '">⚠ ' +
+              Fmt.mesCorto[pan.corte.mes - 1] +
+              '</span>'
+            : '<span class="mapa-corte">' + Fmt.mesCorto[pan.corte.mes - 1] + '</span>') +
+          '</th>' +
+          celdasHtml +
+          '</tr>'
+        );
+      })
+      .join('');
+
+    cont.innerHTML =
+      '<table class="mapa-tabla">' +
+      '<thead><tr><th>País <span class="mapa-corte-ej">corte</span></th>' +
+      KPIS_MAPA.map(function (k) {
+        return '<th>' + Fmt.esc(k.rotulo) + '</th>';
+      }).join('') +
+      '</tr></thead><tbody>' +
+      filasHtml +
+      '</tbody></table>' +
+      '<p class="nota mapa-leyenda">' +
+      '<span class="mapa-chip cumple">Cumple</span>' +
+      '<span class="mapa-chip riesgo">En riesgo</span>' +
+      '<span class="mapa-chip incumple">Incumple</span>' +
+      '<span class="mapa-chip sinmeta">Sin meta</span>' +
+      '<span class="mapa-chip falta">Sin dato</span>' +
+      ' · ⚠ junto al país = su corte va más atrasado que el de los demás · clic en un país para ver su detalle.' +
+      '</p>';
+
+    cont.onclick = function (e) {
+      var el = e.target.closest('[data-ambito]');
+      if (!el) return;
+      S.ambito = el.dataset.ambito;
+      S.vista = 'panorama';
+      render();
+    };
   }
 
   /* ----------------------------------------------------------------- panorama --- */
@@ -2635,15 +2783,19 @@ var Tablero = (function () {
       var amb = AMBITOS.filter(function (a) {
         return a.id === S.ambito;
       })[0];
+      // El Mapa general no depende de un sitio: la franja "SITIO Colombia" ahi
+      // confundia mas de lo que ayudaba.
       $('#tiraEstado').innerHTML =
-        '<span>SITIO <b>' +
-        Fmt.esc(amb ? amb.rotulo : S.ambito) +
-        '</b></span>' +
-        '<span>CORTE <b>' +
-        Fmt.mesLargo[S.mes - 1] +
-        ' ' +
-        S.anio +
-        '</b></span>';
+        S.vista === 'mapa'
+          ? '<span>VISTA <b>TODOS LOS PAÍSES</b></span>'
+          : '<span>SITIO <b>' +
+            Fmt.esc(amb ? amb.rotulo : S.ambito) +
+            '</b></span>' +
+            '<span>CORTE <b>' +
+            Fmt.mesLargo[S.mes - 1] +
+            ' ' +
+            S.anio +
+            '</b></span>';
 
       // Un ambito sin ninguna lectura capturada (cualquier pais LATAM nuevo, o Peru
       // antes de su primera captura) no es una falla: es su estado normal hasta que
@@ -2662,7 +2814,8 @@ var Tablero = (function () {
       } else {
         aviso.hidden = true;
 
-        if (S.vista === 'panorama') await pintarPanorama();
+        if (S.vista === 'mapa') await pintarMapa();
+        else if (S.vista === 'panorama') await pintarPanorama();
         else if (S.vista === 'agua') await pintarAgua();
         else if (S.vista === 'ambiental') await pintarAmbiental();
         else if (S.vista === 'seguridad') await pintarSeguridad();
