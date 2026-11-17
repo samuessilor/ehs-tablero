@@ -249,6 +249,15 @@ svg {
   outline: 2px solid #fff;
   outline-offset: 1px;
 }
+/* El menu nativo del <select> hereda el color claro de .seg-select pero el fondo
+   del menu lo pinta el sistema operativo (blanco): sin esto, texto casi blanco
+   sobre fondo blanco en la lista desplegada. */
+.seg-select option,
+.seg-select optgroup {
+  color: #111;
+  background: #fff;
+  font-weight: 500;
+}
 .seg.mes button {
   padding: 5px 7px;
   font-family: var(--mono);
