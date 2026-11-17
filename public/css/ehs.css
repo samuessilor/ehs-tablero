@@ -1052,7 +1052,8 @@ main {
   color: #946200;
 }
 .mapa-celda {
-  display: block;
+  /* la clase va en el <td>: NO forzar display aqui, pisa el table-cell nativo y
+     apila las celdas una debajo de otra en vez de una al lado de la otra. */
   padding: 8px 9px;
   text-align: center;
   cursor: pointer;
