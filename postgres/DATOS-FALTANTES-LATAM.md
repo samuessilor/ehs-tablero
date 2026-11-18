@@ -48,3 +48,31 @@ TARGETS solo trae meta a nivel de PAIS para estos; sus sitios reales (varios por
 - 39 sitios/laboratorios nuevos (ver `ref.dim_sitio`).
 - 190 filas de meta 2026 cargadas en `ehs.meta` (fuente: hoja TARGETS).
 - Celta, Estrella, Agencias, Peru y Colombia+Peru: **sin ningun cambio** -- mismas filas, mismas vistas, mismo resultado que antes de este archivo.
+
+## 6. Lecturas mensuales 2026 (postgres/08_lecturas_latam.sql, 17-nov-2026)
+
+Carga de lecturas reales enero-octubre 2026 para los paises LATAM (Mexico, Argentina,
+Chile, Costa Rica, Nicaragua, Guatemala, Honduras, Ecuador, Republica Dominicana,
+Brasil), desde `EHS BD LATAM (3).xlsx`. Noviembre/diciembre 2026 NO se cargan: el Excel
+los trae pre-llenados con ceros de plantilla (ej. accidentes_dafw=0), no un dato
+reportado -- un mes que no ha cerrado no se confirma (R.5).
+
+**6 sitios nuevos, sin meta propia todavia** (entran a la cuenta agregada de su pais,
+`sin_meta` en solitario hasta que EHS la fije):
+
+| Sitio | Pais | Nota |
+|---|---|---|
+| `chile_megalux_ag` (Agencias Megalux Chile) | Chile | Ya anticipado en `src/validacion.js`; faltaba en `ref.dim_sitio` |
+| `honduras_popular_ag` (Agencias Optica Popular Honduras) | Honduras | Idem |
+| `brasil_unilab_ag` (Agencias Unilab Fortaleza) | Brasil | Idem -- solo reporta enero/febrero 2026 |
+| `ecuador_quito_versalles` (Indulentes Quito Versalles) | Ecuador | Descubierto en esta carga: fila separada de "Indulentes Quito" con dato propio distinto, no estaba en la estructura |
+| `brasil_duque_caxias` (Multioptica Duque de Caxias) | Brasil | Descubierto en esta carga. 0 lentes producidos pero si consume agua/energia/residuos -- perfil de agencia, no de laboratorio |
+| `brasil_sumare` (Lab Sumare) | Brasil | Descubierto en esta carga, producción real (600+ lentes/mes) |
+
+Ciudad en `null` donde no se pudo verificar contra el Excel ni contra ningun otro
+documento del area -- no se inventa.
+
+**La mayoria de las filas "... AGENCIES (N)" de LATAM siguen sin sitio propio**
+(confirmado de nuevo, celda por celda, para las 13 que aparecen en MEX/ARG/BRA): todos
+los meses de 2026 en blanco o en cero. Si alguna reporta dato real en el futuro, se
+agrega entonces.
