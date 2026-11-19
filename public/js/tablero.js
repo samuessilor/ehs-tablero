@@ -66,6 +66,8 @@ var Tablero = (function () {
         ] },
         { nombre: 'Brasil', items: [
           { id: 'brasil_lab_rio', rotulo: 'Lab Rio de Janeiro' },
+          { id: 'brasil_sumare', rotulo: 'Lab Sumaré' },
+          { id: 'brasil_duque_caxias', rotulo: 'Multioptica Duque de Caxias' },
           { id: 'brasil_comprol', rotulo: 'Comprol Brasilia' },
           { id: 'brasil_digitop', rotulo: 'Digitop Pinhais' },
           { id: 'brasil_embrapol', rotulo: 'Embrapol Pinhais' },
@@ -97,6 +99,7 @@ var Tablero = (function () {
         ] },
         { nombre: 'Ecuador', items: [
           { id: 'ecuador_quito', rotulo: 'Quito' },
+          { id: 'ecuador_versalles', rotulo: 'Quito Versalles' },
           { id: 'ecuador_guayaquil', rotulo: 'Guayaquil' },
           { id: 'ecuador_quito_gyq', rotulo: 'Quito Express GYQ' },
           { id: 'ecuador_sto_dgo', rotulo: 'Quito Santo Domingo' },

@@ -75,6 +75,10 @@ const SITIOS = [
   { id: 'guatemala_central_oe', etiqueta: 'Lab Central OE Guatemala' },
   { id: 'honduras_popular', etiqueta: 'Optica Popular Honduras' },
   { id: 'ecuador_quito', etiqueta: 'Indulentes Quito' },
+  // Sucursal separada de Indulentes Quito, con lectura propia y menor (Excel
+  // "EHS BD LATAM (3).xlsx", fila "INDULENTES QUITO VERSALLES)") -- no estaba
+  // en ref.dim_sitio hasta la carga de octubre (postgres/08b).
+  { id: 'ecuador_versalles', etiqueta: 'Indulentes Quito Versalles' },
   { id: 'ecuador_guayaquil', etiqueta: 'Indulentes Guayaquil' },
   { id: 'ecuador_quito_gyq', etiqueta: 'Indulentes Quito Express GYQ' },
   { id: 'ecuador_sto_dgo', etiqueta: 'Indulentes Quito Santo Domingo' },
@@ -85,6 +89,11 @@ const SITIOS = [
   { id: 'brasil_embrapol', etiqueta: 'Embrapol Pinhais' },
   { id: 'brasil_grown', etiqueta: 'Grown Optical Sao Paulo' },
   { id: 'brasil_lab_rio', etiqueta: 'Lab Rio de Janeiro' },
+  // Dos sitios reales que aparecieron en "EHS BD LATAM (3).xlsx" y no estaban
+  // en ref.dim_sitio hasta la carga de octubre (postgres/08b). Duque de Caxias
+  // reporta 0 lentes producidos pero si consumo/residuos -- perfil de agencia.
+  { id: 'brasil_sumare', etiqueta: 'Lab Sumare' },
+  { id: 'brasil_duque_caxias', etiqueta: 'Multioptica Duque de Caxias' },
   { id: 'brasil_multi_bras', etiqueta: 'Multi Bras' },
   { id: 'brasil_m_fortaleza', etiqueta: 'Multi Fortaleza' },
   { id: 'brasil_multi_pr', etiqueta: 'Multi PR (Pinhais)' },
