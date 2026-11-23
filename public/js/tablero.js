@@ -36,21 +36,12 @@ var Tablero = (function () {
      pildoras sueltas: Brasil solo ya trae 18 laboratorios, y una fila de botones de
      ese tamaño se volvia ilegible. Andina y CA y Caribe son consolidados (regiones),
      no paises: viven en Consolidados, no en Paises ni repetidos como "agrupacion". */
+  // El grupo "Consolidados" (Colombia/Peru/Nacional Labs como pildoras aparte) se
+  // quito el 23-nov-2026 a pedido de Samuel. Colombia y Peru se siguen viendo como
+  // pais en el grupo "Paises" de mas abajo; Nacional Labs sigue existiendo como
+  // ambito en el servidor (ehs.meta, ehs.v_ambito) por si hace falta retomarlo,
+  // solo que ya no tiene pildora propia.
   var GRUPOS_AMBITO = [
-    {
-      // LATAM, Colombia+Peru, Andina y CA y Caribe salieron de aqui (feedback del
-      // 17-nov-2026: "generan redundancia... no hacen que se vea estructurado").
-      // LATAM como vista de conjunto ahora es el Mapa general (ve todos los paises a
-      // la vez); Andina y CA y Caribe siguen existiendo como ambito en el servidor
-      // (ehs.meta, bridge_ambito_sitio) por si hace falta retomarlos, solo no son
-      // seleccionables desde aqui.
-      titulo: 'Consolidados',
-      items: [
-        { id: 'nacional', rotulo: 'Colombia' },
-        { id: 'peru', rotulo: 'Perú' },
-        { id: 'nacional_labs', rotulo: 'Nacional Labs' },
-      ],
-    },
     {
       titulo: 'Laboratorios',
       tipo: 'dropdown',
@@ -160,8 +151,8 @@ var Tablero = (function () {
     });
     return lista;
   })();
-  // Solo los ambitos "de panorama" (Consolidados + Paises): los que de verdad tiene
-  // sentido comparar uno contra otro en la matriz ambito x KPI. Los laboratorios y
+  // Solo los ambitos "de panorama" (Paises, ya sin Consolidados): los que de verdad
+  // tiene sentido comparar uno contra otro en la matriz ambito x KPI. Los laboratorios y
   // agencias de Laboratorios/Agencias (AMBITOS si los trae, para leerUrl/validacion)
   // quedarian fuera de esta lista a proposito -- son decenas (Brasil solo trae 18),
   // y la matriz dejaria de ser una comparacion de alto nivel para volverse un listado
