@@ -122,6 +122,17 @@
     var raras = conDato.filter(function (i) {
       return i.classList.contains('raro');
     }).length;
+    // Cambiar de pais solo oculta columnas, no vacia lo ya escrito en otro pais:
+    // al enviar se manda TODO lo que tenga valor, visible o no (pensado para
+    // llenar un pais, pasar al siguiente y mandar una sola vez al final). El
+    // conteo lo deja explicito para que nadie asuma que solo se envia lo visible.
+    var paisActual = $('#fPais') ? $('#fPais').value : null;
+    var deOtroPais =
+      paisActual &&
+      conDato.some(function (i) {
+        var td = i.closest('td');
+        return td && td.dataset.pais !== paisActual;
+      });
 
     var t;
     if (!conDato.length) {
@@ -130,6 +141,7 @@
       t = conDato.length + (conDato.length === 1 ? ' celda' : ' celdas') + ' con dato';
       if (malas) t += ' · ' + malas + ' sin validez';
       if (raras) t += ' · ' + raras + ' fuera de rango';
+      if (deOtroPais) t += ' (incluye otros países)';
     }
     $('#conteo').textContent = t;
     $('#bEnviar').disabled = conDato.length === 0;
@@ -388,7 +400,8 @@
           valorVisible(ya[clave]) +
           '. Para cambiarlo, usa Consultar y corregir (ahí queda el motivo).';
       } else {
-        faltan.push(i.getAttribute('aria-label'));
+        var td = i.closest('td');
+        faltan.push({ label: i.getAttribute('aria-label'), pais: td ? td.dataset.pais : null });
       }
     });
 
@@ -406,6 +419,14 @@
         ') y publicado en el tablero. Para cambiar un valor, usa ' +
         '<a href="/corregir">Consultar y corregir</a>: ahí queda escrito el motivo.';
     } else {
+      // 'total'/'capturadas' cuentan TODOS los sitios (lo que de verdad decide si el
+      // mes se publica): con 54 sitios eso es informacion real, pero listar las ~480
+      // celdas que faltan de paises que ni siquiera se estan viendo (la rejilla filtra
+      // por pais) confunde mas de lo que ayuda. La lista de "Falta" se recorta al pais
+      // elegido; el resto se resume en un numero, no se omite en silencio.
+      var paisActual = $('#fPais') ? $('#fPais').value : null;
+      var faltanDelPais = paisActual ? faltan.filter(function (f) { return f.pais === paisActual; }) : faltan;
+      var faltanOtros = faltan.length - faltanDelPais.length;
       t =
         '<strong>' +
         Fmt.esc(nombreMes) +
@@ -413,12 +434,19 @@
         capturadas +
         ' de ' +
         total +
-        '</strong>: el tablero lo publica cuando estén todas. Falta: ' +
-        faltan
-          .map(function (f) {
-            return '<span class="cap-falta">' + Fmt.esc(f) + '</span>';
-          })
-          .join(' ') +
+        '</strong>: el tablero lo publica cuando estén todas. Falta en ' +
+        Fmt.esc(paisActual || 'este país') +
+        ': ' +
+        (faltanDelPais.length
+          ? faltanDelPais
+              .map(function (f) {
+                return '<span class="cap-falta">' + Fmt.esc(f.label) + '</span>';
+              })
+              .join(' ')
+          : 'nada') +
+        (faltanOtros
+          ? ' · ' + faltanOtros + (faltanOtros === 1 ? ' celda más' : ' celdas más') + ' en otros países'
+          : '') +
         '. Las celdas en gris ya están capturadas; para cambiar una, usa ' +
         '<a href="/corregir">Consultar y corregir</a>.';
     }
@@ -491,7 +519,12 @@
     });
     $('#fMes').addEventListener('change', sincronizarTitulo);
     $('#fAnio').addEventListener('input', sincronizarTitulo);
-    $('#fPais').addEventListener('change', filtrarColumnasPorPais);
+    $('#fPais').addEventListener('change', function () {
+      filtrarColumnasPorPais();
+      // El aviso de "Falta en <pais>" (pintarEstadoMes) recorta su lista al pais
+      // elegido: tiene que recalcularse cuando el pais cambia, no solo el mes.
+      pintarEstadoMes();
+    });
     filtrarColumnasPorPais();
 
     sincronizarTitulo();
