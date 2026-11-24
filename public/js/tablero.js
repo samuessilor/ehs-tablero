@@ -697,7 +697,7 @@ var Tablero = (function () {
     // aria-checked, no aria-pressed: ehs.css solo estiliza ".seg button[aria-checked]"
     // (son controles de radiogroup, no botones de si/no) — con aria-pressed el botón
     // elegido de Sitio o Mes nunca se veía resaltado, aunque el estado sí cambiara.
-    // En Mapa general nada queda marcado: esa vista muestra los 13 paises a la vez,
+    // En Mapa general nada queda marcado: esa vista muestra los 12 paises a la vez,
     // no "el pais que se eligio antes" (pedido 24-nov-2026 -- entrar a un laboratorio
     // o un pais y volver a Mapa general debia verse como un tablero limpio, no con
     // ese sitio todavia resaltado ni sin forma de quitarlo). S.ambito SI se conserva
@@ -828,7 +828,7 @@ var Tablero = (function () {
   }
 
   /* ------------------------------------------------------------- mapa general --- */
-  // Pantalla de inicio (pedida 17-nov-2026): los 13 paises a la vez, un mapa de calor
+  // Pantalla de inicio (pedida 17-nov-2026): los 12 paises a la vez, un mapa de calor
   // en vez de un numero a la vez, para detectar de un vistazo cual pais alarma antes
   // de entrar a mirarlo en detalle. No calcula nada propio: pide el mismo /panorama
   // de siempre, uno por pais, y colorea con el mismo 'estado' que ya trae resuelto el
@@ -847,7 +847,7 @@ var Tablero = (function () {
   async function pintarMapa() {
     var cont = $('#mapaCalor');
     if (!cont) return;
-    cont.innerHTML = '<p class="nota">Cargando los 13 países…</p>';
+    cont.innerHTML = '<p class="nota">Cargando los 12 países…</p>';
 
     var paisesGrupo = GRUPOS_AMBITO.filter(function (g) {
       return g.titulo === 'Países';
@@ -2814,11 +2814,11 @@ var Tablero = (function () {
       // resolverAmbito tumbaban render() entero con el error generico).
       var vistaActiva = document.getElementById('v-' + S.vista);
       var aviso = avisoSinDatoAmbito();
-      // El Mapa general nunca depende de un solo ambito (pide los 13 paises aparte,
+      // El Mapa general nunca depende de un solo ambito (pide los 12 paises aparte,
       // cada uno con su propio catch): si el aviso de "este ambito no tiene datos" se
       // aplicara tambien aqui, volver a Mapa general despues de un pais sin captura
       // (o, antes del fix de arriba, cualquier pais con un mes fuera de su corte)
-      // tapaba el mapa entero con ese aviso en vez de mostrar los 13 paises.
+      // tapaba el mapa entero con ese aviso en vez de mostrar los 12 paises.
       if (ambitoSinDato && S.vista !== 'mapa') {
         if (vistaActiva) vistaActiva.hidden = true;
         aviso.hidden = false;
