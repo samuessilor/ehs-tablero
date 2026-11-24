@@ -892,9 +892,14 @@ var Tablero = (function () {
         }
         return api('panorama', { ambito: p.id, mes: S.mes })
           .catch(function () {
+            // api() cachea por URL: 'panorama?ambito=X' (sin mes) es la MISMA
+            // promesa/objeto que ya devolvio este mismo pais en una consulta
+            // anterior sin mes -- mutar ese objeto compartido con
+            // _rezagadoPorMes lo dejaria marcado para siempre, incluso el dia
+            // que se vuelva a pedir sin ningun mes elegido. Se copia antes de
+            // marcar.
             return api('panorama', { ambito: p.id }).then(function (pan) {
-              if (pan) pan._rezagadoPorMes = true;
-              return pan;
+              return pan ? Object.assign({}, pan, { _rezagadoPorMes: true }) : null;
             });
           })
           .catch(function () {
