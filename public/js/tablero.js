@@ -670,7 +670,15 @@ var Tablero = (function () {
     document.body.addEventListener('click', function (e) {
       var b = e.target.closest('button');
       if (!b) return;
-      if (b.dataset.vista) S.vista = b.dataset.vista;
+      if (b.dataset.vista) {
+        // Entrar a Mapa general desde otra vista resetea el mes elegido, igual
+        // que ya resetea el ambito: un mes que quedo pegado de otro pais no
+        // significa nada ahi (Mapa general muestra el corte propio de cada
+        // uno). Elegir un mes mientras ya se esta en Mapa general (data-mes)
+        // no pasa por aqui, asi que no se pisa a si mismo.
+        if (b.dataset.vista === 'mapa' && S.vista !== 'mapa') S.mes = null;
+        S.vista = b.dataset.vista;
+      }
       else if (b.dataset.ambito) {
         S.ambito = b.dataset.ambito;
         // Elegir un sitio desde el Mapa general es "entrar a ese pais": sin esto el
