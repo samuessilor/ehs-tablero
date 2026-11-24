@@ -76,3 +76,20 @@ documento del area -- no se inventa.
 (confirmado de nuevo, celda por celda, para las 13 que aparecen en MEX/ARG/BRA): todos
 los meses de 2026 en blanco o en cero. Si alguna reporta dato real en el futuro, se
 agrega entonces.
+
+## 7. Agencias por pais (postgres/10_agencias_pais_estructura.sql, 24-nov-2026)
+
+Estructura lista para los 7 paises LATAM que todavia no tenian su "Agencias
+`<Pais>`" (Mexico, Argentina, Costa Rica, Nicaragua, Republica Dominicana,
+Guatemala, Ecuador) -- sin lectura ni meta, igual que cualquier sitio nuevo.
+Ya habilitadas en Capturar/Corregir desde que existen en `ref.dim_sitio`. Dos
+advertencias para quien cargue su primera lectura real (ver tambien el
+encabezado del archivo SQL):
+
+- Cargar un mes suelto (no el anio completo) hace que los meses anteriores de
+  ese pais y de `latam` dejen de contar para la regla de negocio 3 (un mes
+  cuenta solo si TODOS los sitios reportantes de ese anio lo reportaron).
+- Estas 7, igual que las 3 agencias existentes (`chile_megalux_ag`,
+  `honduras_popular_ag`, `brasil_unilab_ag`), solo estan puenteadas a su pais
+  y a `latam`, no tambien a su region (`andina`/`ca_caribe`) -- a confirmar
+  con EHS si eso se corrige antes de que llegue su primer dato real.

@@ -16,6 +16,25 @@
    se puede re-correr sin duplicar.
 
    Decidido en docs/superpowers/specs/2026-11-24-agencias-por-pais-y-mapa-general-design.md.
+
+   ADVERTENCIA para quien cargue la primera lectura real de cualquiera de estas
+   7 (ya habilitadas en Capturar/Corregir desde que existe esta fila): la regla
+   de negocio 3 de ehs/CLAUDE.md ("un mes cuenta para un ambito solo si TODOS
+   sus sitios reportantes lo reportaron") mira todo el anio. Si el primer dato
+   que llega es, por ejemplo, solo diciembre, los meses de enero a noviembre
+   de ese PAIS (y de 'latam') dejan de contar -- no porque se borre nada, sino
+   porque ahora ese sitio tambien cuenta y no los reporto. Cargar un anio
+   completo de una vez (o esperar a tenerlo) evita que aparezca un retroceso
+   en los demas KPI del pais el mismo dia que esto deja de estar vacio.
+
+   Pendiente de decidir con EHS (no corregido aqui, ver postgres/06_paises_latam.sql
+   y postgres/08_lecturas_latam.sql, ya aplicados): estas 7 filas se puentean
+   solo a su pais y a 'latam', igual que las 3 agencias existentes
+   (chile_megalux_ag, honduras_popular_ag, brasil_unilab_ag) -- ninguna de las
+   10 esta puenteada tambien a su region (andina/ca_caribe), aunque
+   ref.bridge_ambito_sitio documenta ese tercer nivel para el resto de sitios
+   LATAM. Mientras no tengan lectura no afecta a nadie; el dia que la tengan,
+   Andina/CA y Caribe quedarian incompletos frente a LATAM.
    ============================================================================= */
 
 begin;
