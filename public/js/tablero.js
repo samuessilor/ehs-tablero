@@ -563,7 +563,15 @@ var Tablero = (function () {
     // intentar pintar la vista -- quedaba el error generico de "no se pudo leer el
     // dato del servidor" para un ambito que simplemente no tiene nada que mostrar
     // todavia, que es un estado normal, no una falla.
-    var pan = await api('panorama', { mes: S.mes, ambito: S.ambito }).catch(function () {
+    //
+    // SIN mes: este pedido es solo para DESCUBRIR el corte propio del nuevo ambito.
+    // Si se manda el S.mes que quedo de el ambito anterior (ej. octubre, valido para
+    // Agencias) y el nuevo ambito todavia no llega a ese mes (ej. Brasil, corte
+    // septiembre), el servidor no hace fallback al corte: devuelve 404 porque ESE mes
+    // puntual no tiene lectura, y el tablero interpreta "Brasil no tiene ningun dato
+    // capturado" siendo falso -- Brasil si tiene, solo que no ese mes. S.mes se ajusta
+    // DESPUES, mas abajo, una vez se conoce el corte real del ambito nuevo.
+    var pan = await api('panorama', { ambito: S.ambito }).catch(function () {
       return null;
     });
     ambitoSinDato = !pan;
@@ -690,16 +698,24 @@ var Tablero = (function () {
     // aria-checked, no aria-pressed: ehs.css solo estiliza ".seg button[aria-checked]"
     // (son controles de radiogroup, no botones de si/no) — con aria-pressed el botón
     // elegido de Sitio o Mes nunca se veía resaltado, aunque el estado sí cambiara.
+    // En Mapa general nada queda marcado: esa vista muestra los 13 paises a la vez,
+    // no "el pais que se eligio antes" (pedido 24-nov-2026 -- entrar a un laboratorio
+    // o un pais y volver a Mapa general debia verse como un tablero limpio, no con
+    // ese sitio todavia resaltado ni sin forma de quitarlo). S.ambito SI se conserva
+    // por dentro -- es lo que usan Panorama y las demas vistas si se cambia de
+    // pestaña sin elegir otro sitio -- solo se deja de REFLEJAR mientras se ve el mapa.
+    var enMapa = S.vista === 'mapa';
     document.querySelectorAll('#segSitio button').forEach(function (b) {
-      b.setAttribute('aria-checked', String(b.dataset.ambito === S.ambito));
+      b.setAttribute('aria-checked', String(!enMapa && b.dataset.ambito === S.ambito));
     });
     // Si S.ambito es una de sus opciones lo refleja; si no (se eligio por otro
-    // control), vuelve al placeholder en vez de quedarse en una opcion vieja.
+    // control, o se esta en Mapa general), vuelve al placeholder en vez de quedarse
+    // en una opcion vieja.
     document.querySelectorAll('#segSitio select[data-ambito-select]').forEach(function (sel) {
       var tieneOpcion = Array.prototype.some.call(sel.options, function (o) {
         return o.value === S.ambito;
       });
-      sel.value = tieneOpcion ? S.ambito : '';
+      sel.value = !enMapa && tieneOpcion ? S.ambito : '';
     });
     document.querySelectorAll('#segMes button').forEach(function (b) {
       b.setAttribute('aria-checked', String(parseInt(b.dataset.mes, 10) === S.mes));
@@ -2799,7 +2815,12 @@ var Tablero = (function () {
       // resolverAmbito tumbaban render() entero con el error generico).
       var vistaActiva = document.getElementById('v-' + S.vista);
       var aviso = avisoSinDatoAmbito();
-      if (ambitoSinDato) {
+      // El Mapa general nunca depende de un solo ambito (pide los 13 paises aparte,
+      // cada uno con su propio catch): si el aviso de "este ambito no tiene datos" se
+      // aplicara tambien aqui, volver a Mapa general despues de un pais sin captura
+      // (o, antes del fix de arriba, cualquier pais con un mes fuera de su corte)
+      // tapaba el mapa entero con ese aviso en vez de mostrar los 13 paises.
+      if (ambitoSinDato && S.vista !== 'mapa') {
         if (vistaActiva) vistaActiva.hidden = true;
         aviso.hidden = false;
         aviso.querySelector('p').textContent =
