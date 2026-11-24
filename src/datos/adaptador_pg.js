@@ -125,7 +125,6 @@ const META_DE_AMBITO = {
   guatemala: 'guatemala',
   honduras: 'honduras',
   ecuador: 'ecuador',
-  eua: 'eua',
 };
 
 /* Ambitos de la expansion LATAM (postgres/06_paises_latam.sql): salen de
@@ -146,7 +145,6 @@ const AMBITOS_LATAM = new Set([
   'guatemala',
   'honduras',
   'ecuador',
-  'eua',
 ]);
 
 /* El valor tal como lo publica la vista: redondeado a 6 decimales, igual que

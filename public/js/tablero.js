@@ -128,7 +128,6 @@ var Tablero = (function () {
         { id: 'guatemala', rotulo: 'Guatemala' },
         { id: 'honduras', rotulo: 'Honduras' },
         { id: 'ecuador', rotulo: 'Ecuador' },
-        { id: 'eua', rotulo: 'EUA' },
       ],
     },
   ];

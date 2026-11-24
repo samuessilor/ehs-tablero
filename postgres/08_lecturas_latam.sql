@@ -3,8 +3,10 @@
    (Mexico, Argentina, Chile, Costa Rica, Nicaragua, Guatemala, Honduras,
    Ecuador, Republica Dominicana, Brasil). NO toca Celta/Estrella/Agencias/
    Peru/Colombia/Colombia+Peru -- esos los gobierna el pipeline propio de
-   ehs/CLAUDE.md, con correcciones ya validadas por el area. EUA no trae 2026
-   en el Excel (solo historico 2019-2023): sigue sin dato.
+   ehs/CLAUDE.md, con correcciones ya validadas por el area. EUA (Warehouse
+   ELAC) se quito de la estructura: sin target 2026 en el Excel y sin ninguna
+   lectura, se retiro el pais/sitio en vez de mostrarlo vacio (ver tambien
+   06_paises_latam.sql y DATOS-FALTANTES-LATAM.md).
 
    Fuente: Excel "EHS BD LATAM (3).xlsx", hojas por pais -- entregado por
    Samuel el 17-nov-2026. Llena huecos de meses anteriores (ej. Brasil marzo)
@@ -26,8 +28,8 @@ insert into ref.dim_sitio
     ('chile_megalux_ag', 'Agencias Megalux Chile', 'Agencias Megalux', 'Agencias Megalux Chile', 'Agencia', null, false, false, false, true),
     ('honduras_popular_ag', 'Agencias Optica Popular Honduras', 'Agencias Opt. Popular', 'Agencias Optica Popular Honduras', 'Agencia', null, false, false, false, true),
     ('brasil_unilab_ag', 'Agencias Unilab Fortaleza', 'Agencias Unilab', 'Agencias Unilab Fortaleza', 'Agencia', 'Fortaleza', false, false, false, true),
-    ('ecuador_versalles', 'Indulentes Quito Versalles', 'Indulentes Versalles', 'Indulentes Quito Versalles', 'Laboratorio', 'Quito', false, false, false, true),
-    ('brasil_duque_caxias', 'Multioptica Duque de Caxias', 'Multioptica Duque Caxias', 'Multioptica Duque de Caxias', 'Agencia', 'Duque de Caxias', false, false, false, true),
+    ('ecuador_versalles', 'Indulentes Quito Versalles', 'Ind. Versalles', 'Indulentes Quito Versalles', 'Laboratorio', 'Quito', false, false, false, true),
+    ('brasil_duque_caxias', 'Multioptica Duque de Caxias', 'Multiop. Caxias', 'Multioptica Duque de Caxias', 'Agencia', 'Duque de Caxias', false, false, false, true),
     ('brasil_sumare', 'Lab Sumare', 'Lab Sumare', 'Lab Sumare', 'Laboratorio', 'Sumare', false, false, false, true)
 on conflict (sitio_id) do update set
     sitio = excluded.sitio, sitio_corto = excluded.sitio_corto,

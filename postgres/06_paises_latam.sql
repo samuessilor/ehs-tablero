@@ -62,8 +62,7 @@ insert into ref.dim_ambito (ambito_id, ambito, nivel, ambito_padre_id) values
     ('rep_dominicana', 'República Dominicana', 'pais', 'ca_caribe'),
     ('guatemala', 'Guatemala', 'pais', 'ca_caribe'),
     ('honduras', 'Honduras', 'pais', 'ca_caribe'),
-    ('ecuador', 'Ecuador', 'pais', 'latam'),
-    ('eua', 'Estados Unidos', 'pais', 'latam')
+    ('ecuador', 'Ecuador', 'pais', 'latam')
 on conflict (ambito_id) do update set
     ambito = excluded.ambito, nivel = excluded.nivel, ambito_padre_id = excluded.ambito_padre_id;
 
@@ -108,8 +107,7 @@ insert into ref.dim_sitio
     ('ecuador_guayaquil', 'Indulentes Guayaquil', 'Indulentes GYE', 'Indulentes Guayaquil', 'Laboratorio', 'Guayaquil', false, false, false, true),
     ('ecuador_quito_gyq', 'Indulentes Quito Express GYQ', 'Indulentes Express', 'Indulentes Quito Express GYQ', 'Laboratorio', 'Quito', false, false, false, true),
     ('ecuador_sto_dgo', 'Indulentes Quito Santo Domingo', 'Indulentes Sto Dgo', 'Indulentes Quito Santo Domingo', 'Laboratorio', 'Santo Domingo', false, false, false, true),
-    ('ecuador_cuenca', 'Indulentes Quito Cuenca', 'Indulentes Cuenca', 'Indulentes Quito Cuenca', 'Laboratorio', 'Cuenca', false, false, false, true),
-    ('eua_elac', 'Warehouse ELAC', 'ELAC', 'Warehouse ELAC', 'Laboratorio', null, false, false, false, true)
+    ('ecuador_cuenca', 'Indulentes Quito Cuenca', 'Indulentes Cuenca', 'Indulentes Quito Cuenca', 'Laboratorio', 'Cuenca', false, false, false, true)
 on conflict (sitio_id) do update set
     sitio = excluded.sitio, sitio_corto = excluded.sitio_corto,
     nombre_corporativo = excluded.nombre_corporativo, ciudad = excluded.ciudad;
@@ -202,9 +200,7 @@ insert into ref.bridge_ambito_sitio (ambito_id, sitio_id) values
     ('ecuador', 'ecuador_sto_dgo'),
     ('latam', 'ecuador_sto_dgo'),
     ('ecuador', 'ecuador_cuenca'),
-    ('latam', 'ecuador_cuenca'),
-    ('eua', 'eua_elac'),
-    ('latam', 'eua_elac')
+    ('latam', 'ecuador_cuenca')
 on conflict (ambito_id, sitio_id) do nothing;
 
 -- --------------------------------------------------------------------- ehs.meta

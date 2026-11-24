@@ -36,7 +36,7 @@ TARGETS solo trae meta a nivel de PAIS para estos; sus sitios reales (varios por
 
 ## 3. Pais sin ninguna meta 2026 en el Excel
 
-**Estados Unidos (EUA)** -- tiene un sitio operativo (Warehouse ELAC, hoja `EUA` del Excel con historico 2019-2023) pero la hoja TARGETS no trae ninguna fila para EUA, de ningun KPI. Se cargo el sitio y el ambito `eua` para que la estructura ya lo soporte, pero sin ninguna fila en `ehs.meta` -- el tablero lo mostrara como `sin_meta` en los 5 KPI hasta que EHS entregue el target.
+**Estados Unidos (EUA)** -- tenia un sitio operativo (Warehouse ELAC, hoja `EUA` del Excel con historico 2019-2023), pero la hoja TARGETS no trae ninguna fila para EUA, de ningun KPI, ni tampoco lecturas 2026. Se retiro el pais/sitio/ambito de la estructura (código y base) en vez de dejarlo cargado y en `sin_meta` permanente; si EHS entrega target y lecturas 2026 para ELAC, se vuelve a dar de alta igual que cualquier sitio nuevo.
 
 ## 4. A confirmar con EHS (no es un vacio, es una posible actualizacion)
 

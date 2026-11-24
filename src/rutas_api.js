@@ -30,7 +30,6 @@ const AMBITOS = [
   'guatemala',
   'honduras',
   'ecuador',
-  'eua',
   // Sitios individuales seleccionables desde los <select> "Laboratorios"/"Agencias"
   // del tablero (public/js/tablero.js, GRUPOS_AMBITO): cada uno es tambien su propio
   // ambito_id por la primera rama de ehs.v_ambito (sitio_id = ambito_id). Sin esto el
