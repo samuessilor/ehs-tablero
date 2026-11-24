@@ -2831,6 +2831,12 @@ var Tablero = (function () {
     document.body.classList.add('cargando');
     try {
       if (ambitoResuelto !== S.ambito) await resolverAmbito();
+      // Entrar o salir de Mapa general cambia si #segMes debe mostrar los 12 meses
+      // habilitados o solo los del ambito resuelto, SIN que S.ambito haya cambiado
+      // (resolverAmbito() de arriba no vuelve a correr en ese caso, y con ella su
+      // propio pintarMeses()) -- se repinta aparte para que ese cambio de vista
+      // siempre se refleje, no solo cuando tambien cambia el ambito.
+      pintarMeses();
       escribirUrl();
       marcarControles();
       var amb = AMBITOS.filter(function (a) {
