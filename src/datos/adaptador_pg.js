@@ -549,11 +549,10 @@ module.exports = {
    *
    * 'ambito' decide DE DONDE sale la lista de sitios a comparar, no cambia nada mas
    * de la consulta (meta/brecha/estado siguen siendo del propio sitio, igual que
-   * siempre). Sin ambito, o con uno de la familia Colombia (celta/estrella/agencias/
-   * nacional/nacional_labs/peru/colombia_peru), la consulta es LA MISMA que antes de
-   * la expansion LATAM, literal — nada de lo ya verificado para Colombia cambia. Con
-   * un ambito de postgres/06_paises_latam.sql (mexico, brasil, ...) los sitios salen
-   * de ref.bridge_ambito_sitio en vez de las columnas en_nacional*. */
+   * siempre). Colombia (celta/estrella/agencias/nacional/nacional_labs) y Peru son
+   * paises aparte a proposito -- elegir uno no debe traer sitios del otro. Con un
+   * ambito de postgres/06_paises_latam.sql (mexico, brasil, ...) los sitios salen de
+   * ref.bridge_ambito_sitio en vez de las columnas en_nacional*. */
   async kpiPorSitio({ anio, mes, kpi, ambito }) {
     const ctx = await corteDeAmbito(await contexto(), ambito);
     ({ anio, mes } = alCorte(ctx, anio, mes));
@@ -567,20 +566,25 @@ module.exports = {
     if (!def) return null;
 
     const esLatam = AMBITOS_LATAM.has(ambito);
-    // 'peru' no tiene hermanos propios en este set de datos (es el unico sitio no
-    // colombiano operativo): mostrarlo junto a los tres de Colombia bajo
-    // en_colombia_peru es mas util que lo que habia antes -- s.en_nacional siempre,
-    // sin mirar el ambito -- que dejaba a Peru viendo la comparativa de Colombia como
-    // si fuera la suya.
-    const familiaColombiaPeru = ambito === 'colombia_peru' || ambito === 'peru';
-    // Un sitio individual de Colombia (celta/estrella/agencias) SI tiene sentido
-    // comparar contra sus hermanos -- es el "ver Celta junto a Estrella y Agencias"
-    // de siempre. Un sitio individual de LATAM (un laboratorio o agencia puntual del
-    // selector "Laboratorios"/"Agencias", p.ej. brasil_unilab) no cae en esLatam
-    // (bridge_ambito_sitio no lo bridgea a si mismo) y sin este chequeo caia en el
-    // else de mas abajo, mostrando Colombia como si fuera su comparacion -- un sitio
-    // que nunca eligio. where false: sin comparacion antes que una que no es suya.
-    const individualColombia = ambito === 'celta' || ambito === 'estrella' || ambito === 'agencias';
+    // Familia Colombia+Peru de verdad (los dos juntos) solo cuando se elige
+    // explicitamente ese ambito combinado -- ya no incluye 'peru' solo.
+    const familiaColombiaPeru = ambito === 'colombia_peru';
+    // Un sitio individual de Colombia (celta/estrella/agencias) o Colombia misma
+    // (nacional) SI tiene sentido comparar contra sus hermanos de Colombia -- es el
+    // "ver Celta junto a Estrella y Agencias" de siempre. Un sitio individual de
+    // LATAM (un laboratorio o agencia puntual del selector "Laboratorios"/"Agencias",
+    // p.ej. brasil_unilab) no cae en esLatam (bridge_ambito_sitio no lo bridgea a si
+    // mismo) y sin este chequeo caia en el else de mas abajo, mostrando Colombia como
+    // si fuera su comparacion -- un sitio que nunca eligio. where false: sin
+    // comparacion antes que una que no es suya.
+    const individualColombia =
+      ambito === 'celta' || ambito === 'estrella' || ambito === 'agencias' || ambito === 'nacional';
+    // Celta+Estrella solos (sin Agencias), con el mismo criterio de arriba.
+    const soloNacionalLabs = ambito === 'nacional_labs';
+    // Peru es pais aparte: no tiene hermanos propios en este set de datos (es el
+    // unico sitio operativo), asi que se compara contra si mismo, nunca contra
+    // Colombia -- mezclarlo con Colombia fue el bug que esto corrige.
+    const soloPeru = ambito === 'peru';
     const filtroSitios = esLatam
       ? `join ref.bridge_ambito_sitio b on b.sitio_id = s.sitio_id and b.ambito_id = $4`
       : '';
@@ -590,8 +594,12 @@ module.exports = {
         ? 'where s.activo and s.en_colombia_peru'
         : individualColombia
           ? 'where s.activo and s.en_nacional'
-          : 'where false';
-    const parametros = esLatam ? [anio, mes, kpi, ambito] : [anio, mes, kpi];
+          : soloNacionalLabs
+            ? 'where s.activo and s.en_nacional_labs'
+            : soloPeru
+              ? 'where s.activo and s.sitio_id = $4'
+              : 'where false';
+    const parametros = esLatam || soloPeru ? [anio, mes, kpi, ambito] : [anio, mes, kpi];
 
     const { rows: sitios } = await consulta(
       `with ytd as (
