@@ -535,9 +535,14 @@ var Tablero = (function () {
   // de Colombia (migracion 0021), asi que la fila de meses se vuelve a pintar cada vez
   // que cambia el ambito y no solo al cargar.
   function pintarMeses() {
+    // En Mapa general no hay un unico ambito resuelto -- son los 12 paises a la
+    // vez, cada uno con su propio corte -- asi que 'mesesConDato' (del ultimo
+    // ambito individual resuelto) no aplica: los 12 botones quedan habilitados
+    // y pintarMapa() decide, pais por pais, si el mes elegido llega o no.
+    var todosHabilitados = S.vista === 'mapa';
     $('#segMes').innerHTML = Fmt.mesCorto
       .map(function (m, i) {
-        var hay = mesesConDato.indexOf(i + 1) >= 0;
+        var hay = todosHabilitados || mesesConDato.indexOf(i + 1) >= 0;
         return (
           '<button type="button" data-mes="' +
           (i + 1) +
@@ -872,11 +877,29 @@ var Tablero = (function () {
     // Un pais LATAM nuevo (o Peru antes de su primera captura) responde 404: no es
     // una falla del mapa, es ese pais sin ningun dato todavia -- se pinta "sin dato"
     // en toda la fila, no se tumba el resto.
+    //
+    // Con un mes elegido en Mapa general (S.mes), se pide ESE mes a los 12 paises.
+    // El que no llegue todavia (su propio corte es anterior a S.mes) responde 404 --
+    // mismo mecanismo que ya distingue "sin dato" de "rezagado" -- y se reintenta sin
+    // mes (su propio corte), marcado con _rezagadoPorMes para no confundirlo con un
+    // pais que de verdad no tiene nada.
     var resultados = await Promise.all(
       paises.map(function (p) {
-        return api('panorama', { ambito: p.id }).catch(function () {
-          return null;
-        });
+        if (S.mes == null) {
+          return api('panorama', { ambito: p.id }).catch(function () {
+            return null;
+          });
+        }
+        return api('panorama', { ambito: p.id, mes: S.mes })
+          .catch(function () {
+            return api('panorama', { ambito: p.id }).then(function (pan) {
+              if (pan) pan._rezagadoPorMes = true;
+              return pan;
+            });
+          })
+          .catch(function () {
+            return null;
+          });
       })
     );
 
@@ -901,7 +924,11 @@ var Tablero = (function () {
             '</tr>'
           );
         }
-        var atrasado = corteMax > 0 && pan.corte.mes < corteMax;
+        var atrasado = pan._rezagadoPorMes || (corteMax > 0 && pan.corte.mes < corteMax);
+        // El mes siguiente al propio corte del pais (no el corte maximo del grupo):
+        // Brasil en septiembre dice "Pendiente de octubre" sin importar que tan
+        // adelante este el pais que mas reporto. Sin mes 13 que nombrar en diciembre.
+        var siguiente = pan.corte.mes < 12 ? Fmt.mesLargo[pan.corte.mes] : null;
         var kpiPorId = {};
         pan.kpi.forEach(function (k) {
           kpiPorId[k.kpi_id] = k;
@@ -934,10 +961,12 @@ var Tablero = (function () {
           '">' +
           Fmt.esc(p.rotulo) +
           (atrasado
-            ? '<span class="mapa-atraso" title="Su corte mas reciente es ' +
-              Fmt.mesLargo[pan.corte.mes - 1] +
-              '; otros paises ya tienen ' +
-              Fmt.mesLargo[corteMax - 1] +
+            ? '<span class="mapa-atraso" title="' +
+              (pan._rezagadoPorMes
+                ? 'No llega a ' + Fmt.mesLargo[S.mes - 1] + '; muestra su propio corte, ' + Fmt.mesLargo[pan.corte.mes - 1]
+                : siguiente
+                  ? 'Pendiente de ' + siguiente
+                  : 'Su corte mas reciente es ' + Fmt.mesLargo[pan.corte.mes - 1] + '; otros paises ya tienen ' + Fmt.mesLargo[corteMax - 1]) +
               '">⚠ ' +
               Fmt.mesCorto[pan.corte.mes - 1] +
               '</span>'
