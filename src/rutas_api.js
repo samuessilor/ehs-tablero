@@ -76,6 +76,15 @@ const AMBITOS = [
   'brasil_unilab',
   'brasil_visolab',
   'brasil_unilab_ag',
+  // Agencias por pais (postgres/10_agencias_pais_estructura.sql): mismo
+  // mecanismo que chile_megalux_ag/honduras_popular_ag/brasil_unilab_ag.
+  'mexico_agencias',
+  'argentina_agencias',
+  'costa_rica_agencias',
+  'nicaragua_agencias',
+  'rd_agencias',
+  'guatemala_agencias',
+  'ecuador_agencias',
 ];
 /* Ambitos que tienen fila propia en ref.dim_sitio y por lo tanto pueden tener
    trayectoria (ehs.scorecard_anual) o contraste anio contra anio: todos menos
