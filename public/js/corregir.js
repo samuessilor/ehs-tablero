@@ -289,6 +289,15 @@
         return o.value === sitioUrl;
       })
     ) {
+      // #cSitio ya viene filtrado por #cPais (iniciar() corrio filtrarSitiosPorPais()
+      // antes de llegar aqui, dejando todo lo que no es de Colombia oculto y
+      // deshabilitado) -- un sitio de otro pais quedaria seleccionado pero invisible,
+      // con #cPais todavia en "Colombia". Se ajusta el pais primero.
+      var opcionSitio = document.querySelector('#cSitio option[value="' + sitioUrl + '"]');
+      if (opcionSitio) {
+        $('#cPais').value = opcionSitio.dataset.pais;
+        filtrarSitiosPorPais();
+      }
       $('#cSitio').value = sitioUrl;
       // se llego desde el lapiz de "Datos": volver ahi, al mismo sitio y mes, y no a la
       // portada, que obligaba a buscar otra vez la tabla para ver el cambio
