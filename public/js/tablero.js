@@ -974,6 +974,15 @@ var Tablero = (function () {
                   : 'Su corte mas reciente es ' + Fmt.mesLargo[pan.corte.mes - 1] + '; otros paises ya tienen ' + Fmt.mesLargo[corteMax - 1]) +
               '">⚠ ' +
               Fmt.mesCorto[pan.corte.mes - 1] +
+              // El texto visible tambien nombra el mes pendiente, no solo el title=
+              // (invisible en tactil, no alcanzable con teclado) -- el pedido original
+              // era "que un pais rezagado se distinga con claridad", no solo al pasar
+              // el mouse.
+              (pan._rezagadoPorMes
+                ? ' · no llega a ' + Fmt.mesCorto[S.mes - 1]
+                : siguiente
+                  ? ' · pend. ' + Fmt.mesCorto[pan.corte.mes]
+                  : '') +
               '</span>'
             : '<span class="mapa-corte">' + Fmt.mesCorto[pan.corte.mes - 1] + '</span>') +
           '</th>' +
@@ -998,7 +1007,11 @@ var Tablero = (function () {
       '<span class="mapa-chip incumple">Incumple</span>' +
       '<span class="mapa-chip sinmeta">Sin meta</span>' +
       '<span class="mapa-chip falta">Sin dato</span>' +
-      ' · ⚠ junto al país = su corte va más atrasado que el de los demás · clic en un país para ver su detalle.' +
+      ' · ⚠ junto al país = ' +
+      (S.mes == null
+        ? 'su corte va más atrasado que el de los demás'
+        : 'no llega al mes elegido; muestra su propio corte') +
+      ' · clic en un país para ver su detalle.' +
       '</p>';
 
     cont.onclick = function (e) {
@@ -2836,6 +2849,16 @@ var Tablero = (function () {
     document.body.classList.add('cargando');
     try {
       if (ambitoResuelto !== S.ambito) await resolverAmbito();
+      // Fuera de Mapa general, S.mes tiene que ser un mes real del ambito resuelto.
+      // Mapa general habilita los 12 botones de #segMes (para poder pedir
+      // cualquier mes a los 12 paises a la vez) sin pasar por resolverAmbito() al
+      // salir de esa vista -- sin este ajuste, un mes elegido ahi (o S.mes=null,
+      // tras el reset de a5b03eb) que el ambito actual no tiene se mandaba igual
+      // a /api/ehs/*, esa peticion devolvia 404, y la vista siguiente (Panorama,
+      // Agua, ...) caia en el error generico de "no se pudo leer el dato".
+      if (S.vista !== 'mapa' && !ambitoSinDato && mesesConDato.indexOf(S.mes) < 0) {
+        S.mes = mesesConDato[mesesConDato.length - 1];
+      }
       // Entrar o salir de Mapa general cambia si #segMes debe mostrar los 12 meses
       // habilitados o solo los del ambito resuelto, SIN que S.ambito haya cambiado
       // (resolverAmbito() de arriba no vuelve a correr en ese caso, y con ella su
@@ -2926,7 +2949,12 @@ var Tablero = (function () {
       // cae al ultimo publicado, en vez de dibujar un vacio
       mesesConDato = pan.corte.mesesConDato;
       S.anio = pan.anio;
-      if (mesesConDato.indexOf(S.mes) < 0) S.mes = pan.corte.mes;
+      // En Mapa general S.mes no depende del corte de este ambito inicial (por
+      // defecto Colombia): clamparlo aqui dejaba la pantalla de inicio abierta
+      // en modo "mes elegido" (filtrada al mes de Colombia, con los paises
+      // atrasados marcados distinto que al entrar por la pestaña) sin que nadie
+      // lo haya pedido. En las demas vistas el corte SI debe resolver el mes.
+      if (S.vista !== 'mapa' && mesesConDato.indexOf(S.mes) < 0) S.mes = pan.corte.mes;
       ambitoResuelto = S.ambito;
       ambitoSinDato = false;
       construirControles();
