@@ -70,6 +70,14 @@
           <% }); %>
         </select>
       </label>
+      <label class="cap-campo">
+        <span class="et">País</span>
+        <select id="fPais">
+          <% sitiosPorPais.forEach(function (g) { %>
+          <option value="<%= g.pais %>"><%= g.pais %></option>
+          <% }); %>
+        </select>
+      </label>
       <label class="cap-campo cap-campo-ancho">
         <span class="et">Quién captura</span>
         <input type="text" id="fQuien" maxlength="60" placeholder="nombre.apellido"
@@ -96,7 +104,7 @@
           <tr>
             <th class="cap-th-mag">Magnitud</th>
             <% sitios.forEach(function (s) { %>
-            <th><%= s.etiqueta %></th>
+            <th data-pais="<%= s.pais %>"><%= s.etiqueta %></th>
             <% }); %>
           </tr>
         </thead>
@@ -104,7 +112,7 @@
           <% let grupoActual = null; %>
           <% magnitudes.forEach(function (m) { %>
             <% if (m.grupo !== grupoActual) { grupoActual = m.grupo; %>
-            <tr class="cap-grupo"><td colspan="<%= sitios.length + 1 %>"><%= m.grupo %></td></tr>
+            <tr class="cap-grupo"><td class="cap-grupo-td" colspan="<%= sitios.length + 1 %>"><%= m.grupo %></td></tr>
             <% } %>
           <tr data-magnitud="<%= m.id %>">
             <th scope="row">
@@ -112,7 +120,7 @@
               <span class="cap-uni"><%= m.unidad %></span>
             </th>
             <% sitios.forEach(function (s) { %>
-            <td>
+            <td data-pais="<%= s.pais %>">
               <input class="cap-celda" type="text" inputmode="decimal"
                      data-sitio="<%= s.id %>" data-magnitud="<%= m.id %>"
                      aria-label="<%= m.etiqueta %> en <%= s.etiqueta %>" />

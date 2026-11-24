@@ -14,6 +14,24 @@ const VISTAS = path.join(__dirname, '..', 'views');
 const ORIGEN = obtener('ORIGEN_DATOS');
 const MODO = ORIGEN === 'sql' || ORIGEN === 'pg' ? ORIGEN : 'simulado';
 
+/* Agrupa SITIOS (src/validacion.js) por su campo 'pais', preservando el orden
+   de aparicion de cada pais (no alfabetico) -- lo que alimenta el desplegable
+   Pais -> Sitio de captura.ejs/corregir.ejs. */
+function sitiosPorPais(sitios) {
+  const indice = new Map();
+  const grupos = [];
+  for (const s of sitios) {
+    let g = indice.get(s.pais);
+    if (!g) {
+      g = { pais: s.pais, items: [] };
+      indice.set(s.pais, g);
+      grupos.push(g);
+    }
+    g.items.push({ id: s.id, etiqueta: s.etiqueta });
+  }
+  return grupos;
+}
+
 const MESES_CORTO = [
   'ene',
   'feb',
@@ -167,6 +185,7 @@ async function captura(_req, res) {
       titulo: 'Captura mensual EHS · EssilorLuxottica',
       magnitudes: MAGNITUDES,
       sitios: SITIOS,
+      sitiosPorPais: sitiosPorPais(SITIOS),
       modo,
       anio: new Date().getFullYear(),
     },
@@ -194,6 +213,7 @@ async function corregir(_req, res) {
       titulo: 'Consultar y corregir · EHS · EssilorLuxottica',
       magnitudes: MAGNITUDES,
       sitios: SITIOS,
+      sitiosPorPais: sitiosPorPais(SITIOS),
       modo,
       anio: new Date().getFullYear(),
       motivoMinimo: MOTIVO_MINIMO_CORRECCION,

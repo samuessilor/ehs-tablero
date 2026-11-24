@@ -65,10 +65,18 @@
         </select>
       </label>
       <label class="cap-campo">
+        <span class="et">País</span>
+        <select id="cPais">
+          <% sitiosPorPais.forEach(function (g) { %>
+          <option value="<%= g.pais %>"><%= g.pais %></option>
+          <% }); %>
+        </select>
+      </label>
+      <label class="cap-campo">
         <span class="et">Sitio</span>
         <select id="cSitio">
           <% sitios.forEach(function (s) { %>
-          <option value="<%= s.id %>"><%= s.etiqueta %></option>
+          <option value="<%= s.id %>" data-pais="<%= s.pais %>"><%= s.etiqueta %></option>
           <% }); %>
         </select>
       </label>

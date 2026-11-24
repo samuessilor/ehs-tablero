@@ -310,10 +310,33 @@
     }
   }
 
+  /* País → Sitio: #cSitio ya trae todas las opciones con data-pais (cada una
+     marca a qué país pertenece, puesto por corregir.ejs). Elegir un país en
+     #cPais no pide nada al servidor: solo oculta/deshabilita las opciones de
+     #cSitio que no son de ese país, igual que ya hace el selector principal
+     del tablero con Laboratorios/Agencias (public/js/tablero.js). */
+  function filtrarSitiosPorPais() {
+    var pais = $('#cPais').value;
+    var opciones = document.querySelectorAll('#cSitio option');
+    var seleccionValida = false;
+    opciones.forEach(function (o) {
+      var esDelPais = o.dataset.pais === pais;
+      o.hidden = !esDelPais;
+      o.disabled = !esDelPais;
+      if (esDelPais && o.selected) seleccionValida = true;
+    });
+    if (!seleccionValida) {
+      var primera = document.querySelector('#cSitio option[data-pais="' + pais + '"]');
+      if (primera) primera.selected = true;
+    }
+  }
+
   function iniciar() {
     $('#bConsultar').addEventListener('click', consultar);
     $('#bCorregir').addEventListener('click', enviarCorreccion);
     $('#bCancelar').addEventListener('click', cerrarCorreccion);
+    $('#cPais').addEventListener('change', filtrarSitiosPorPais);
+    filtrarSitiosPorPais();
     cargarHistorial();
     abrirEnElCorte();
   }

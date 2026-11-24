@@ -434,6 +434,26 @@
     pintarEstadoMes();
   }
 
+  /* País → Sitio: oculta las columnas de la rejilla que no son del país elegido
+     (no pide nada al servidor, los <th>/<td> ya traen data-pais puesto por
+     captura.ejs). El colspan de las filas de grupo ("Ambiental", "Seguridad",
+     ...) se recalcula para seguir cubriendo exactamente las columnas que
+     quedan visibles. */
+  function filtrarColumnasPorPais() {
+    var pais = $('#fPais').value;
+    var visibles = 0;
+    document.querySelectorAll('#rejilla [data-pais]').forEach(function (c) {
+      var esDelPais = c.dataset.pais === pais;
+      c.style.display = esDelPais ? '' : 'none';
+    });
+    document.querySelectorAll('#rejilla thead th[data-pais]').forEach(function (th) {
+      if (th.dataset.pais === pais) visibles += 1;
+    });
+    document.querySelectorAll('.cap-grupo-td').forEach(function (td) {
+      td.colSpan = visibles + 1;
+    });
+  }
+
   function iniciar() {
     // el mes que se captura es normalmente el que acaba de cerrar, no el corriente
     var hoy = new Date();
@@ -471,6 +491,8 @@
     });
     $('#fMes').addEventListener('change', sincronizarTitulo);
     $('#fAnio').addEventListener('input', sincronizarTitulo);
+    $('#fPais').addEventListener('change', filtrarColumnasPorPais);
+    filtrarColumnasPorPais();
 
     sincronizarTitulo();
     contar();
