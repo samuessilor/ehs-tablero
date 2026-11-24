@@ -111,6 +111,13 @@ var Tablero = (function () {
         { nombre: 'Chile', items: [{ id: 'chile_megalux_ag', rotulo: 'Agencias Megalux' }] },
         { nombre: 'Honduras', items: [{ id: 'honduras_popular_ag', rotulo: 'Agencias Optica Popular' }] },
         { nombre: 'Brasil', items: [{ id: 'brasil_unilab_ag', rotulo: 'Agencias Unilab' }] },
+        { nombre: 'México', items: [{ id: 'mexico_agencias', rotulo: 'Agencias' }] },
+        { nombre: 'Argentina', items: [{ id: 'argentina_agencias', rotulo: 'Agencias' }] },
+        { nombre: 'Costa Rica', items: [{ id: 'costa_rica_agencias', rotulo: 'Agencias' }] },
+        { nombre: 'Nicaragua', items: [{ id: 'nicaragua_agencias', rotulo: 'Agencias' }] },
+        { nombre: 'Rep. Dominicana', items: [{ id: 'rd_agencias', rotulo: 'Agencias' }] },
+        { nombre: 'Guatemala', items: [{ id: 'guatemala_agencias', rotulo: 'Agencias' }] },
+        { nombre: 'Ecuador', items: [{ id: 'ecuador_agencias', rotulo: 'Agencias' }] },
       ],
     },
     {
